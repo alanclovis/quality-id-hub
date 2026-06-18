@@ -102,21 +102,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .section-actions{display:flex;gap:6px;position:relative;}
 
 
-body.light 
-.sec-x .section-header{background:transparent;border:none;}
-
-body.light 
-.sec-x .section-header{background:transparent;border:none;}
-
-body.light 
-.sec-x .section-header{background:transparent;border:none;}
-
-body.light 
-.sec-x .section-header{background:transparent;border:none;}
-
-body.light 
-.sec-x .section-header{background:transparent;border:none;}
-
+body.light .sec-x .section-header{background:transparent;border:none;}
 
 /* ── Grid & Cards ── */
 .links-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;}
@@ -954,6 +940,7 @@ const SEC_ICONS=['ti-layout-grid','ti-chart-bar','ti-database','ti-file-text','t
 let data={notice:{title:'',text:''},sections:[]};
 let editMode=false;
 const GIST_FILENAME='quality-hub-data.json';
+const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
 let logoCb=null,logoSelected=null;
 let tooltipTimeout=null;
 
@@ -1044,7 +1031,7 @@ function closeLogoModal(){document.getElementById('logoModal').classList.remove(
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 function getToken(){return localStorage.getItem('qhub_token')||'';}
-function getGistId(){return localStorage.getItem('qhub_gist_id')||'';}
+function getGistId(){return localStorage.getItem('qhub_gist_id')||DEFAULT_GIST_ID;}
 function saveConfig(){
   const t=document.getElementById('tokenInput').value.trim();
   const g=document.getElementById('gistIdInput').value.trim();
@@ -1058,7 +1045,6 @@ function closeConfig(){document.getElementById('configModal').classList.remove('
 // ── Gist API ───────────────────────────────────────────────────────────────────
 async function loadFromGist(){
   const gistId=getGistId();
-  if(!gistId){loadLocal();return;}
   showStatus('loading','Carregando do Gist...');
   try{
     const res=await fetch(`https://api.github.com/gists/${gistId}`);
@@ -1067,11 +1053,15 @@ async function loadFromGist(){
     const file=json.files[GIST_FILENAME];
     if(!file)throw new Error('Arquivo não encontrado no Gist');
     const parsed=JSON.parse(file.content);
-    if(!parsed||!parsed.sections){data=JSON.parse(JSON.stringify(DEFAULT_DATA));await saveToGist();}
-    else{data=parsed;}
-      renderFerias();
+    if(!parsed?.sections?.length){
+      data=JSON.parse(JSON.stringify(DEFAULT_DATA));
+      render();
+      hideStatus();
+      return;
+    }
+    data=parsed;
+    renderFerias();
     setTimeout(renderUpcoming, 100);
-
     render();
     const link=document.getElementById('gistFooterLink');
     link.href=`https://gist.github.com/${gistId}`;link.style.display='flex';
@@ -1108,11 +1098,6 @@ function showStatus(type,msg){const bar=document.getElementById('statusBar');bar
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
 function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));render();}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
-
-// ── Theme ──────────────────────────────────────────────────────────────────────
-function toggleTheme(){
-  // Dark mode removed — light only
-}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
 function getAllLinks(){
@@ -1273,7 +1258,7 @@ function showPreview(link,sectionName,cardEl){
     document.getElementById('ptName').textContent=link.name;
     document.getElementById('ptSection').textContent=sectionName;
     document.getElementById('ptNotes').textContent=link.notes||link.desc||'Clique para abrir este link.';
-    document.getElementById('ptUrl').querySelector('span').textContent=link.url==='#'?'URL não configurada':link.url;
+    document.getElementById('ptUrl').textContent=link.url==='#'?'URL não configurada':link.url;
     const openRow=tip.querySelector('.pt-open');
     openRow.style.display=link.url&&link.url!=='#'?'flex':'none';
     const rect=cardEl.getBoundingClientRect();
@@ -1557,18 +1542,30 @@ function resetZoom(){applyZoom(100);}
 // ── Animations ────────────────────────────────────────────────────────────────
 
 // 2. Stagger entrance on render
+let staggerTimers = [];
+
 function staggerCards(){
-  const cards = document.querySelectorAll('.link-card');
-  cards.forEach((card, i) => {
-    card.style.opacity = '0';
-    card.style.transform = 'translateY(12px)';
-    card.style.transition = 'none';
-    setTimeout(()=>{
-      card.style.transition = 'opacity 280ms ease, transform 280ms cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 200ms ease, transform 200ms cubic-bezier(0.34,1.56,0.64,1)';
-      card.style.opacity = '1';
-      card.style.transform = 'translateY(0)';
-    }, 20 + i * 40);
+  staggerTimers.forEach(clearTimeout);
+  staggerTimers = [];
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('.link-card').forEach((card, i) => {
+    card.style.opacity = '';
+    card.style.transform = '';
+    card.style.transition = '';
+    card.classList.remove('entering');
+    if(reducedMotion) return;
+    void card.offsetWidth;
+    card.classList.add('entering');
+    const t = setTimeout(() => card.classList.remove('entering'), 300 + i * 40);
+    staggerTimers.push(t);
   });
+  staggerTimers.push(setTimeout(() => {
+    document.querySelectorAll('.link-card').forEach(c => {
+      c.style.opacity = '';
+      c.style.transform = '';
+      c.classList.remove('entering');
+    });
+  }, 800));
 }
 
 // 3. Page transition
@@ -2419,8 +2416,6 @@ function moveLink(linkId, fromSectionId, toSectionId, beforeLinkId){
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
-  const t=localStorage.getItem('qhub_theme');
-  document.getElementById('themeIcon').className='ti ti-moon';
   const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
   if(savedZoom!==100)applyZoom(savedZoom);
   if(getToken())document.getElementById('btnStats').style.display='flex';
@@ -2433,7 +2428,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   } else if(!localStorage.getItem('qhub_guide_seen')){
     setTimeout(openGuide,600);
   }
-  if(getGistId())loadFromGist();else loadLocal();
+  loadFromGist();
 });
 </script>
 </div><!-- end pageLinks -->
