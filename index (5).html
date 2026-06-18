@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quality ID Hub · Nubank</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #0f0f10;
+    --bg2: #18181b;
+    --bg3: #222228;
+    --border: rgba(255,255,255,0.08);
+    --border-hover: rgba(255,255,255,0.18);
+    --text: #f4f4f5;
+    --text2: #a1a1aa;
+    --text3: #71717a;
+    --purple: #8b5cf6;
+    --purple-light: #c4b5fd;
+    --purple-bg: rgba(139,92,246,0.12);
+    --purple-bg-hover: rgba(139,92,246,0.2);
+    --green: #34d399;
+    --green-bg: rgba(52,211,153,0.12);
+    --blue: #60a5fa;
+    --blue-bg: rgba(96,165,250,0.12);
+    --amber: #fbbf24;
+    --amber-bg: rgba(251,191,36,0.12);
+    --pink: #f472b6;
+    --pink-bg: rgba(244,114,182,0.12);
+    --gray-bg: rgba(255,255,255,0.06);
+    --radius: 10px;
+    --radius-sm: 7px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  .layout {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.75rem;
+    gap: 12px;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: var(--purple-bg);
+    border: 1px solid rgba(139,92,246,0.3);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--purple-light);
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .title { font-size: 19px; font-weight: 600; color: var(--text); }
+  .subtitle { font-size: 12px; color: var(--text3); margin-top: 3px; }
+  .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 13px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--text2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--border-hover); color: var(--text); background: var(--bg3); }
+  .btn.primary {
+    background: var(--purple-bg);
+    border-color: rgba(139,92,246,0.35);
+    color: var(--purple-light);
+  }
+  .btn.primary:hover { background: var(--purple-bg-hover); }
+  .btn.danger { color: #f87171; border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
+  .btn.danger:hover { background: rgba(248,113,113,0.15); }
+
+  /* Notice */
+  .notice {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--purple);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: 12px 16px;
+    margin-bottom: 1.75rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .notice-icon { color: var(--purple); font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+  .notice-body { flex: 1; }
+  .notice-title { font-weight: 500; font-size: 13px; color: var(--text); }
+  .notice-text { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.55; }
+  .notice-edit { display: none; }
+  .notice-edit input, .notice-edit textarea {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 7px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    margin-top: 6px;
+    outline: none;
+  }
+  .notice-edit input:focus, .notice-edit textarea:focus { border-color: var(--purple); }
+  .notice-edit textarea { resize: vertical; min-height: 56px; }
+
+  /* Section */
+  .section { margin-bottom: 1.5rem; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .section-actions { display: flex; gap: 6px; }
+  .btn-sm {
+    display: flex; align-items: center; gap: 4px;
+    padding: 4px 9px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text3);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-sm:hover { border-color: var(--border-hover); color: var(--text2); background: var(--bg3); }
+  .btn-sm.purple { color: var(--purple-light); border-color: rgba(139,92,246,0.3); }
+  .btn-sm.purple:hover { background: var(--purple-bg); }
+
+  /* Grid */
+  .links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+  }
+
+  /* Link card */
+  .link-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 11px 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+    position: relative;
+  }
+  .link-card:hover { border-color: var(--border-hover); background: var(--bg3); }
+  .link-card.editing { border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.06); }
+
+  .link-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .icon-purple { background: var(--purple-bg); color: var(--purple-light); }
+  .icon-green  { background: var(--green-bg); color: var(--green); }
+  .icon-blue   { background: var(--blue-bg); color: var(--blue); }
+  .icon-amber  { background: var(--amber-bg); color: var(--amber); }
+  .icon-pink   { background: var(--pink-bg); color: var(--pink); }
+  .icon-gray   { background: var(--gray-bg); color: var(--text2); }
+
+  .link-text { flex: 1; min-width: 0; }
+  .link-name {
+    font-size: 13px; font-weight: 500; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .link-desc {
+    font-size: 11px; color: var(--text3); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ext-icon { color: var(--text3); font-size: 11px; flex-shrink: 0; opacity: 0.4; }
+
+  /* Edit overlay on card */
+  .card-edit-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: var(--bg2);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 2;
+  }
+  .card-edit-overlay.active { display: flex; }
+  .card-edit-overlay input {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 5px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+  }
+  .card-edit-overlay input:focus { border-color: var(--purple); }
+  .card-edit-actions { display: flex; gap: 5px; margin-top: 2px; }
+
+  /* Add card */
+  .add-card {
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 11px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 12px;
+    transition: all 0.15s;
+  }
+  .add-card:hover { border-color: var(--purple); color: var(--purple-light); background: var(--purple-bg); }
+
+  /* Token modal */
+  .modal-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border-hover);
+    border-radius: 14px;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 420px;
+    margin: 1rem;
+  }
+  .modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .modal p { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 1rem; }
+  .modal input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: monospace;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  .modal input:focus { border-color: var(--purple); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 5px; }
+
+  /* Status */
+  .status-bar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    margin-bottom: 1rem;
+  }
+  .status-bar.success { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); color: var(--green); display: flex; }
+  .status-bar.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25); color: #f87171; display: flex; }
+  .status-bar.loading { background: var(--purple-bg); border: 1px solid rgba(139,92,246,0.25); color: var(--purple-light); display: flex; }
+
+  /* Config section */
+  .config-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .config-section h4 { font-size: 13px; font-weight: 500; margin-bottom: 10px; color: var(--text2); }
+  .config-row { display: flex; gap: 8px; align-items: center; }
+  .config-row input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 8px 11px;
+    font-size: 12px;
+    font-family: monospace;
+    outline: none;
+  }
+  .config-row input:focus { border-color: var(--purple); }
+
+  /* Add section modal */
+  .add-section-form {
+    display: none;
+    background: var(--bg2);
+    border: 1px solid rgba(139,92,246,0.3);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 8px;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .add-section-form.active { display: flex; }
+  .add-section-form input {
+    flex: 1;
+    min-width: 150px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 7px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+  }
+  .add-section-form input:focus { border-color: var(--purple); }
+
+  select.icon-select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text2);
+    padding: 7px 10px;
+    font-size: 12px;
+    outline: none;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: gap;
+    gap: 8px;
+  }
+  .footer-left { font-size: 11px; color: var(--text3); }
+  .gist-link { color: var(--text3); font-size: 11px; text-decoration: none; display: flex; align-items: center; gap: 4px; }
+  .gist-link:hover { color: var(--text2); }
+
+  .tag-edit-mode {
+    display: none;
+    font-size: 11px;
+    background: rgba(251,191,36,0.15);
+    color: var(--amber);
+    border: 1px solid rgba(251,191,36,0.3);
+    padding: 3px 9px;
+    border-radius: 20px;
+    align-items: center;
+    gap: 5px;
+  }
+  .tag-edit-mode.active { display: flex; }
+
+  @media (max-width: 600px) {
+    .layout { padding: 1rem 1rem 3rem; }
+    .header { flex-direction: column; align-items: flex-start; }
+    .links-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Status bar -->
+  <div class="status-bar" id="statusBar">
+    <i class="ti ti-circle-check"></i>
+    <span id="statusMsg"></span>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo"><i class="ti ti-shield-check"></i></div>
+      <div>
+        <div class="title">Quality ID Hub</div>
+        <div class="subtitle">Identity · Victims Prevention · CSAT</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="tag-edit-mode" id="editModeTag">
+        <i class="ti ti-pencil"></i> Modo edição
+      </span>
+      <button class="btn" id="btnSave" style="display:none" onclick="saveToGist()">
+        <i class="ti ti-cloud-upload"></i> Salvar
+      </button>
+      <button class="btn primary" id="btnEditMode" onclick="toggleEditMode()">
+        <i class="ti ti-pencil"></i> Editar
+      </button>
+      <button class="btn" id="btnConfig" onclick="openConfig()">
+        <i class="ti ti-settings"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Notice banner -->
+  <div class="notice" id="noticeBar">
+    <i class="ti ti-bell notice-icon"></i>
+    <div class="notice-body">
+      <div class="notice-title" id="noticeTitle">Bem-vindos ao pack!</div>
+      <div class="notice-text" id="noticeText">Aqui você encontra todos os links úteis do dia a dia. Dúvidas? Chama no canal <strong>#quality-id</strong> no Slack.</div>
+      <div class="notice-edit" id="noticeEditArea">
+        <input type="text" id="noticeTitleInput" placeholder="Título do aviso">
+        <textarea id="noticeTextInput" placeholder="Texto do aviso (HTML simples permitido)"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sections container -->
+  <div id="sectionsContainer"></div>
+
+  <!-- Add section form -->
+  <div class="add-section-form" id="addSectionForm">
+    <input type="text" id="newSectionName" placeholder="Nome da seção (ex: Treinamentos)">
+    <button class="btn-sm purple" onclick="confirmAddSection()"><i class="ti ti-check"></i> Criar</button>
+    <button class="btn-sm" onclick="document.getElementById('addSectionForm').classList.remove('active')"><i class="ti ti-x"></i></button>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span class="footer-left">Quality ID · Nubank · 2026</span>
+    <div style="display:flex;gap:10px;align-items:center">
+      <a href="#" class="gist-link" id="gistFooterLink" style="display:none">
+        <i class="ti ti-brand-github"></i> Ver Gist
+      </a>
+      <span class="footer-left" id="lastSaved"></span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Config modal -->
+<div class="modal-backdrop" id="configModal">
+  <div class="modal">
+    <h3><i class="ti ti-settings" style="margin-right:6px"></i>Configuração</h3>
+    <p>Para editar e sincronizar, você precisa de um <strong>GitHub Personal Access Token</strong> com permissão <code>gist</code>, e do ID do Gist onde os dados ficam salvos.</p>
+
+    <label>GitHub Token (ficará salvo só no seu browser)</label>
+    <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+
+    <label>Gist ID</label>
+    <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeConfig()">Cancelar</button>
+      <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar configuração</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let data = { notice: { title: '', text: '' }, sections: [] };
+let editMode = false;
+let hasUnsaved = false;
+const GIST_FILENAME = 'quality-hub-data.json';
+
+const ICON_OPTIONS = [
+  { value: 'ti-table', label: 'Planilha' },
+  { value: 'ti-brand-jira', label: 'Jira' },
+  { value: 'ti-database', label: 'Database/Query' },
+  { value: 'ti-file-text', label: 'Documento' },
+  { value: 'ti-route', label: 'Fluxo/SPOT' },
+  { value: 'ti-calculator', label: 'Dimensionamento' },
+  { value: 'ti-chart-bar', label: 'Gráfico/Scorecard' },
+  { value: 'ti-clipboard-check', label: 'Monitoria' },
+  { value: 'ti-search', label: 'Busca/Query' },
+  { value: 'ti-circle-check', label: 'Checklist' },
+  { value: 'ti-notes', label: 'Notas' },
+  { value: 'ti-brain', label: 'AI/Mgen' },
+  { value: 'ti-cloud', label: 'Cloud/AWS' },
+  { value: 'ti-key', label: 'Acesso/Login' },
+  { value: 'ti-timer', label: 'Timer' },
+  { value: 'ti-target', label: 'OKR/Meta' },
+  { value: 'ti-list-check', label: 'Lista de tarefas' },
+  { value: 'ti-arrow-back', label: 'Reversão' },
+  { value: 'ti-messages', label: 'Chat' },
+  { value: 'ti-sparkles', label: 'IA' },
+  { value: 'ti-link', label: 'Link genérico' },
+  { value: 'ti-external-link', label: 'Externo' },
+];
+
+const COLOR_OPTIONS = [
+  { value: 'icon-purple', label: 'Roxo' },
+  { value: 'icon-green', label: 'Verde' },
+  { value: 'icon-blue', label: 'Azul' },
+  { value: 'icon-amber', label: 'Âmbar' },
+  { value: 'icon-pink', label: 'Rosa' },
+  { value: 'icon-gray', label: 'Cinza' },
+];
+
+// ─── Default data ─────────────────────────────────────────────────────────────
+const DEFAULT_DATA = {
+  notice: {
+    title: "Bem-vindos ao pack!",
+    text: "Aqui você encontra todos os links úteis do dia a dia. Dúvidas? Chama no canal <strong>#quality-id</strong> no Slack."
+  },
+  sections: [
+    {
+      id: "s1", name: "Ferramentas principais",
+      links: [
+        { id:"l1", name:"Links Importantes 2026", desc:"Google Planilhas", url:"#", icon:"ti-table", color:"icon-green" },
+        { id:"l2", name:"Quality Backlog", desc:"Jira · 2026", url:"#", icon:"ti-brand-jira", color:"icon-blue" },
+        { id:"l3", name:"SPOT Quality Team", desc:"Monitorias & alocação", url:"#", icon:"ti-route", color:"icon-purple" },
+        { id:"l4", name:"SPOT Contestação", desc:"Fluxo de contestações", url:"#", icon:"ti-route", color:"icon-purple" },
+        { id:"l5", name:"Dimensionamento ID/CSAT", desc:"Planilha do dia", url:"#", icon:"ti-calculator", color:"icon-amber" },
+      ]
+    },
+    {
+      id: "s2", name: "Monitorias & Scorecards",
+      links: [
+        { id:"l6", name:"Qtde de Monitorias", desc:"Painel de quantidade", url:"#", icon:"ti-clipboard-check", color:"icon-blue" },
+        { id:"l7", name:"Scorecards H2/2025", desc:"Google Planilhas", url:"#", icon:"ti-chart-bar", color:"icon-green" },
+        { id:"l8", name:"Scorecard Fraud Lab", desc:"Identity Fraud [WIP]", url:"#", icon:"ti-chart-bar", color:"icon-blue" },
+        { id:"l9", name:"Apontamento Externo", desc:"Novos campos internos", url:"#", icon:"ti-table", color:"icon-green" },
+        { id:"l10", name:"Registro de Reversões", desc:"InvOps", url:"#", icon:"ti-arrow-back", color:"icon-amber" },
+      ]
+    },
+    {
+      id: "s3", name: "Queries & Consultas",
+      links: [
+        { id:"l11", name:"Macroteca Quality", desc:"Inv Ops · queries", url:"#", icon:"ti-database", color:"icon-purple" },
+        { id:"l12", name:"NEW Macroteca Quality", desc:"Versão atualizada", url:"#", icon:"ti-database", color:"icon-purple" },
+        { id:"l13", name:"Queries para Consulta", desc:"Quick · banco de queries", url:"#", icon:"ti-search", color:"icon-blue" },
+        { id:"l14", name:"Consultar CID / FR", desc:"Lookup de investigações", url:"#", icon:"ti-search", color:"icon-blue" },
+        { id:"l15", name:"Monitoria já realizada?", desc:"Consulta rápida", url:"#", icon:"ti-circle-check", color:"icon-amber" },
+        { id:"l16", name:"Contestações Procedentes", desc:"Fraud Quality", url:"#", icon:"ti-notes", color:"icon-pink" },
+      ]
+    },
+    {
+      id: "s4", name: "Documentos & Políticas",
+      links: [
+        { id:"l17", name:"Política Facial Recog", desc:"Google Docs", url:"#", icon:"ti-file-text", color:"icon-blue" },
+        { id:"l18", name:"Política de Identidade", desc:"Atualizado 15/07/2025", url:"#", icon:"ti-file-text", color:"icon-blue" },
+        { id:"l19", name:"Atividades & Resp.", desc:"Google Planilhas", url:"#", icon:"ti-list-check", color:"icon-green" },
+        { id:"l20", name:"OKRs Quality H1 2026", desc:"Objetivos do time", url:"#", icon:"ti-target", color:"icon-purple" },
+      ]
+    },
+    {
+      id: "s5", name: "Ferramentas de acesso",
+      links: [
+        { id:"l21", name:"Mgen", desc:"Macro generator", url:"#", icon:"ti-brain", color:"icon-gray" },
+        { id:"l22", name:"AWS Access Portal", desc:"Acesso cloud", url:"#", icon:"ti-cloud", color:"icon-amber" },
+        { id:"l23", name:"Quick Sign-In", desc:"Autenticação rápida", url:"#", icon:"ti-key", color:"icon-gray" },
+        { id:"l24", name:"Quality Timer", desc:"ID Pack", url:"#", icon:"ti-timer", color:"icon-gray" },
+        { id:"l25", name:"Claude", desc:"IA · Anthropic", url:"https://claude.ai", icon:"ti-sparkles", color:"icon-purple" },
+        { id:"l26", name:"Gladis Chat", desc:"Assistente interno", url:"#", icon:"ti-messages", color:"icon-amber" },
+      ]
+    }
+  ]
+};
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+function getToken() { return localStorage.getItem('qhub_token') || ''; }
+function getGistId() { return localStorage.getItem('qhub_gist_id') || ''; }
+function saveConfig() {
+  const t = document.getElementById('tokenInput').value.trim();
+  const g = document.getElementById('gistIdInput').value.trim();
+  if (t) localStorage.setItem('qhub_token', t);
+  if (g) localStorage.setItem('qhub_gist_id', g);
+  closeConfig();
+  if (g) loadFromGist();
+}
+function openConfig() {
+  document.getElementById('tokenInput').value = getToken();
+  document.getElementById('gistIdInput').value = getGistId();
+  document.getElementById('configModal').classList.add('active');
+}
+function closeConfig() { document.getElementById('configModal').classList.remove('active'); }
+
+// ─── Gist API ─────────────────────────────────────────────────────────────────
+async function loadFromGist() {
+  const gistId = getGistId();
+  if (!gistId) { loadLocal(); return; }
+  showStatus('loading', 'Carregando do Gist...');
+  try {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`);
+    if (!res.ok) throw new Error('Gist não encontrado');
+    const json = await res.json();
+    const file = json.files[GIST_FILENAME];
+    if (!file) throw new Error('Arquivo não encontrado no Gist');
+    const parsed = JSON.parse(file.content);
+    if (!parsed || !parsed.sections) {
+      data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+      await saveToGist();
+    } else {
+      data = parsed;
+    }
+    render();
+    const link = document.getElementById('gistFooterLink');
+    link.href = `https://gist.github.com/${gistId}`;
+    link.style.display = 'flex';
+    const ts = json.updated_at ? new Date(json.updated_at).toLocaleString('pt-BR') : '';
+    document.getElementById('lastSaved').textContent = ts ? `Atualizado: ${ts}` : '';
+    hideStatus();
+  } catch(e) {
+    showStatus('error', 'Erro ao carregar Gist: ' + e.message + '. Usando dados locais.');
+    loadLocal();
+    setTimeout(hideStatus, 4000);
+  }
+}
+
+async function saveToGist() {
+  const token = getToken();
+  const gistId = getGistId();
+  if (!token) { openConfig(); return; }
+
+  // Capture notice edits if in edit mode
+  if (editMode) {
+    data.notice.title = document.getElementById('noticeTitleInput').value || data.notice.title;
+    data.notice.text = document.getElementById('noticeTextInput').value || data.notice.text;
+  }
+
+  showStatus('loading', 'Salvando...');
+  const body = {
+    files: {
+      [GIST_FILENAME]: { content: JSON.stringify(data, null, 2) }
+    }
+  };
+
+  const method = gistId ? 'PATCH' : 'POST';
+  const url = gistId
+    ? `https://api.github.com/gists/${gistId}`
+    : 'https://api.github.com/gists';
+  if (!gistId) {
+    body.description = 'Quality ID Hub Data';
+    body.public = false;
+  }
+
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'Authorization': `token ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('Erro ' + res.status);
+    const json = await res.json();
+    if (!gistId) {
+      localStorage.setItem('qhub_gist_id', json.id);
+      const link = document.getElementById('gistFooterLink');
+      link.href = json.html_url;
+      link.style.display = 'flex';
+    }
+    hasUnsaved = false;
+    document.getElementById('lastSaved').textContent = 'Salvo agora';
+    showStatus('success', 'Salvo com sucesso!');
+    setTimeout(hideStatus, 3000);
+  } catch(e) {
+    showStatus('error', 'Erro ao salvar: ' + e.message);
+    setTimeout(hideStatus, 4000);
+  }
+}
+
+function showStatus(type, msg) {
+  const bar = document.getElementById('statusBar');
+  bar.className = 'status-bar ' + type;
+  document.getElementById('statusMsg').textContent = msg;
+}
+function hideStatus() {
+  document.getElementById('statusBar').className = 'status-bar';
+}
+
+// ─── Local fallback ───────────────────────────────────────────────────────────
+function loadLocal() {
+  const saved = localStorage.getItem('qhub_data');
+  data = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_DATA));
+  render();
+}
+function saveLocal() {
+  localStorage.setItem('qhub_data', JSON.stringify(data));
+}
+
+// ─── Edit mode ────────────────────────────────────────────────────────────────
+function toggleEditMode() {
+  if (!getToken() && !editMode) {
+    const go = confirm('Você não configurou um token ainda. Quer configurar agora?\n\nSem token, as edições ficam salvas só no seu browser.');
+    if (go) { openConfig(); return; }
+  }
+  editMode = !editMode;
+  document.getElementById('editModeTag').classList.toggle('active', editMode);
+  document.getElementById('btnSave').style.display = editMode ? 'flex' : 'none';
+  document.getElementById('btnEditMode').innerHTML = editMode
+    ? '<i class="ti ti-x"></i> Sair'
+    : '<i class="ti ti-pencil"></i> Editar';
+  document.getElementById('btnEditMode').className = editMode ? 'btn danger' : 'btn primary';
+
+  // Notice edit
+  const noticeTitle = document.getElementById('noticeTitle');
+  const noticeText = document.getElementById('noticeText');
+  const noticeEditArea = document.getElementById('noticeEditArea');
+  if (editMode) {
+    noticeEditArea.style.display = 'block';
+    document.getElementById('noticeTitleInput').value = data.notice.title;
+    document.getElementById('noticeTextInput').value = data.notice.text;
+    noticeTitle.style.display = 'none';
+    noticeText.style.display = 'none';
+  } else {
+    noticeEditArea.style.display = 'none';
+    noticeTitle.style.display = '';
+    noticeText.style.display = '';
+  }
+
+  render();
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  // Notice
+  document.getElementById('noticeTitle').textContent = data.notice.title;
+  document.getElementById('noticeText').innerHTML = data.notice.text;
+
+  const container = document.getElementById('sectionsContainer');
+  container.innerHTML = '';
+
+  data.sections.forEach((section, si) => {
+    const sec = document.createElement('div');
+    sec.className = 'section';
+    sec.dataset.sid = section.id;
+
+    // Section header
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    const label = document.createElement('span');
+    label.className = 'section-label';
+    label.textContent = section.name;
+    header.appendChild(label);
+
+    if (editMode) {
+      const actions = document.createElement('div');
+      actions.className = 'section-actions';
+      actions.innerHTML = `
+        <button class="btn-sm" onclick="renameSection('${section.id}', this)"><i class="ti ti-pencil"></i> Renomear</button>
+        <button class="btn-sm" style="color:#f87171;border-color:rgba(248,113,113,0.3)" onclick="deleteSection('${section.id}')"><i class="ti ti-trash"></i></button>
+      `;
+      header.appendChild(actions);
+    }
+
+    sec.appendChild(header);
+
+    // Links grid
+    const grid = document.createElement('div');
+    grid.className = 'links-grid';
+
+    section.links.forEach(link => {
+      const card = createLinkCard(link, section.id);
+      grid.appendChild(card);
+    });
+
+    if (editMode) {
+      const addBtn = document.createElement('div');
+      addBtn.className = 'add-card';
+      addBtn.innerHTML = `<i class="ti ti-plus"></i> Adicionar link`;
+      addBtn.onclick = () => addLink(section.id);
+      grid.appendChild(addBtn);
+    }
+
+    sec.appendChild(grid);
+    container.appendChild(sec);
+  });
+
+  // Add section button
+  if (editMode) {
+    const addSecBtn = document.createElement('button');
+    addSecBtn.className = 'btn';
+    addSecBtn.style.marginBottom = '8px';
+    addSecBtn.innerHTML = '<i class="ti ti-folder-plus"></i> Nova seção';
+    addSecBtn.onclick = () => document.getElementById('addSectionForm').classList.add('active');
+    container.appendChild(addSecBtn);
+  }
+
+  saveLocal();
+}
+
+function createLinkCard(link, sectionId) {
+  const card = document.createElement('div');
+  card.className = 'link-card';
+  card.dataset.lid = link.id;
+
+  card.innerHTML = `
+    <div class="link-icon ${link.color}"><i class="ti ${link.icon}"></i></div>
+    <div class="link-text">
+      <div class="link-name">${link.name}</div>
+      <div class="link-desc">${link.desc}</div>
+    </div>
+    <i class="ti ti-external-link ext-icon"></i>
+    ${editMode ? `
+    <div class="card-edit-overlay" id="overlay-${link.id}">
+      <input type="text" placeholder="Nome" value="${link.name}" id="ename-${link.id}">
+      <input type="text" placeholder="Descrição" value="${link.desc}" id="edesc-${link.id}">
+      <input type="text" placeholder="URL" value="${link.url === '#' ? '' : link.url}" id="eurl-${link.id}">
+      <div style="display:flex;gap:5px">
+        <select class="icon-select" id="eicon-${link.id}" style="flex:1">
+          ${ICON_OPTIONS.map(o => `<option value="${o.value}" ${o.value===link.icon?'selected':''}>${o.label}</option>`).join('')}
+        </select>
+        <select class="icon-select" id="ecolor-${link.id}" style="flex:1">
+          ${COLOR_OPTIONS.map(o => `<option value="${o.value}" ${o.value===link.color?'selected':''}>${o.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="card-edit-actions">
+        <button class="btn-sm purple" onclick="saveLink('${sectionId}','${link.id}')"><i class="ti ti-check"></i> Ok</button>
+        <button class="btn-sm" style="color:#f87171;border-color:rgba(248,113,113,0.3)" onclick="deleteLink('${sectionId}','${link.id}')"><i class="ti ti-trash"></i></button>
+        <button class="btn-sm" onclick="cancelEditLink('${link.id}')"><i class="ti ti-x"></i></button>
+      </div>
+    </div>` : ''}
+  `;
+
+  if (editMode) {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.card-edit-overlay')) return;
+      const overlay = document.getElementById('overlay-' + link.id);
+      if (overlay) overlay.classList.toggle('active');
+    });
+  } else {
+    card.addEventListener('click', () => {
+      if (link.url && link.url !== '#') window.open(link.url, '_blank');
+    });
+  }
+
+  return card;
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+function saveLink(sectionId, linkId) {
+  const section = data.sections.find(s => s.id === sectionId);
+  const link = section.links.find(l => l.id === linkId);
+  link.name = document.getElementById('ename-' + linkId).value || link.name;
+  link.desc = document.getElementById('edesc-' + linkId).value || link.desc;
+  const url = document.getElementById('eurl-' + linkId).value.trim();
+  link.url = url || '#';
+  link.icon = document.getElementById('eicon-' + linkId).value;
+  link.color = document.getElementById('ecolor-' + linkId).value;
+  hasUnsaved = true;
+  render();
+}
+
+function cancelEditLink(linkId) {
+  const overlay = document.getElementById('overlay-' + linkId);
+  if (overlay) overlay.classList.remove('active');
+}
+
+function deleteLink(sectionId, linkId) {
+  if (!confirm('Remover este link?')) return;
+  const section = data.sections.find(s => s.id === sectionId);
+  section.links = section.links.filter(l => l.id !== linkId);
+  hasUnsaved = true;
+  render();
+}
+
+function addLink(sectionId) {
+  const section = data.sections.find(s => s.id === sectionId);
+  const newLink = {
+    id: 'l' + Date.now(),
+    name: 'Novo link',
+    desc: 'Descrição',
+    url: '#',
+    icon: 'ti-link',
+    color: 'icon-gray'
+  };
+  section.links.push(newLink);
+  hasUnsaved = true;
+  render();
+  setTimeout(() => {
+    const overlay = document.getElementById('overlay-' + newLink.id);
+    if (overlay) overlay.classList.add('active');
+  }, 50);
+}
+
+function deleteSection(sectionId) {
+  if (!confirm('Remover esta seção inteira?')) return;
+  data.sections = data.sections.filter(s => s.id !== sectionId);
+  hasUnsaved = true;
+  render();
+}
+
+function renameSection(sectionId, btn) {
+  const section = data.sections.find(s => s.id === sectionId);
+  const label = btn.closest('.section-header').querySelector('.section-label');
+  const input = document.createElement('input');
+  input.value = section.name;
+  input.style.cssText = 'background:var(--bg3);border:1px solid var(--purple);border-radius:6px;color:var(--text);padding:3px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;outline:none;width:180px';
+  label.replaceWith(input);
+  input.focus();
+  input.onblur = () => {
+    section.name = input.value || section.name;
+    hasUnsaved = true;
+    render();
+  };
+  input.onkeydown = (e) => { if (e.key === 'Enter') input.blur(); };
+}
+
+function confirmAddSection() {
+  const name = document.getElementById('newSectionName').value.trim();
+  if (!name) return;
+  data.sections.push({ id: 's' + Date.now(), name, links: [] });
+  document.getElementById('newSectionName').value = '';
+  document.getElementById('addSectionForm').classList.remove('active');
+  hasUnsaved = true;
+  render();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (getGistId()) {
+    loadFromGist();
+  } else {
+    loadLocal();
+  }
+});
+</script>
+</body>
+</html>
