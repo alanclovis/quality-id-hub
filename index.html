@@ -614,7 +614,13 @@ async function loadFromGist() {
     const json = await res.json();
     const file = json.files[GIST_FILENAME];
     if (!file) throw new Error('Arquivo não encontrado no Gist');
-    data = JSON.parse(file.content);
+    const parsed = JSON.parse(file.content);
+    if (!parsed || !parsed.sections) {
+      data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+      await saveToGist();
+    } else {
+      data = parsed;
+    }
     render();
     const link = document.getElementById('gistFooterLink');
     link.href = `https://gist.github.com/${gistId}`;
