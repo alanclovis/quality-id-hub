@@ -17,6 +17,10 @@
   --pink:#ec4899;--pink-bg:rgba(236,72,153,0.1);
   --gray-bg:rgba(0,0,0,0.04);
   --r:12px;--rs:8px;
+  --font-display:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+  --font-text:'SF Pro Text',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+  --ferias-verde-bg:#dcfce7;
+  --ferias-verde-text:#14532d;
 }
 
 body.light {
@@ -31,22 +35,22 @@ body.light {
   --gray-bg:rgba(0,0,0,0.04);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;min-height:100vh;font-size:15px;-webkit-font-smoothing:antialiased;}
-.layout{max-width:980px;margin:0 auto;padding:2rem 1.5rem 4rem;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-text);min-height:100vh;font-size:15px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-feature-settings:'kern' 1;}
+.layout{max-width:1060px;margin:0 auto;padding:2rem 1.5rem 4rem;}
 
 /* ── Header ── */
-.header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-bottom:1.25rem;gap:12px;padding:14px 20px;background:var(--bg2);border:none;border-radius:var(--r);box-shadow:0 1px 3px rgba(0,0,0,0.06);}
-.header-left{display:flex;align-items:center;gap:12px;}
-.header-center{display:flex;flex-direction:column;align-items:center;gap:2px;}
-.dt-time{font-size:30px;font-weight:600;color:var(--text);letter-spacing:-1.5px;line-height:1;}
-.dt-bottom{display:flex;align-items:center;gap:5px;}
-.dt-weekday{font-size:13px;font-weight:500;color:#0071e3;}
-.dt-date{font-size:13px;color:var(--text3);}
-.logo{width:44px;height:44px;border-radius:12px;background:var(--gray-bg);border:none;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:22px;flex-shrink:0;}
-.title{font-size:22px;font-weight:700;letter-spacing:-.4px;color:var(--text);}
-.subtitle{font-size:13px;color:var(--text3);margin-top:3px;letter-spacing:-.1px;}
-.header-actions{display:flex;gap:6px;flex-shrink:0;justify-content:flex-end;}
-.btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;border:none;background:var(--gray-bg);color:var(--text2);font-size:13px;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:-.1px;}
+.header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-bottom:1.5rem;gap:16px;padding:24px 28px;background:var(--bg2);border:none;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.header-left{display:flex;align-items:center;gap:16px;}
+.header-center{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.dt-time{font-family:var(--font-display);font-size:42px;font-weight:600;color:var(--text);letter-spacing:-2px;line-height:1;}
+.dt-bottom{display:flex;align-items:center;gap:6px;}
+.dt-weekday{font-size:14px;font-weight:500;color:#0071e3;}
+.dt-date{font-size:14px;color:var(--text3);}
+.logo{width:56px;height:56px;border-radius:14px;background:var(--gray-bg);border:none;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:28px;flex-shrink:0;}
+.title{font-family:var(--font-display);font-size:28px;font-weight:600;letter-spacing:-.6px;color:var(--text);}
+.subtitle{font-size:14px;color:var(--text3);margin-top:4px;letter-spacing:-.1px;}
+.header-actions{display:flex;gap:8px;flex-shrink:0;justify-content:flex-end;}
+.btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:none;background:var(--gray-bg);color:var(--text2);font-size:14px;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:-.1px;}
 .btn:hover{background:var(--bg3);color:var(--text);}
 .btn.primary{background:#0071e3;color:#fff;}
 .btn.primary:hover{background:#0077ed;}
@@ -75,11 +79,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .search-empty{padding:24px;text-align:center;color:var(--text3);font-size:13px;}
 
 /* ── Notice ── */
-.notice{background:var(--bg2);border:none;border-left:4px solid #0071e3;border-radius:0 12px 12px 0;padding:14px 18px;margin-bottom:2rem;display:flex;align-items:flex-start;gap:12px;box-shadow:0 2px 8px rgba(0,113,227,0.08);}
-.notice-icon{color:#0071e3;font-size:18px;margin-top:1px;flex-shrink:0;}
+.notice{background:var(--bg2);border:none;border-left:4px solid #0071e3;border-radius:0 12px 12px 0;padding:16px 20px;margin-bottom:1.75rem;display:flex;align-items:flex-start;gap:14px;box-shadow:0 2px 8px rgba(0,113,227,0.08);}
+.notice-icon{color:#0071e3;font-size:20px;margin-top:2px;flex-shrink:0;}
 .notice-body{flex:1;}
-.notice-title{font-weight:600;font-size:15px;color:var(--text);letter-spacing:-.1px;}
-.notice-text{font-size:13px;color:var(--text2);margin-top:3px;line-height:1.6;}
+.notice-title{font-family:var(--font-display);font-weight:600;font-size:17px;color:var(--text);letter-spacing:-.2px;}
+.notice-text{font-size:14px;color:var(--text2);margin-top:4px;line-height:1.6;}
 .notice-edit input,.notice-edit textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:7px 10px;font-size:12px;font-family:inherit;margin-top:6px;outline:none;}
 .notice-edit input:focus,.notice-edit textarea:focus{border-color:var(--purple);}
 .notice-edit textarea{resize:vertical;min-height:56px;}
@@ -96,9 +100,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* ── Sections ── */
 .section{margin-bottom:3rem;}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:8px 0 6px;border-radius:0;position:relative;}
-.section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;display:flex;align-items:center;gap:9px;position:relative;}
-.section-label i{font-size:16px;}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding:4px 0;position:relative;}
+.section-label{font-family:var(--font-display);font-size:26px;font-weight:600;letter-spacing:-.4px;text-transform:none;display:flex;align-items:center;gap:10px;color:var(--text);}
+.section-label i{font-size:22px;color:var(--text3);}
 .section-actions{display:flex;gap:6px;position:relative;}
 
 
@@ -118,7 +122,7 @@ body.light .sec-x .section-header{background:transparent;border:none;}
 .icon-pink{background:#e8f0fe;color:#3b82f6;}
 .icon-gray{background:#e8f0fe;color:#3b82f6;}
 .link-text{flex:1;min-width:0;}
-.link-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.link-name{font-family:var(--font-text);font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .link-desc{font-size:12px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}
 .ext-icon{color:var(--text3);font-size:11px;flex-shrink:0;opacity:0.4;}
 
@@ -231,7 +235,7 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .fav-section{margin-bottom:1.75rem;display:none;}
 .fav-section.active{display:block;}
 .fav-section-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-.fav-section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--amber);}
+.fav-section-label{font-family:var(--font-display);font-size:22px;font-weight:600;letter-spacing:-.3px;text-transform:none;color:var(--amber);}
 
 
 
@@ -348,7 +352,7 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 /* ── Férias Timeline ── */
 .ferias-wrap{margin-bottom:2.5rem;}
 .ferias-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
-.ferias-title{font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--text)!important;display:flex;align-items:center;gap:10px;line-height:1.2;}
+.ferias-title{font-family:var(--font-display);font-size:28px;font-weight:600;letter-spacing:-.5px;color:var(--text)!important;display:flex;align-items:center;gap:10px;line-height:1.2;}
 .ferias-nav{display:flex;align-items:center;gap:6px;}
 .ferias-month{font-size:13px;font-weight:500;color:var(--text);min-width:110px;text-align:center;}
 .tl-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
@@ -374,13 +378,13 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 
 /* status colors */
 /* dark mode (default) — high contrast */
-.fs-verde  {background:rgba(52,211,153,0.25);color:#6ee7b7;}
+.fs-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
 .fs-laranja{background:rgba(251,191,36,0.25);color:#fde68a;}
 .fs-amarelo{background:rgba(253,224,71,0.25);color:#fef08a;}
 .fs-azul   {background:rgba(96,165,250,0.25);color:#93c5fd;}
 .fs-roxo   {background:rgba(139,92,246,0.25);color:#c4b5fd;}
 /* light mode */
-body.light .fs-verde  {background:#d1fae5;color:#065f46;}
+body.light .fs-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
 body.light .fs-laranja{background:#fef3c7;color:#92400e;}
 body.light .fs-amarelo{background:#fef9c3;color:#854d0e;}
 body.light .fs-azul   {background:#dbeafe;color:#1e40af;}
@@ -436,7 +440,7 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 
 /* ── Upcoming férias list ── */
 .upcoming-wrap{margin-top:1.5rem;}
-.upcoming-title{font-size:20px;font-weight:700;letter-spacing:-.4px;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:10px;margin-top:2rem;}
+.upcoming-title{font-family:var(--font-display);font-size:26px;font-weight:600;letter-spacing:-.4px;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:10px;margin-top:2rem;}
 .upcoming-list{display:flex;flex-direction:column;gap:8px;}
 .upcoming-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 15px;display:flex;align-items:center;gap:14px;transition:border-color .15s;}
 .upcoming-item:hover{border-color:var(--border-h);}
@@ -448,13 +452,13 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .upcoming-status{display:flex;align-items:center;gap:6px;flex-shrink:0;}
 .status-pill{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;white-space:nowrap;}
 /* dark mode */
-.sp-verde  {background:rgba(52,211,153,0.2);color:#6ee7b7;}
+.sp-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
 .sp-laranja{background:rgba(251,191,36,0.2);color:#fde68a;}
 .sp-amarelo{background:rgba(253,224,71,0.2);color:#fef08a;}
 .sp-azul   {background:rgba(96,165,250,0.2);color:#93c5fd;}
 .sp-roxo   {background:rgba(139,92,246,0.2);color:#c4b5fd;}
 /* light mode */
-body.light .sp-verde  {background:#d1fae5;color:#065f46;}
+body.light .sp-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
 body.light .sp-laranja{background:#fef3c7;color:#92400e;}
 body.light .sp-amarelo{background:#fef9c3;color:#854d0e;}
 body.light .sp-azul   {background:#dbeafe;color:#1e40af;}
@@ -485,27 +489,11 @@ body.light .tag-vp  {background:#ec4899;}
 
 
 
-/* ── Info button on cards ── */
-.info-btn{width:20px;height:20px;border-radius:50%;background:var(--purple-bg);border:1px solid rgba(139,92,246,0.25);color:var(--purple-l);font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;font-family:serif;}
-.info-btn:hover{background:var(--purple-bgh);border-color:rgba(139,92,246,0.5);}
-
-/* ── Info panel (inline below card) ── */
-.info-panel{display:none;background:var(--bg2);border:1px solid rgba(139,92,246,0.3);border-radius:var(--r);padding:12px 14px;margin-top:6px;grid-column:1/-1;}
-.info-panel.active{display:block;}
-.info-panel-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;}
-.info-panel-divider{height:1px;background:var(--border);margin-bottom:8px;}
-.info-panel-text{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:8px;}
-.info-panel-url{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;}
-.info-panel-tags{display:flex;gap:5px;margin-top:8px;}
-
-
 /* ── Search overlay ── */
 .search-overlay{display:none;position:fixed;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:40;pointer-events:auto;}
 .search-overlay.active{display:block;}
 .search-wrap{position:relative;z-index:50;margin-bottom:1.25rem;}
 
-
-.link-card:hover .card-actions-abs{opacity:1!important;}
 .fav-btn.active{opacity:1!important;}
 .link-card .link-text{width:100%;}
 
@@ -643,6 +631,19 @@ body.light .tag-vp  {background:#ec4899;}
   </div>
 </div>
 
+<!-- Notice -->
+<div class="notice">
+  <i class="ti ti-bell notice-icon"></i>
+  <div class="notice-body">
+    <div class="notice-title" id="noticeTitle"></div>
+    <div class="notice-text" id="noticeText"></div>
+    <div class="notice-edit" id="noticeEditArea" style="display:none">
+      <input type="text" id="noticeTitleInput" placeholder="Título do aviso">
+      <textarea id="noticeTextInput" placeholder="Texto do aviso"></textarea>
+    </div>
+  </div>
+</div>
+
 <div class="page active" id="pageLinks">
 <!-- Zoom bar -->
 <div class="zoom-bar">
@@ -684,19 +685,6 @@ body.light .tag-vp  {background:#ec4899;}
     <span style="font-size:11px;color:var(--text3);margin-left:4px" id="favCount"></span>
   </div>
   <div class="links-grid" id="favGrid"></div>
-</div>
-
-<!-- Notice -->
-<div class="notice">
-  <i class="ti ti-bell notice-icon"></i>
-  <div class="notice-body">
-    <div class="notice-title" id="noticeTitle"></div>
-    <div class="notice-text" id="noticeText"></div>
-    <div class="notice-edit" id="noticeEditArea" style="display:none">
-      <input type="text" id="noticeTitleInput" placeholder="Título do aviso">
-      <textarea id="noticeTextInput" placeholder="Texto do aviso"></textarea>
-    </div>
-  </div>
 </div>
 
 <!-- Name modal -->
@@ -743,12 +731,11 @@ body.light .tag-vp  {background:#ec4899;}
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 2 de 5</div>
           <h3>Ver detalhes de um link</h3>
-          <p>Cada card tem um botão com a letra <strong>i</strong>. Clique nele para ver a descrição completa, a URL e as tags do link — sem precisar abri-lo.</p>
+          <p>Passe o mouse sobre qualquer card para ver a descrição completa, a URL e mais informações — sem precisar abri-lo.</p>
           <div class="guide-illustration" style="flex-direction:column;gap:8px">
             <div style="background:var(--bg2);border:1px solid var(--border-h);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
               <div style="width:28px;height:28px;border-radius:7px;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;color:var(--purple-l);font-size:13px;flex-shrink:0"><i class="ti ti-route"></i></div>
               <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">SPOT Quality Team</div><div style="font-size:11px;color:var(--text3)">Monitorias & alocação</div></div>
-              <div style="width:20px;height:20px;border-radius:50%;background:var(--purple-bg);border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;color:var(--purple-l);font-size:10px;font-weight:700;font-family:serif">i</div>
             </div>
             <div style="background:var(--bg2);border:1px solid rgba(139,92,246,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.55">Ferramenta de alocação e gestão de monitorias do time. Use para registrar e acompanhar as sessões.</div>
           </div>
@@ -1329,22 +1316,6 @@ function render(){
       }
       const card = createLinkCard(link,section.id,section.name);
       grid.appendChild(card);
-      // Info panel (full-width sibling)
-      if(!editMode){
-        const panel = document.createElement('div');
-        panel.className = 'info-panel';
-        panel.id = 'info-'+link.id;
-        const logo = findLogo(link.logo||'link');
-        const tagsHtml = (link.tags||[]).map(t=>`<span class="link-tag tag-${t}" style="width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:3px" title="${tagLabel(t)}"></span>`).join('');
-        panel.innerHTML = `
-          <div class="info-panel-title">${link.name}</div>
-          <div class="info-panel-divider"></div>
-          <div class="info-panel-text">${link.notes||link.desc||'Sem descrição.'}</div>
-          <div class="info-panel-url"><i class="ti ti-link" style="font-size:12px"></i><span>${link.url!=='#'?link.url:'URL não configurada'}</span></div>
-          ${tagsHtml?'<div class="info-panel-tags">'+tagsHtml+'</div>':''}
-        `;
-        grid.appendChild(panel);
-      }
     });
     if(editMode){
       grid.addEventListener('dragover',e=>{e.preventDefault();grid.classList.add('drag-over');});
@@ -1386,10 +1357,7 @@ function createLinkCard(link,sectionId,sectionName){
     </div>
     ${editMode
       ? `<div style="display:flex;gap:4px;flex-shrink:0"><i class="ti ti-grip-vertical drag-handle" title="Arrastar"></i><button class="btn-sm" onclick="toggleEditPanel('${link.id}',event)"><i class="ti ti-pencil"></i></button></div>`
-      : `<div style="position:absolute;top:10px;right:10px;display:flex;gap:4px;opacity:0;transition:opacity .15s" class="card-actions-abs">
-          <button class="info-btn" onclick="toggleInfoPanel('${link.id}','${sectionId}',event)" title="Ver detalhes">i</button>
-          <button class="fav-btn${getFavs().includes(link.id)?' active':''}" data-lid="${link.id}" onclick="toggleFav('${link.id}',event)" title="Favoritar"><i class="ti ${getFavs().includes(link.id)?'ti-star-filled':'ti-star'}"></i></button>
-        </div>`
+      : `<button class="fav-btn${getFavs().includes(link.id)?' active':''}" data-lid="${link.id}" onclick="toggleFav('${link.id}',event)" title="Favoritar"><i class="ti ${getFavs().includes(link.id)?'ti-star-filled':'ti-star'}"></i></button>`
     }
     ${link.isNew?'<span class="badge-new">novo</span>':''}
   `;
@@ -1507,7 +1475,7 @@ function renameSection(sectionId,btn){
   const label=btn.closest('.section-header').querySelector('.section-label');
   const input=document.createElement('input');
   input.value=section.name;
-  input.style.cssText='background:var(--bg3);border:1px solid var(--purple);border-radius:6px;color:var(--text);padding:3px 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;outline:none;width:200px';
+  input.style.cssText='background:var(--bg3);border:1px solid var(--purple);border-radius:6px;color:var(--text);padding:4px 10px;font-size:22px;font-weight:600;font-family:var(--font-display);letter-spacing:-.3px;outline:none;width:280px';
   label.replaceWith(input);input.focus();
   input.onblur=()=>{section.name=input.value||section.name;render();};
   input.onkeydown=e=>{if(e.key==='Enter')input.blur();};
@@ -2325,18 +2293,6 @@ function tagLabel(t){ return t==='id'?'ID':t==='csat'?'CSAT':t==='vp'?'VP':''; }
 function tagDot(t){ return `<span class="link-tag tag-${t}" title="${tagLabel(t)}"></span>`; }
 function tagClass(t){ return 'link-tag tag-'+t; }
 
-// ── Info panel toggle ─────────────────────────────────────────────────────────
-let openInfoId = null;
-function toggleInfoPanel(linkId, sectionId, e){
-  e.stopPropagation();
-  // close existing
-  document.querySelectorAll('.info-panel.active').forEach(p=>p.classList.remove('active'));
-  if(openInfoId === linkId){ openInfoId = null; return; }
-  openInfoId = linkId;
-  const panel = document.getElementById('info-'+linkId);
-  if(panel) panel.classList.add('active');
-}
-
 // ── Drag & Drop ───────────────────────────────────────────────────────────────
 let dragState = null; // { linkId, fromSectionId }
 
@@ -2537,7 +2493,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
     <div style="display:flex;align-items:flex-start;gap:9px;">
-      <div style="width:12px;height:12px;border-radius:3px;background:#d1fae5;flex-shrink:0;margin-top:3px;"></div>
+      <div style="width:12px;height:12px;border-radius:3px;background:var(--ferias-verde-bg);flex-shrink:0;margin-top:3px;"></div>
       <div><div style="font-size:12px;font-weight:500;color:var(--text);">Aprovado e agendado</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Já solicitou no Oracle. Férias confirmadas.</div></div>
     </div>
     <div style="display:flex;align-items:flex-start;gap:9px;">
