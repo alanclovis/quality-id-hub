@@ -2415,7 +2415,7 @@ function updateFilterButtons(){
     const btn=document.getElementById('tf-'+tag);
     if(!btn) return;
     const cnt=countLinksByTag(tag);
-    btn.textContent=tag==='all'?('Todos ('+cnt+)'):(labels[tag]+' ('+cnt+')');
+    btn.textContent=tag==='all'?('Todos ('+cnt+')'):(labels[tag]+' ('+cnt+')');
   });
   const pinBtn=document.getElementById('pinFilterBtn');
   const pinned=localStorage.getItem('qhub_pinned_filter')||'all';
