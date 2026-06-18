@@ -246,8 +246,18 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .stats-modal{background:var(--bg2);border:1px solid var(--border-h);border-radius:14px;padding:1.5rem;width:100%;max-width:500px;margin:1rem;max-height:80vh;display:flex;flex-direction:column;}
 .stats-modal h3{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
 .stats-list{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;}
-.stats-item{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:var(--rs);background:var(--bg3);}
-.stats-rank{font-size:11px;color:var(--text3);width:20px;text-align:right;flex-shrink:0;}
+.stats-item{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:var(--rs);background:var(--bg3);transition:background .15s;}
+.stats-item.stats-top-1{background:linear-gradient(135deg,rgba(255,193,7,0.14),rgba(255,193,7,0.06));border:1px solid rgba(255,193,7,0.35);}
+.stats-item.stats-top-2{background:linear-gradient(135deg,rgba(148,163,184,0.16),rgba(148,163,184,0.06));border:1px solid rgba(148,163,184,0.35);}
+.stats-item.stats-top-3{background:linear-gradient(135deg,rgba(180,83,9,0.12),rgba(180,83,9,0.05));border:1px solid rgba(180,83,9,0.28);}
+.stats-rank{font-size:11px;color:var(--text3);width:22px;text-align:center;flex-shrink:0;line-height:1;}
+.stats-rank.stats-rank-medal{font-size:16px;}
+.stats-item.stats-top-1 .stats-name{font-weight:600;}
+.stats-item.stats-top-1 .stats-count{color:#b8860b;font-weight:600;}
+.stats-item.stats-top-2 .stats-count{color:#64748b;font-weight:600;}
+.stats-item.stats-top-3 .stats-count{color:#92400e;font-weight:600;}
+.stats-orphan-notice{font-size:12px;color:var(--text2);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;line-height:1.45;}
+.stats-orphan-notice i{color:#f59e0b;font-size:15px;flex-shrink:0;margin-top:1px;}
 .stats-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
 .stats-name{flex:1;font-size:13px;font-weight:500;}
 .stats-count{font-size:12px;color:var(--text3);flex-shrink:0;}
@@ -676,7 +686,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <button class="btn" id="btnSave" style="display:none" onclick="saveToGist()"><i class="ti ti-cloud-upload"></i> Salvar</button>
     <div class="user-chip" id="userChip" onclick="openNameModal()" title="Editar nome" style="display:none"><div class="user-avatar" id="userAvatarEl"></div><span id="userNameEl"></span></div>
     <button class="btn" onclick="openGuide()" title="Guia de uso"><i class="ti ti-help"></i></button>
-    <button class="btn" onclick="openStats()" title="Estatísticas de uso" id="btnStats" style="display:none"><i class="ti ti-chart-bar"></i></button>
+    <button class="btn" onclick="openStats()" title="Estatísticas de uso" id="btnStats"><i class="ti ti-chart-bar"></i></button>
     <button class="btn primary" id="btnEditMode" onclick="toggleEditMode()"><i class="ti ti-pencil"></i> Editar</button>
 
     <button class="btn" onclick="openConfig()"><i class="ti ti-settings"></i></button>
@@ -882,6 +892,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <div class="stats-modal-backdrop" id="statsModal" onclick="if(event.target===this)closeStats()">
   <div class="stats-modal">
     <h3><i class="ti ti-chart-bar" style="color:var(--purple)"></i> Links mais acessados</h3>
+    <div class="stats-orphan-notice" id="statsOrphanNotice" style="display:none"></div>
     <div class="stats-list" id="statsList"></div>
     <div class="stats-footer">
       <button class="stats-reset" onclick="resetStats()"><i class="ti ti-trash"></i> Zerar estatísticas</button>
@@ -2283,12 +2294,20 @@ function trackClick(linkId){
 function openStats(){
   const stats=getStats();
   const all=getAllLinks();
+  const entries=Object.entries(stats).map(([id,count])=>({id,link:all.find(l=>l.id===id),count}));
+  const ranked=entries.filter(x=>x.link).sort((a,b)=>b.count-a.count).slice(0,20);
+  const orphanClicks=entries.filter(x=>!x.link).reduce((s,x)=>s+x.count,0);
+  const orphanNotice=document.getElementById('statsOrphanNotice');
+  if(orphanClicks>0){
+    orphanNotice.style.display='flex';
+    orphanNotice.innerHTML=`<i class="ti ti-alert-triangle"></i><span>${orphanClicks} clique${orphanClicks!==1?'s':''} em link${orphanClicks!==1?'s':''} que não exist${orphanClicks!==1?'em':'e'} mais no hub. Esses acessos não aparecem no ranking.</span>`;
+  } else {
+    orphanNotice.style.display='none';
+    orphanNotice.innerHTML='';
+  }
   const list=document.getElementById('statsList');
-  const ranked=Object.entries(stats)
-    .map(([id,count])=>({link:all.find(l=>l.id===id),count}))
-    .filter(x=>x.link)
-    .sort((a,b)=>b.count-a.count)
-    .slice(0,20);
+  const rankMedals=['<i class="ti ti-trophy" style="color:#eab308"></i>','<i class="ti ti-medal" style="color:#94a3b8"></i>','<i class="ti ti-medal" style="color:#b45309"></i>'];
+  const rankClasses=['stats-top-1','stats-top-2','stats-top-3'];
   if(!ranked.length){
     list.innerHTML='<div class="stats-empty"><i class="ti ti-mouse" style="font-size:24px;display:block;margin-bottom:8px"></i>Nenhum clique registrado ainda.</div>';
   } else {
@@ -2296,10 +2315,12 @@ function openStats(){
     list.innerHTML=ranked.map((item,i)=>{
       const logo=findLogo(item.link.logo||'link');
       const pct=Math.round((item.count/max)*100);
-      return `<div class="stats-item">
-        <span class="stats-rank">${i+1}</span>
+      const topClass=i<3?rankClasses[i]:'';
+      const rankHtml=i<3?`<span class="stats-rank stats-rank-medal">${rankMedals[i]}</span>`:`<span class="stats-rank">${i+1}</span>`;
+      return `<div class="stats-item ${topClass}">
+        ${rankHtml}
         <div class="stats-icon ${logo.color}"><i class="ti ${logo.icon}"></i></div>
-        <span class="stats-name">${item.link.name}</span>
+        <span class="stats-name">${escapeHtml(item.link.name)}</span>
         <div class="stats-bar-wrap"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
         <span class="stats-count">${item.count}x</span>
       </div>`;
@@ -2307,7 +2328,11 @@ function openStats(){
   }
   document.getElementById('statsModal').classList.add('active');
 }
-function closeStats(){ document.getElementById('statsModal').classList.remove('active'); }
+function closeStats(){
+  document.getElementById('statsModal').classList.remove('active');
+  const orphanNotice=document.getElementById('statsOrphanNotice');
+  if(orphanNotice){ orphanNotice.style.display='none'; orphanNotice.innerHTML=''; }
+}
 function resetStats(){ if(!confirm('Zerar todas as estatísticas?')) return; localStorage.removeItem('qhub_stats'); closeStats(); }
 
 // ── Onboarding Guide ──────────────────────────────────────────────────────────
@@ -2618,7 +2643,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   initTagFilterUI();
   const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
   if(savedZoom!==100)applyZoom(savedZoom);
-  if(getToken())document.getElementById('btnStats').style.display='flex';
   initSidebar();
   const savedPage = localStorage.getItem('qhub_page');
   if(savedPage && savedPage !== 'links') showPage(savedPage);
