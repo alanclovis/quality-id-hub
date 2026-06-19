@@ -338,8 +338,10 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .guide-step-num{font-size:11px;font-weight:600;color:var(--purple-l);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
 .guide-step h3{font-size:18px;font-weight:600;margin-bottom:8px;line-height:1.3;}
 .guide-step p{font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:12px;}
-.guide-step .tip{background:var(--purple-bg);border:1px solid rgba(139,92,246,0.2);border-radius:var(--rs);padding:10px 13px;font-size:12px;color:var(--purple-l);display:flex;align-items:flex-start;gap:8px;margin-top:8px;}
-.guide-step .tip i{flex-shrink:0;margin-top:1px;}
+.guide-step .tip{background:var(--purple-bg);border:1px solid rgba(139,92,246,0.2);border-radius:var(--rs);padding:10px 13px;font-size:12px;color:var(--purple-l);display:flex;align-items:flex-start;gap:8px;margin-top:8px;line-height:1.5;}
+.guide-step .tip i{flex-shrink:0;margin-top:2px;}
+.guide-step .tip span{flex:1;min-width:0;}
+.guide-caption{font-size:12px;color:var(--text3);line-height:1.5;margin-top:-6px;}
 .guide-illustration{width:100%;background:var(--bg3);border-radius:var(--rs);margin-bottom:14px;padding:16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;}
 .guide-pill{background:var(--bg2);border:1px solid var(--border-h);border-radius:20px;padding:6px 14px;font-size:12px;display:flex;align-items:center;gap:6px;color:var(--text);}
 .guide-pill i{color:var(--purple-l);}
@@ -884,15 +886,14 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 1 de 7</div>
           <h3>Bem-vindo ao Quality ID Hub</h3>
-          <p>Ponto central do pack Quality ID: links, prioridades da semana, férias e avisos — tudo sincronizado pelo time.</p>
+          <p>Ponto central do pack Quality ID: links, prioridades da semana e férias — tudo sincronizado pelo time.</p>
           <div class="guide-illustration">
             <div class="guide-pill"><i class="ti ti-layout-grid"></i> Links</div>
             <div class="guide-pill"><i class="ti ti-calendar-week"></i> Prioridades</div>
             <div class="guide-pill"><i class="ti ti-beach"></i> Férias</div>
-            <div class="guide-pill"><i class="ti ti-bell"></i> Mural</div>
             <div class="guide-pill"><i class="ti ti-user"></i> Perfil</div>
           </div>
-          <div class="tip"><i class="ti ti-info-circle"></i> Na primeira visita, configure seu perfil no chip do header — você entra automaticamente como <strong>membro</strong>.</div>
+          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita, configure seu perfil clicando no <strong>seu nome</strong> no topo da página — você entra automaticamente como membro.</span></div>
         </div>
       </div>
 
@@ -901,15 +902,15 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 2 de 7</div>
           <h3>Seu perfil no pack</h3>
-          <p>Clique no <strong>chip com seu nome</strong> no header para definir nome, foto, <strong>nível</strong> (Assistant II, Analyst I…) e <strong>área</strong> (ID, VP, CSAT ou não operacional).</p>
+          <p>Clique no <strong>botão com seu nome</strong>, no canto superior direito, para definir nome, foto, <strong>nível</strong> (Assistant II, Analyst I…) e <strong>área</strong> (ID, VP, CSAT ou não operacional).</p>
           <div class="guide-illustration" style="flex-direction:column;gap:8px;align-items:stretch">
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
               <div style="font-size:11px;padding:5px 12px;border-radius:20px;background:#0071e3;color:#fff;font-weight:500">Analyst I</div>
               <div style="font-size:11px;padding:5px 12px;border-radius:20px;background:#0071e3;color:#fff;font-weight:500">ID</div>
               <div style="font-size:11px;padding:5px 12px;border-radius:20px;background:#059669;color:#fff;font-weight:500">CSAT</div>
             </div>
-            <div style="font-size:11px;color:var(--text3);text-align:center">Foto e dados ficam visíveis para todo o pack via Gist.</div>
           </div>
+          <p class="guide-caption">Foto e dados ficam visíveis para todo o pack via Gist.</p>
         </div>
       </div>
 
@@ -927,7 +928,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
               <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(244,114,182,0.5);background:rgba(244,114,182,0.12);color:#f9a8d4;font-weight:500">VP</div>
             </div>
           </div>
-          <div class="tip"><i class="ti ti-info-circle"></i> Favoritos ficam salvos só no seu browser — cada pessoa tem os seus.</div>
+          <div class="tip"><i class="ti ti-info-circle"></i><span>Favoritos ficam salvos só no seu browser — cada pessoa tem os seus.</span></div>
         </div>
       </div>
 
@@ -950,12 +951,11 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <div class="guide-step" data-step="4">
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 5 de 7</div>
-          <h3>Férias e mural</h3>
-          <p>Na página <strong>Férias</strong>, registre seu período e acompanhe quem está fora. No <strong>Mural</strong> (Links), confirme avisos de processo quando solicitado.</p>
+          <h3>Férias do pack</h3>
+          <p>Na página <strong>Férias</strong> (menu lateral), registre seu período e acompanhe quem está fora do time.</p>
           <div class="guide-illustration guide-step-list">
             <div class="guide-step-item"><span class="num">1</span><span>Menu lateral → <strong>Férias</strong> → <strong>Registrar férias</strong></span></div>
             <div class="guide-step-item"><span class="num">2</span><span>Clique em uma barra ou item da lista para editar status (titular ou editor)</span></div>
-            <div class="guide-step-item"><span class="num">3</span><span>Confirme avisos pendentes no mural para manter o pack alinhado</span></div>
           </div>
         </div>
       </div>
@@ -965,10 +965,10 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 6 de 7</div>
           <h3>Configuração e acessos</h3>
-          <p>Abra a <strong>engrenagem</strong> no header para ver seu papel (Membro, Editor ou Admin) e, na aba <strong>Técnico</strong>, colar o Gist ID — qualquer membro pode configurar.</p>
+          <p>Abra a <strong>engrenagem</strong>, no canto superior direito, para ver seu papel (Membro, Editor ou Admin) e, na aba <strong>Técnico</strong>, colar o Gist ID — qualquer membro pode configurar.</p>
           <div class="guide-illustration guide-step-list">
             <div class="guide-step-item"><i class="ti ti-user-check" style="color:var(--green);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Membro</strong> — perfil e férias próprias</span></div>
-            <div class="guide-step-item"><i class="ti ti-pencil" style="color:#0071e3;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Editor</strong> — edita links, mural e prioridades (precisa do token GitHub)</span></div>
+            <div class="guide-step-item"><i class="ti ti-pencil" style="color:#0071e3;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Editor</strong> — edita links e prioridades (precisa do token GitHub)</span></div>
             <div class="guide-step-item"><i class="ti ti-shield" style="color:#7c3aed;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Admin</strong> — tudo + gerenciar papéis na aba Usuários</span></div>
           </div>
         </div>
@@ -3416,7 +3416,7 @@ function resetStats(){ if(!confirm('Zerar todas as estatísticas?')) return; loc
 
 // ── Onboarding Guide ──────────────────────────────────────────────────────────
 let guideStep=0;
-const GUIDE_TOTAL=5;
+const GUIDE_TOTAL=7;
 
 function initGuideDots(){
   const dots=document.getElementById('guideDots');
