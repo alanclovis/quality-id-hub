@@ -527,6 +527,26 @@ body.light .fs-amarelo{background:#fef9c3;color:#854d0e;}
 body.light .fs-azul   {background:#dbeafe;color:#1e40af;}
 body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 
+/* Legenda férias */
+.ferias-legend{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-top:14px;}
+.ferias-legend-section{margin-bottom:18px;}
+.ferias-legend-section:last-child{margin-bottom:0;}
+.ferias-legend-head{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.ferias-legend-head i{color:var(--purple-l);font-size:14px;}
+.ferias-legend-lead{font-size:12px;color:var(--text2);line-height:1.5;margin:0 0 10px;}
+.ferias-legend-example{display:inline-flex;align-items:center;padding:3px 9px;border-radius:4px;font-size:11px;font-weight:600;background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
+.ferias-legend-tipos{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;}
+.ferias-legend-tipo{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);}
+.ferias-legend-chip{font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;flex-shrink:0;}
+.ferias-legend-tipo-desc{font-size:11px;color:var(--text3);line-height:1.4;}
+.ferias-legend-status{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ferias-legend-status-item{display:flex;align-items:flex-start;gap:9px;}
+.ferias-legend-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;margin-top:3px;}
+.ferias-legend-status-label{font-size:12px;font-weight:500;color:var(--text);}
+.ferias-legend-status-desc{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;}
+.ferias-legend-note{font-size:11px;color:var(--text3);margin-top:10px;line-height:1.45;padding-top:10px;border-top:1px solid var(--border);}
+@media(max-width:640px){.ferias-legend-status{grid-template-columns:1fr;}}
+
 /* Férias form */
 .ferias-form{background:var(--bg2);border:1px solid rgba(52,211,153,0.3);border-radius:var(--r);padding:14px;margin-bottom:12px;display:none;flex-direction:column;gap:8px;}
 .ferias-form.active{display:flex;}
@@ -2915,6 +2935,7 @@ function render(){
   renderRecents();
   renderFavs();
   renderFerias();
+  renderFeriasLegend();
   renderUpcoming();
   saveLocal();
   setTimeout(staggerCards, 20);
@@ -3134,7 +3155,7 @@ function showPageAnimated(page){
   });
   const noticeEl=document.querySelector('.notice');
   if(noticeEl) noticeEl.style.display=page==='links'?'':'none';
-  if(page==='ferias'){ renderFerias(); renderUpcoming(); }
+  if(page==='ferias'){ renderFerias(); renderFeriasLegend(); renderUpcoming(); }
   if(page==='prioridades') renderPriorities();
   lastPage=page;
   localStorage.setItem('qhub_page',page);
@@ -3899,6 +3920,34 @@ const TIPO_LABEL = {
   paternidade: 'Licença paternidade',
   outro:       'Outra ausência',
 };
+const TIPO_LABEL_SHORT = {
+  ferias:      'Férias',
+  atestado:    'Atestado',
+  maternidade: 'Lic. mat.',
+  paternidade: 'Lic. pat.',
+  outro:       'Ausência',
+};
+const TIPO_LEGEND_DESC = {
+  ferias:      'Período de férias',
+  atestado:    'Afastamento com atestado',
+  maternidade: 'Licença maternidade',
+  paternidade: 'Licença paternidade',
+  outro:       'Outros afastamentos longos',
+};
+const STATUS_SWATCH = {
+  verde:   'var(--ferias-verde-bg)',
+  laranja: '#fef3c7',
+  amarelo: '#fef9c3',
+  azul:    '#dbeafe',
+  roxo:    '#ede9fe',
+};
+const STATUS_LEGEND_DESC = {
+  verde:   'Já solicitou no Oracle. Férias confirmadas.',
+  laranja: 'Alinhou com a supervisão, ainda não no sistema.',
+  amarelo: 'Aguardando aprovação da supervisão.',
+  azul:    'Interesse em férias nesse período.',
+  roxo:    'Atestados e licenças confirmados ou já registrados.',
+};
 const TIPO_ORDER = ['ferias','atestado','maternidade','paternidade','outro'];
 function normalizeFeriasTipo(tipo){
   if(tipo==='licenca'||tipo==='luto') return 'outro';
@@ -3912,6 +3961,42 @@ function formatFeriasRecordLabel(f){
   const status=f?.status||'verde';
   if(tipo==='ferias') return STATUS_LABEL[status]||status;
   return TIPO_LABEL[tipo]+' · '+(STATUS_LABEL[status]||status);
+}
+function formatFeriasBarLabel(f,nome){
+  const tipo=TIPO_LABEL_SHORT[getFeriasTipo(f)]||TIPO_LABEL[getFeriasTipo(f)];
+  return tipo+' '+nome.split(' ')[0];
+}
+function renderFeriasLegend(){
+  const el=document.getElementById('feriasLegend');
+  if(!el) return;
+  const tiposHtml=TIPO_ORDER.map(t=>`
+    <div class="ferias-legend-tipo">
+      <span class="ferias-legend-chip">${escapeHtml(TIPO_LABEL[t])}</span>
+      <span class="ferias-legend-tipo-desc">${escapeHtml(TIPO_LEGEND_DESC[t]||'')}</span>
+    </div>`).join('');
+  const feriasStatus=['verde','laranja','amarelo','azul'];
+  const statusHtml=feriasStatus.map(k=>`
+    <div class="ferias-legend-status-item">
+      <div class="ferias-legend-swatch" style="background:${STATUS_SWATCH[k]}"></div>
+      <div>
+        <div class="ferias-legend-status-label">${escapeHtml(STATUS_LABEL[k])}</div>
+        <div class="ferias-legend-status-desc">${escapeHtml(STATUS_LEGEND_DESC[k]||'')}</div>
+      </div>
+    </div>`).join('');
+  el.innerHTML=`
+    <div class="ferias-legend-section">
+      <div class="ferias-legend-head"><i class="ti ti-layout-grid"></i> Como ler a timeline</div>
+      <p class="ferias-legend-lead">Cada barra mostra <strong>tipo + nome</strong>, por exemplo: <span class="ferias-legend-example">Férias Alan</span></p>
+    </div>
+    <div class="ferias-legend-section">
+      <div class="ferias-legend-head"><i class="ti ti-list-details"></i> Tipos de ausência</div>
+      <div class="ferias-legend-tipos">${tiposHtml}</div>
+    </div>
+    <div class="ferias-legend-section">
+      <div class="ferias-legend-head"><i class="ti ti-palette"></i> Cores — férias</div>
+      <div class="ferias-legend-status">${statusHtml}</div>
+      <p class="ferias-legend-note"><span class="ferias-legend-swatch" style="display:inline-block;vertical-align:-1px;background:${STATUS_SWATCH.roxo}"></span> <strong>${escapeHtml(STATUS_LABEL.roxo)}</strong> — ${escapeHtml(STATUS_LEGEND_DESC.roxo)} Ausências (atestado, licenças) usam essa cor por padrão.</p>
+    </div>`;
 }
 function feriasTipoOptionsHtml(selected){
   return TIPO_ORDER.map(t=>`<option value="${t}"${t===selected?' selected':''}>${TIPO_LABEL[t]}</option>`).join('');
@@ -4253,14 +4338,14 @@ function renderFerias(){
       const barEnd   = Math.min(daysInMonth, e.getMonth()===feriasMonth&&e.getFullYear()===feriasYear ? e.getDate() : daysInMonth);
       const leftPct  = ((barStart-1)/daysInMonth*100).toFixed(2);
       const widthPct = ((barEnd-barStart+1)/daysInMonth*100).toFixed(2);
-      const days = Math.round((e-s)/(86400000))+1;
 
       const bar = document.createElement('div');
       bar.className = 'tl-bar fs-'+f.status;
       bar.style.left  = leftPct+'%';
       bar.style.width = widthPct+'%';
       const canEditBar=canEditFeriasRecord(f);
-      const label = (barEnd-barStart+1) > 3 ? nome.split(' ')[0]+' ('+days+'d)' : '';
+      const barSpan=barEnd-barStart+1;
+      const label = barSpan >= 2 ? formatFeriasBarLabel(f,nome) : '';
       bar.textContent = label;
       bar.title = nome+' · '+TIPO_LABEL[getFeriasTipo(f)]+' · '+f.inicio+' até '+f.fim+' · '+(STATUS_LABEL[f.status]||f.status)+(canEditBar?' — clique para editar':' — clique para ver');
       bar.style.cursor='pointer';
@@ -5261,43 +5346,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 </div>
 
 <!-- Legenda -->
-<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-top:14px;">
-  <div style="font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:10px;">
-    <i class="ti ti-list-details" style="color:var(--purple-l);font-size:15px"></i> Tipos de registro
-  </div>
-  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
-    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Férias</span>
-    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Atestado médico</span>
-    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença maternidade</span>
-    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença paternidade</span>
-    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Outra ausência</span>
-  </div>
-  <div style="font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:10px;">
-    <i class="ti ti-info-circle" style="color:var(--purple-l);font-size:15px"></i> Situação (cores na timeline)
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-    <div style="display:flex;align-items:flex-start;gap:9px;">
-      <div style="width:12px;height:12px;border-radius:3px;background:var(--ferias-verde-bg);flex-shrink:0;margin-top:3px;"></div>
-      <div><div style="font-size:12px;font-weight:500;color:var(--text);">Aprovado e agendado</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Já solicitou no Oracle. Férias confirmadas.</div></div>
-    </div>
-    <div style="display:flex;align-items:flex-start;gap:9px;">
-      <div style="width:12px;height:12px;border-radius:3px;background:#fef3c7;flex-shrink:0;margin-top:3px;"></div>
-      <div><div style="font-size:12px;font-weight:500;color:var(--text);">Confirmado c/ gestor</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Já alinhou com a supervisão, ainda não no sistema.</div></div>
-    </div>
-    <div style="display:flex;align-items:flex-start;gap:9px;">
-      <div style="width:12px;height:12px;border-radius:3px;background:#fef9c3;flex-shrink:0;margin-top:3px;"></div>
-      <div><div style="font-size:12px;font-weight:500;color:var(--text);">Pendente de aprovação</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Aguardando aprovação da supervisão.</div></div>
-    </div>
-    <div style="display:flex;align-items:flex-start;gap:9px;">
-      <div style="width:12px;height:12px;border-radius:3px;background:#dbeafe;flex-shrink:0;margin-top:3px;"></div>
-      <div><div style="font-size:12px;font-weight:500;color:var(--text);">Planejado (possível)</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Interesse em férias nesse período (só para férias).</div></div>
-    </div>
-    <div style="display:flex;align-items:flex-start;gap:9px;">
-      <div style="width:12px;height:12px;border-radius:3px;background:#ede9fe;flex-shrink:0;margin-top:3px;"></div>
-      <div><div style="font-size:12px;font-weight:500;color:var(--text);">Programado / confirmado</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Atestados, licenças e afastamentos confirmados ou já registrados.</div></div>
-    </div>
-  </div>
-</div>
+<div class="ferias-legend" id="feriasLegend"></div>
 </div>
 <div class="upcoming-wrap">
   <div class="upcoming-header">
