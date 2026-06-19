@@ -231,6 +231,29 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .modal input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:9px 12px;font-size:13px;font-family:monospace;outline:none;margin-bottom:12px;}
 .modal input:focus{border-color:var(--purple);}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+.config-modal{max-width:520px;max-height:85vh;display:flex;flex-direction:column;}
+.config-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.config-tab{font-size:12px;font-weight:500;padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;}
+.config-tab.active{background:var(--purple-bg);border-color:rgba(139,92,246,0.4);color:var(--purple-l);}
+.config-panel{display:none;overflow-y:auto;flex:1;}
+.config-panel.active{display:block;}
+.access-status{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg3);border-radius:var(--r);margin-bottom:14px;}
+.access-status-info{flex:1;min-width:0;text-align:left;}
+.access-status-name{font-size:14px;font-weight:600;color:var(--text);}
+.access-status-role{font-size:11px;color:var(--text3);margin-top:2px;}
+.access-role-pill{font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.access-role-pill.admin{background:#ede9fe;color:#5b21b6;}
+.access-role-pill.editor{background:#dbeafe;color:#1e40af;}
+.access-role-pill.member{background:#dcfce7;color:#14532d;}
+.access-role-pill.pending{background:#fef3c7;color:#92400e;}
+.access-role-pill.revoked{background:var(--bg3);color:var(--text3);}
+.access-users-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+.access-users-table th,.access-users-table td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle;}
+.access-users-table th{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.access-users-table select,.access-add-row input,.access-add-row select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;font-family:inherit;}
+.access-add-row{display:grid;grid-template-columns:1fr 110px auto;gap:8px;margin-top:12px;align-items:end;}
+.access-hint{font-size:11px;color:var(--text3);line-height:1.45;margin:10px 0;}
+.access-empty{text-align:center;padding:16px;color:var(--text3);font-size:12px;}
 .modal label{font-size:12px;color:var(--text2);display:block;margin-bottom:5px;}
 .footer{margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .footer-left{font-size:11px;color:var(--text3);}
@@ -900,16 +923,37 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 
 <!-- Config modal -->
 <div class="modal-backdrop" id="configModal" onclick="if(event.target===this)closeConfig()">
-  <div class="modal">
+  <div class="modal config-modal">
     <h3><i class="ti ti-settings" style="margin-right:6px"></i>Configuração</h3>
-    <p>Para editar e sincronizar, você precisa de um <strong>GitHub Personal Access Token</strong> com permissão <code>gist</code>, e do ID do Gist onde os dados ficam salvos.</p>
-    <label>GitHub Token</label>
-    <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-    <label>Gist ID</label>
-    <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
-    <div class="modal-actions">
-      <button class="btn" onclick="closeConfig()">Cancelar</button>
-      <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar</button>
+    <div class="config-tabs">
+      <button type="button" class="config-tab active" data-config-tab="access" onclick="switchConfigTab('access')">Meu acesso</button>
+      <button type="button" class="config-tab" data-config-tab="tech" id="configTabTech" onclick="switchConfigTab('tech')">Técnico</button>
+      <button type="button" class="config-tab" data-config-tab="users" id="configTabUsers" onclick="switchConfigTab('users')" style="display:none">Usuários</button>
+    </div>
+    <div class="config-panel active" id="configPanelAccess">
+      <div id="accessStatusBox"></div>
+      <p class="access-hint" id="accessHint"></p>
+      <button class="btn primary" id="btnRequestAccess" style="width:100%;justify-content:center;display:none" onclick="requestAccess()"><i class="ti ti-user-plus"></i> Solicitar acesso ao pack</button>
+    </div>
+    <div class="config-panel" id="configPanelTech">
+      <p class="access-hint">Token GitHub com permissão <code>gist</code> — necessário para salvar alterações no pack. Admins/editores recebem o token compartilhado pelo time.</p>
+      <label>GitHub Token</label>
+      <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+      <label style="margin-top:10px">Gist ID</label>
+      <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
+      <div class="modal-actions" style="margin-top:14px">
+        <button class="btn" onclick="closeConfig()">Fechar</button>
+        <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar token</button>
+      </div>
+    </div>
+    <div class="config-panel" id="configPanelUsers">
+      <p class="access-hint">Gerencie quem pode editar o hub. Papéis: <strong>Admin</strong> (tudo + usuários), <strong>Editor</strong> (links e conteúdo), <strong>Membro</strong> (perfil e férias próprias).</p>
+      <div id="accessUsersPanel"></div>
+      <div class="access-add-row">
+        <div><label style="font-size:11px;color:var(--text3)">Nome</label><input type="text" id="accessNewName" placeholder="Ex: Alan Clovis"></div>
+        <div><label style="font-size:11px;color:var(--text3)">Papel</label><select id="accessNewRole"><option value="member">Membro</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
+        <button class="btn primary" onclick="adminAddAccessUser()"><i class="ti ti-plus"></i> Add</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1181,6 +1225,7 @@ const SB_ID_MAP={links:'sbLinks',ferias:'sbFerias',prioridades:'sbPrioridades'};
 const DEFAULT_DATA={
   pageOrder:['links','ferias','prioridades'],
   profiles:{},
+  accessUsers:[],
   notice:{title:"Bem-vindos ao pack!",text:"Aqui você encontra todos os links úteis do dia a dia. Dúvidas? Chama no canal <strong>#quality-id</strong> no Slack."},
   sections:[
     {id:"s1",name:"Ferramentas principais",links:[
@@ -1300,9 +1345,210 @@ function renderLogoGridModal(cat){
 function confirmLogo(){if(logoCb&&logoSelected)logoCb(logoSelected);closeLogoModal();}
 function closeLogoModal(){document.getElementById('logoModal').classList.remove('active');logoCb=null;}
 
-// ── Config ─────────────────────────────────────────────────────────────────────
+// ── Config & access control ────────────────────────────────────────────────────
+const ACCESS_ROLE_LABELS={admin:'Admin',editor:'Editor',member:'Membro',pending:'Pendente'};
+
 function getToken(){return localStorage.getItem('qhub_token')||'';}
 function getGistId(){return localStorage.getItem('qhub_gist_id')||DEFAULT_GIST_ID;}
+function ensureAccessUsers(){
+  if(!data.accessUsers) data.accessUsers=[];
+}
+function getAccessUserByName(name){
+  ensureAccessUsers();
+  if(!name) return null;
+  return data.accessUsers.find(u=>u.status!=='revoked'&&namesMatch(u.name,name))||null;
+}
+function getCurrentAccessUser(){
+  return getAccessUserByName(getUserName());
+}
+function getUserRole(){
+  const u=getCurrentAccessUser();
+  if(!u) return null;
+  if(u.status==='pending') return 'pending';
+  return u.status==='active'?u.role:null;
+}
+function hasActiveAccessRoster(){
+  ensureAccessUsers();
+  return data.accessUsers.some(u=>u.status==='active'||u.status==='pending');
+}
+function isAccessBootstrap(){
+  return !!getToken()&&!hasActiveAccessRoster();
+}
+function isAppAdmin(){
+  if(!getToken()) return false;
+  if(isAccessBootstrap()) return true;
+  return getUserRole()==='admin';
+}
+function canWriteGist(){
+  if(!getToken()) return false;
+  if(isAccessBootstrap()) return true;
+  const role=getUserRole();
+  return role==='admin'||role==='editor';
+}
+function canEditContent(){
+  return canWriteGist();
+}
+function canManageAccess(){
+  return isAppAdmin();
+}
+function canUseMemberFeatures(){
+  if(isAccessBootstrap()) return !!getUserName();
+  const role=getUserRole();
+  return role==='member'||role==='editor'||role==='admin';
+}
+function switchConfigTab(tab){
+  document.querySelectorAll('.config-tab').forEach(b=>b.classList.toggle('active',b.dataset.configTab===tab));
+  document.querySelectorAll('.config-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('configPanel'+tab.charAt(0).toUpperCase()+tab.slice(1))?.classList.add('active');
+  if(tab==='users') renderAccessUsersPanel();
+  if(tab==='access') renderAccessStatusBox();
+}
+function renderAccessStatusBox(){
+  const box=document.getElementById('accessStatusBox');
+  const hint=document.getElementById('accessHint');
+  const btn=document.getElementById('btnRequestAccess');
+  const tabUsers=document.getElementById('configTabUsers');
+  const tabTech=document.getElementById('configTabTech');
+  if(!box) return;
+  const name=getUserName();
+  tabUsers.style.display=canManageAccess()?'inline-flex':'none';
+  tabTech.style.display=(canEditContent()||isAccessBootstrap()||!hasActiveAccessRoster())?'inline-flex':'none';
+  if(!name){
+    box.innerHTML='<div class="access-empty">Configure seu perfil (chip no header) para solicitar acesso.</div>';
+    hint.textContent='';
+    btn.style.display='none';
+    return;
+  }
+  const u=getCurrentAccessUser();
+  const role=getUserRole();
+  const avHtml=createAvatarEl(name,40,'').outerHTML;
+  let roleLabel='Sem cadastro';
+  let roleClass='pending';
+  if(isAccessBootstrap()&&getToken()){ roleLabel='Admin (bootstrap)'; roleClass='admin'; }
+  else if(u&&u.status==='pending'){ roleLabel='Pendente de aprovação'; roleClass='pending'; }
+  else if(role){ roleLabel=ACCESS_ROLE_LABELS[role]||role; roleClass=role; }
+  box.innerHTML=`<div class="access-status"><div class="access-status-av">${avHtml}</div><div class="access-status-info"><div class="access-status-name">${escapeHtml(name)}</div><div class="access-status-role">${roleLabel}</div></div><span class="access-role-pill ${roleClass}">${roleLabel}</span></div>`;
+  if(!u&&!hasActiveAccessRoster()){
+    hint.textContent='Nenhum controle de acesso configurado ainda. Quem tem token GitHub opera como admin até a lista ser criada.';
+    btn.style.display='none';
+  }else if(!u||u.status==='revoked'){
+    hint.textContent='Seu nome ainda não está liberado. Solicite acesso — um admin aprova pelo painel Usuários.';
+    btn.style.display='flex';
+  }else if(u.status==='pending'){
+    hint.textContent='Sua solicitação está pendente. Um admin vai aprovar em breve.';
+    btn.style.display='none';
+  }else if(role==='member'){
+    hint.textContent='Você pode editar perfil e férias próprias. Para editar links, peça papel de Editor a um admin.';
+    btn.style.display='none';
+  }else if(role==='editor'){
+    hint.textContent='Você pode editar conteúdo do hub. Configure o token na aba Técnico para salvar no Gist.';
+    btn.style.display='none';
+  }else if(role==='admin'){
+    hint.textContent='Acesso total. Gerencie usuários na aba Usuários e o token na aba Técnico.';
+    btn.style.display='none';
+  }
+}
+function renderAccessUsersPanel(){
+  const panel=document.getElementById('accessUsersPanel');
+  if(!panel||!canManageAccess()) return;
+  ensureAccessUsers();
+  const users=[...data.accessUsers].sort((a,b)=>{
+    const order={pending:0,active:1,revoked:2};
+    return (order[a.status]??9)-(order[b.status]??9)||a.name.localeCompare(b.name);
+  });
+  if(!users.length){
+    panel.innerHTML='<div class="access-empty">Nenhum usuário cadastrado. Adicione abaixo ou aprove solicitações pendentes.</div>';
+    return;
+  }
+  panel.innerHTML=`<table class="access-users-table"><thead><tr><th>Nome</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>${
+    users.map(u=>`<tr>
+      <td>${escapeHtml(u.name)}</td>
+      <td>${u.status==='pending'?`<select onchange="adminSetUserRole('${u.id}',this.value)"><option value="pending" selected>Pendente</option><option value="member">Membro</option><option value="editor">Editor</option><option value="admin">Admin</option></select>`:`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
+      <td><span class="access-role-pill ${u.status==='active'?u.role:u.status}">${u.status==='active'?ACCESS_ROLE_LABELS[u.role]:u.status==='pending'?'Pendente':'Revogado'}</span></td>
+      <td style="white-space:nowrap">${u.status!=='revoked'?`<button class="btn-sm" onclick="adminRevokeUser('${u.id}')" title="Revogar"><i class="ti ti-ban"></i></button>`:`<button class="btn-sm" onclick="adminRestoreUser('${u.id}')" title="Restaurar"><i class="ti ti-refresh"></i></button>`} <button class="btn-sm" style="color:#f87171" onclick="adminDeleteUser('${u.id}')" title="Remover"><i class="ti ti-trash"></i></button></td>
+    </tr>`).join('')
+  }</tbody></table>`;
+}
+async function requestAccess(){
+  const name=getUserName();
+  if(!name){ closeConfig(); openNameModal(); return; }
+  ensureAccessUsers();
+  const existing=getAccessUserByName(name);
+  if(existing&&(existing.status==='active'||existing.status==='pending')){
+    alert(existing.status==='pending'?'Solicitação já enviada. Aguarde aprovação.':'Você já tem acesso liberado.');
+    return;
+  }
+  if(canManageAccess()){
+    await adminAddAccessUser(name,'member','pending');
+    alert('Solicitação registrada. Aprove em Usuários quando quiser.');
+    return;
+  }
+  const msg=`Olá! Solicito acesso ao Quality ID Hub.\nNome: ${name}\nPapel desejado: Membro`;
+  try{ await navigator.clipboard.writeText(msg); }catch(e){}
+  if(canWriteGist()){
+    data.accessUsers.push({
+      id:'u'+Date.now(), name, role:'member', status:'pending',
+      requestedAt:new Date().toISOString(), requestedBy:name
+    });
+    await saveToGist();
+    alert('Solicitação registrada no Gist! Um admin aprova em Configuração → Usuários.');
+  }else{
+    alert('Pedido copiado! Cole no canal team-quality-csat-id. Um admin adiciona você em Configuração → Usuários.');
+  }
+  renderAccessStatusBox();
+}
+async function adminAddAccessUser(nameArg,roleArg,statusArg){
+  if(!canManageAccess()) return;
+  const name=(nameArg||document.getElementById('accessNewName').value||'').trim();
+  const role=roleArg||document.getElementById('accessNewRole').value||'member';
+  const status=statusArg||'active';
+  if(!name){ alert('Informe o nome.'); return; }
+  ensureAccessUsers();
+  let u=data.accessUsers.find(x=>namesMatch(x.name,name));
+  if(u){
+    u.name=name; u.role=role; u.status=status;
+    if(status==='active'){ u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin'; }
+  }else{
+    u={id:'u'+Date.now(),name,role,status,requestedAt:new Date().toISOString()};
+    if(status==='active'){ u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin'; }
+    data.accessUsers.push(u);
+  }
+  document.getElementById('accessNewName').value='';
+  renderAccessUsersPanel();
+  renderAccessStatusBox();
+  updateEditButtonVisibility();
+  await saveToGist();
+}
+async function adminSetUserRole(id,role){
+  if(!canManageAccess()) return;
+  const u=data.accessUsers.find(x=>x.id===id);
+  if(!u) return;
+  if(role==='pending'){ u.status='pending'; u.role='member'; }
+  else{ u.role=role; u.status='active'; u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin'; }
+  renderAccessUsersPanel();
+  renderAccessStatusBox();
+  await saveToGist();
+}
+async function adminRevokeUser(id){
+  if(!canManageAccess()||!confirm('Revogar acesso deste usuário?')) return;
+  const u=data.accessUsers.find(x=>x.id===id);
+  if(u){ u.status='revoked'; u.revokedAt=new Date().toISOString(); }
+  renderAccessUsersPanel();
+  await saveToGist();
+}
+async function adminRestoreUser(id){
+  if(!canManageAccess()) return;
+  const u=data.accessUsers.find(x=>x.id===id);
+  if(u){ u.status='active'; u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin'; }
+  renderAccessUsersPanel();
+  await saveToGist();
+}
+async function adminDeleteUser(id){
+  if(!canManageAccess()||!confirm('Remover usuário da lista?')) return;
+  data.accessUsers=data.accessUsers.filter(x=>x.id!==id);
+  renderAccessUsersPanel();
+  await saveToGist();
+}
 function saveConfig(){
   const t=document.getElementById('tokenInput').value.trim();
   const g=document.getElementById('gistIdInput').value.trim();
@@ -1314,11 +1560,17 @@ function saveConfig(){
 }
 function updateEditButtonVisibility(){
   const btn=document.getElementById('btnEditMode');
-  if(btn) btn.style.display=getToken()?'flex':'none';
+  if(btn) btn.style.display=canEditContent()?'flex':'none';
   const priBtn=document.getElementById('btnPriEdit');
-  if(priBtn) priBtn.style.display=getToken()&&!priEditMode?'inline-flex':'none';
+  if(priBtn) priBtn.style.display=canEditContent()&&!priEditMode?'inline-flex':'none';
 }
-function openConfig(){document.getElementById('tokenInput').value=getToken();document.getElementById('gistIdInput').value=getGistId();document.getElementById('configModal').classList.add('active');}
+function openConfig(){
+  document.getElementById('tokenInput').value=getToken();
+  document.getElementById('gistIdInput').value=getGistId();
+  switchConfigTab('access');
+  renderAccessStatusBox();
+  document.getElementById('configModal').classList.add('active');
+}
 function closeConfig(){document.getElementById('configModal').classList.remove('active');}
 
 // ── Gist API ───────────────────────────────────────────────────────────────────
@@ -1344,6 +1596,7 @@ async function loadFromGist(){
     ensurePageOrder();
     ensurePrioritiesData();
     ensureProfilesData();
+    ensureAccessUsers();
     applySidebarOrder();
     renderFerias();
     setTimeout(renderUpcoming, 100);
@@ -1361,7 +1614,7 @@ async function loadFromGist(){
 }
 async function saveToGist(){
   const token=getToken(),gistId=getGistId();
-  if(!token){openConfig();return;}
+  if(!canWriteGist()){openConfig();return;}
   if(editMode){
     data.notice.title=document.getElementById('noticeTitleInput').value||data.notice.title;
     data.notice.text=document.getElementById('noticeTextInput').value||data.notice.text;
@@ -1382,7 +1635,7 @@ async function saveToGist(){
 }
 function showStatus(type,msg){const bar=document.getElementById('statusBar');bar.className='status-bar '+type;document.getElementById('statusMsg').textContent=msg;}
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
-function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();applySidebarOrder();render();}
+function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();ensureAccessUsers();applySidebarOrder();render();}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -1651,7 +1904,7 @@ function hidePreview(){
 
 // ── Edit mode ──────────────────────────────────────────────────────────────────
 function toggleEditMode(){
-  if(!getToken()) return;
+  if(!canEditContent()){ openConfig(); return; }
   editMode=!editMode;
   document.getElementById('editModeTag').classList.toggle('active',editMode);
   document.getElementById('btnSave').style.display=editMode?'flex':'none';
@@ -2122,7 +2375,7 @@ function namesMatch(a,b){
 }
 function canEditFeriasRecord(f){
   if(!f) return false;
-  if(getToken()) return true;
+  if(canWriteGist()) return true;
   const me=getUserName();
   return !!me&&namesMatch(f.nome,me);
 }
@@ -2259,7 +2512,7 @@ async function saveProfile(){
   renderMural();
   renderFerias();
   saveLocal();
-  if(getToken()&&getGistId()) await saveToGist();
+  if(canWriteGist()&&getGistId()) await saveToGist();
   if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
 }
 function openNameModal(){
@@ -2303,7 +2556,7 @@ function renderMural(){
   const btnAdd = document.getElementById('btnAddAviso');
   const avisos = getAvisos();
 
-  if(getToken()) btnAdd.style.display='flex';
+  if(canEditContent()) btnAdd.style.display='flex';
   if(!avisos.length && !getToken()){ wrap.style.display='none'; return; }
   wrap.style.display='block';
 
@@ -2346,7 +2599,7 @@ function buildAvisoCard(aviso, myConfirmed){
       <span class="aviso-tag ${tagMap[aviso.tipo]||'tag-info'}">${tagLabel[aviso.tipo]||'Aviso'}</span>
       <div style="display:flex;align-items:center;gap:6px">
         ${aviso.pinned?'<i class="ti ti-pin aviso-pin"></i>':''}
-        ${getToken()?`<button class="btn-sm" style="color:#f87171;border-color:rgba(248,113,113,0.25);padding:3px 7px" onclick="deleteAviso('${aviso.id}')"><i class="ti ti-trash"></i></button>`:''}
+        ${canEditContent()?`<button class="btn-sm" style="color:#f87171;border-color:rgba(248,113,113,0.25);padding:3px 7px" onclick="deleteAviso('${aviso.id}')"><i class="ti ti-trash"></i></button>`:''}
       </div>
     </div>
   `;
@@ -2411,7 +2664,7 @@ function confirmRead(avisoId, btn){
   if(aviso){
     if(!aviso.confirmedBy) aviso.confirmedBy=[];
     if(!aviso.confirmedBy.includes(me)) aviso.confirmedBy.push(me);
-    if(getToken()&&getGistId()) saveToGist();
+    if(canWriteGist()&&getGistId()) saveToGist();
   }
 }
 
@@ -2473,13 +2726,13 @@ function saveAviso(){
   if(!data.avisos) data.avisos=[];
   data.avisos.unshift(aviso);
   closeMuralForm();
-  if(getToken()&&getGistId()) saveToGist();
+  if(canWriteGist()&&getGistId()) saveToGist();
 }
 
 function deleteAviso(avisoId){
   if(!confirm('Remover este aviso?')) return;
   data.avisos = (data.avisos||[]).filter(a=>a.id!==avisoId);
-  if(getToken()&&getGistId()) saveToGist();
+  if(canWriteGist()&&getGistId()) saveToGist();
 }
 
 function formatDate(ts){
@@ -2543,7 +2796,7 @@ function saveFeriasEdit(){
   f.inicio = inicio; f.fim = fim; f.status = status;
   closeFeriasEdit();
   renderFerias();
-  if(getToken()&&getGistId()) saveToGist();
+  if(canWriteGist()&&getGistId()) saveToGist();
 }
 function deleteFeriasCurrent(){
   const id = document.getElementById('fEditId').value;
@@ -2553,7 +2806,7 @@ function deleteFeriasCurrent(){
   data.ferias = (data.ferias||[]).filter(x=>x.id!==id);
   closeFeriasEdit();
   renderFerias();
-  if(getToken()&&getGistId()) saveToGist();
+  if(canWriteGist()&&getGistId()) saveToGist();
 }
 
 function renderUpcoming(){
@@ -2647,11 +2900,15 @@ function feriasChangeMonth(delta){
 
 function openFeriasForm(){
   const form = document.getElementById('feriasForm');
-  form.classList.add('active');
   const nameEl = document.getElementById('fNome');
   const me=getUserName();
-  if(!getToken()){
-    if(!me){ openNameModal(); form.classList.remove('active'); return; }
+  if(!me){ openNameModal(); return; }
+  if(!canUseMemberFeatures()&&!canWriteGist()){
+    alert('Seu acesso não permite registrar férias. Solicite liberação em Configuração.');
+    return;
+  }
+  form.classList.add('active');
+  if(!canWriteGist()){
     nameEl.value=me;
     nameEl.readOnly=true;
     nameEl.style.opacity='0.6';
@@ -2675,11 +2932,15 @@ function saveFerias(){
   const status = document.getElementById('fStatus').value;
   if(!nome||!inicio||!fim){ alert('Preencha todos os campos.'); return; }
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
-  if(!getToken()){
+  if(!canUseMemberFeatures()&&!canWriteGist()){
+    alert('Seu acesso não permite registrar férias. Solicite liberação em Configuração.');
+    return;
+  }
+  if(!canWriteGist()){
     const me=getUserName();
     if(!me){ openNameModal(); return; }
     if(!namesMatch(nome,me)){
-      alert('Sem token de edição, você só pode registrar férias no seu nome.');
+      alert('Você só pode registrar férias no seu nome.');
       return;
     }
   }
@@ -2687,7 +2948,7 @@ function saveFerias(){
   data.ferias.push({ id:'f'+Date.now(), nome, inicio, fim, status });
   closeFeriasForm();
   renderFerias();
-  if(getToken()&&getGistId()) saveToGist();
+  if(canWriteGist()&&getGistId()) saveToGist();
 }
 
 function renderFerias(){
@@ -3230,7 +3491,7 @@ function onSbDrop(e){
   data.pageOrder=order;
   applySidebarOrder();
   if(editMode) updateSidebarEditMode();
-  if(getToken()&&getGistId()) saveToGist();
+  if(canWriteGist()&&getGistId()) saveToGist();
 }
 
 function onDragStart(e){
@@ -3304,7 +3565,7 @@ function moveLink(linkId, fromSectionId, toSectionId, beforeLinkId){
 
   render();
   // auto-save
-  if(getToken() && getGistId()) saveToGist();
+  if(getToken() && getGistId() && (canWriteGist() || canUseMemberFeatures())) saveToGist();
 }
 
 // ── Prioridades semanais ───────────────────────────────────────────────────────
@@ -3360,7 +3621,7 @@ function priGetSlot(day,shift){
   return data.priorities.slots[priSlotKey(day,shift)]||'';
 }
 function togglePrioritiesEdit(){
-  if(!getToken()){ openConfig(); return; }
+  if(!canEditContent()){ openConfig(); return; }
   priEditMode=true;
   ensurePrioritiesData();
   if(!priIsConfiguredWeek()){
@@ -3380,7 +3641,7 @@ function cancelPrioritiesEdit(){
   renderPriorities();
 }
 function updatePriEditUI(){
-  document.getElementById('btnPriEdit').style.display=getToken()&&!priEditMode?'inline-flex':'none';
+  document.getElementById('btnPriEdit').style.display=canEditContent()&&!priEditMode?'inline-flex':'none';
   document.getElementById('btnPriSave').style.display=priEditMode?'inline-flex':'none';
   document.getElementById('btnPriCancel').style.display=priEditMode?'inline-flex':'none';
   document.getElementById('priInstructionsView').style.display=priEditMode?'none':'block';
@@ -3403,7 +3664,7 @@ function collectPrioritiesFromUI(){
   });
 }
 async function savePriorities(){
-  if(!getToken()){ openConfig(); return; }
+  if(!canEditContent()){ openConfig(); return; }
   collectPrioritiesFromUI();
   data.priorities.updatedAt=new Date().toISOString();
   priEditMode=false;
@@ -3419,7 +3680,7 @@ function renderPriorities(){
   if(configured&&pri.updatedAt){
     meta.textContent='Atualizado em '+new Date(pri.updatedAt).toLocaleString('pt-BR');
   } else if(!configured){
-    meta.textContent='Esta semana ainda não foi configurada.'+(getToken()?' Clique em Editar semana para definir.':'');
+    meta.textContent='Esta semana ainda não foi configurada.'+(canEditContent()?' Clique em Editar semana para definir.':'');
   } else {
     meta.textContent='Grade da semana atual do pack.';
   }
