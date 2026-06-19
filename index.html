@@ -1073,11 +1073,10 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 5 de 7</div>
           <h3>Férias do pack</h3>
-          <p>Na página <strong>Férias</strong>, registre seu período — com o <strong>token do pack</strong> configurado, o registro vai direto para o Gist e todo o time vê.</p>
+          <p>Na página <strong>Férias</strong>, registre seu período e acompanhe quem está fora do time.</p>
           <div class="guide-illustration guide-step-list">
-            <div class="guide-step-item"><span class="num">1</span><span>Configure o token (Passo 2) se ainda não fez</span></div>
-            <div class="guide-step-item"><span class="num">2</span><span>Menu lateral → <strong>Férias</strong> → <strong>Registrar férias</strong></span></div>
-            <div class="guide-step-item"><span class="num">3</span><span>Clique em um item da lista para editar status</span></div>
+            <div class="guide-step-item"><span class="num">1</span><span>Menu lateral → <strong>Férias</strong> → <strong>Registrar férias</strong></span></div>
+            <div class="guide-step-item"><span class="num">2</span><span>Clique em um item da lista para editar status</span></div>
           </div>
         </div>
       </div>
@@ -1951,9 +1950,8 @@ function canSyncProfileToGist(){
 function canSyncFeriasToGist(){
   return canSyncProfileToGist();
 }
-function requirePackTokenForFerias(){
+function ensurePackTokenOrRedirect(){
   if(getToken()&&getGistId()) return true;
-  alert('Configure o token do pack antes de registrar férias — senão o registro fica só neste navegador.');
   openNameModal();
   showProfileModalStep('token');
   return false;
@@ -3745,7 +3743,7 @@ async function saveFeriasEdit(){
   const id     = document.getElementById('fEditId').value;
   const f = (data.ferias||[]).find(x=>x.id===id);
   if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para editar este registro.'); return; }
-  if(!requirePackTokenForFerias()) return;
+  if(!ensurePackTokenOrRedirect()) return;
   const inicio = document.getElementById('fEditInicio').value;
   const fim    = document.getElementById('fEditFim').value;
   const status = document.getElementById('fEditStatus').value;
@@ -3759,7 +3757,7 @@ async function deleteFeriasCurrent(){
   const id = document.getElementById('fEditId').value;
   const f = (data.ferias||[]).find(x=>x.id===id);
   if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para remover este registro.'); return; }
-  if(!requirePackTokenForFerias()) return;
+  if(!ensurePackTokenOrRedirect()) return;
   if(!confirm('Remover este registro de férias?')) return;
   data.ferias = (data.ferias||[]).filter(x=>x.id!==id);
   closeFeriasEdit();
@@ -3865,12 +3863,6 @@ function openFeriasForm(){
     alert('Seu acesso não permite registrar férias. Solicite liberação em Configuração.');
     return;
   }
-  if(!getToken()||!getGistId()){
-    if(!confirm('Sem o token do pack, férias não são publicadas para o time. Configurar token agora?')) return;
-    openNameModal();
-    showProfileModalStep('token');
-    return;
-  }
   form.classList.add('active');
   if(!canWriteGist()){
     nameEl.value=me;
@@ -3900,7 +3892,7 @@ async function saveFerias(){
     alert('Seu acesso não permite registrar férias. Solicite liberação em Configuração.');
     return;
   }
-  if(!requirePackTokenForFerias()) return;
+  if(!ensurePackTokenOrRedirect()) return;
   if(!canWriteGist()){
     const me=getUserName();
     if(!me){ openNameModal(); return; }
