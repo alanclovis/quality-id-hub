@@ -440,6 +440,40 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .ferias-form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .ferias-form label{font-size:11px;color:var(--text3);display:block;margin-bottom:3px;}
 
+/* ── Prioridades semanais ── */
+.pri-wrap{margin-bottom:2.5rem;}
+.pri-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+.pri-title{font-family:var(--font-display);font-size:28px;font-weight:600;letter-spacing:-.5px;color:var(--text);display:flex;align-items:center;gap:10px;line-height:1.2;}
+.pri-header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.pri-week-nav{display:flex;align-items:center;gap:6px;background:var(--bg2);border-radius:var(--rs);padding:4px;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.pri-week-label{font-size:13px;font-weight:500;color:var(--text);min-width:140px;text-align:center;padding:0 4px;}
+.pri-meta{font-size:12px;color:var(--text3);margin-bottom:14px;}
+.pri-grid-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:1.5rem;}
+.pri-grid{width:100%;min-width:640px;border-collapse:collapse;}
+.pri-grid th,.pri-grid td{border:1px solid var(--border);padding:0;vertical-align:middle;}
+.pri-grid th{background:#ede9fe;color:#5b21b6;font-size:12px;font-weight:600;padding:10px 8px;text-align:center;}
+.pri-grid th.pri-corner{background:var(--bg3);color:var(--text3);width:88px;}
+.pri-grid td.pri-shift{background:var(--bg3);font-size:12px;font-weight:600;color:var(--text2);text-align:center;padding:10px 8px;width:88px;white-space:nowrap;}
+.pri-cell{padding:10px 8px;min-height:52px;font-size:11px;line-height:1.4;color:var(--text);text-align:center;background:#fff;}
+.pri-cell-empty{color:var(--text3);opacity:0.5;}
+.pri-cell-select{width:100%;min-height:48px;border:none;background:transparent;font-size:11px;font-family:inherit;color:var(--text);padding:8px;text-align:center;cursor:pointer;outline:none;}
+.pri-cell-select:focus{background:#f0f7ff;}
+.pri-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.pri-card h4{font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px;color:var(--text);}
+.pri-instructions{font-size:13px;color:var(--text2);line-height:1.65;white-space:pre-wrap;}
+.pri-instructions-edit{width:100%;min-height:100px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:13px;font-family:inherit;line-height:1.55;resize:vertical;outline:none;}
+.pri-instructions-edit:focus{border-color:#0071e3;box-shadow:0 0 0 3px rgba(0,113,227,0.1);}
+.pri-summary-table{width:100%;border-collapse:collapse;font-size:13px;}
+.pri-summary-table th,.pri-summary-table td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;}
+.pri-summary-table th{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;background:var(--bg);}
+.pri-summary-table tr:last-child td{border-bottom:none;}
+.pri-summary-total{font-weight:700;background:#ede9fe;color:#5b21b6;}
+.pri-count-input{width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;text-align:right;background:var(--bg);}
+.pri-edit-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.pri-queue-name{font-size:12px;color:var(--text);word-break:break-all;}
+.pri-queue-short{display:block;font-weight:500;}
+.pri-queue-full{display:block;font-size:10px;color:var(--text3);margin-top:2px;}
+
 
 /* ── Sidebar ── */
 .app-shell{display:flex;min-height:100vh;}
@@ -894,6 +928,10 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <i class="ti ti-beach"></i>
     <span class="sb-label">Férias</span>
   </div>
+  <div class="sb-item" id="sbPrioridades" onclick="showPage('prioridades')">
+    <i class="ti ti-calendar-week"></i>
+    <span class="sb-label">Prioridades</span>
+  </div>
   <div class="sb-spacer"></div>
   <div class="sb-toggle" onclick="toggleSidebar()" title="Recolher menu">
     <i class="ti ti-layout-sidebar-left-collapse" id="sbToggleIcon"></i>
@@ -1132,6 +1170,41 @@ const DEFAULT_DATA={
   ]
 };
 
+const PRI_DAYS=[
+  {key:'seg',label:'Segunda'},
+  {key:'ter',label:'Terça'},
+  {key:'qua',label:'Quarta'},
+  {key:'qui',label:'Quinta'},
+  {key:'sex',label:'Sexta'},
+];
+const PRI_SHIFTS=[
+  {key:'manha',label:'Manhã'},
+  {key:'tarde',label:'Tarde'},
+];
+const DEFAULT_PRIORITIES={
+  weekStart:null,
+  instructions:`① Se a fila "reversed" estiver vazia, siga para a fila de "decision" interna.\n② Planejem a semana com base em quantos slots precisam para os projetos e mantenham organizado no dimensionamento de cada pessoa.\n③ Provavelmente sempre haverá casos nas filas, mas lembrem dos intervalos normais.`,
+  slots:{
+    'seg-manha':'data-labeling-hsp-id-fraudadoresearquivados',
+    'seg-tarde':'data-labeling-hsp-id-catchandrelease',
+    'ter-manha':'data-labeling-hsp-id-pending',
+    'ter-tarde':'data-labeling-id-amostra-decision',
+    'qua-manha':'data-labeling-hsp-id-fraudadoresearquivados',
+    'qua-tarde':'data-labeling-hsp-id-catchandrelease',
+    'qui-manha':'data-labeling-id-amostra-decision',
+    'qui-tarde':'data-labeling-hsp-id-pending',
+    'sex-manha':'data-labeling-hsp-id-fraudadoresearquivados',
+    'sex-tarde':'data-labeling-id-amostra-decision',
+  },
+  queues:[
+    {id:'q1',name:'data-labeling-hsp-id-fraudadoresearquivados',count:93},
+    {id:'q2',name:'data-labeling-hsp-id-catchandrelease',count:376},
+    {id:'q3',name:'data-labeling-hsp-id-pending',count:213},
+    {id:'q4',name:'data-labeling-id-amostra-decision',count:27},
+    {id:'q5',name:'data-labeling-id-fraudadoresrevertidos',count:41},
+  ],
+};
+
 // ── Logo helpers ───────────────────────────────────────────────────────────────
 function findLogo(id){
   for(const cat of Object.values(LOGO_CATALOG)){
@@ -1190,6 +1263,8 @@ function saveConfig(){
 function updateEditButtonVisibility(){
   const btn=document.getElementById('btnEditMode');
   if(btn) btn.style.display=getToken()?'flex':'none';
+  const priBtn=document.getElementById('btnPriEdit');
+  if(priBtn) priBtn.style.display=getToken()&&!priEditMode?'inline-flex':'none';
 }
 function openConfig(){document.getElementById('tokenInput').value=getToken();document.getElementById('gistIdInput').value=getGistId();document.getElementById('configModal').classList.add('active');}
 function closeConfig(){document.getElementById('configModal').classList.remove('active');}
@@ -1212,9 +1287,11 @@ async function loadFromGist(){
       return;
     }
     data=parsed;
+    ensurePrioritiesData();
     renderFerias();
     setTimeout(renderUpcoming, 100);
     render();
+    if(document.getElementById('pagePrioridades')?.classList.contains('active')) renderPriorities();
     const link=document.getElementById('gistFooterLink');
     link.href=`https://gist.github.com/${gistId}`;link.style.display='flex';
     const ts=json.updated_at?new Date(json.updated_at).toLocaleString('pt-BR'):'';
@@ -1765,6 +1842,7 @@ function applyZoom(z){
   wrap.style.width=`${10000/currentZoom}%`;
   document.getElementById('zoomVal').textContent=currentZoom+'%';
   const zf=document.getElementById('zoomValFerias'); if(zf) zf.textContent=currentZoom+'%';
+  const zp=document.getElementById('zoomValPrioridades'); if(zp) zp.textContent=currentZoom+'%';
   localStorage.setItem('qhub_zoom',currentZoom);
 }
 function adjustZoom(delta){applyZoom(currentZoom+delta);}
@@ -1808,24 +1886,16 @@ let lastPage = 'links';
 const _origShowPage = typeof showPage === 'function' ? showPage : null;
 
 function showPageAnimated(page){
-  const fromLinks = lastPage === 'links';
-  const toFerias  = page === 'ferias';
-  const cl = toFerias ? 'slide-right' : 'slide-left';
-
-  // Switch page
-  document.getElementById('pageLinks').classList.toggle('active', page==='links');
-  document.getElementById('pageFerias').classList.toggle('active', page==='ferias');
-  document.getElementById('sbLinks').classList.toggle('active', page==='links');
-  document.getElementById('sbFerias').classList.toggle('active', page==='ferias');
-
-  // Apply slide animation
-  const activePage = document.getElementById(page==='links' ? 'pageLinks' : 'pageFerias');
-  activePage.classList.remove('slide-right','slide-left','entering');
-  void activePage.offsetWidth;
-  activePage.classList.add(cl);
-
-  lastPage = page;
-  localStorage.setItem('qhub_page', page);
+  const pageMap={links:'pageLinks',ferias:'pageFerias',prioridades:'pagePrioridades'};
+  const sbMap={links:'sbLinks',ferias:'sbFerias',prioridades:'sbPrioridades'};
+  Object.keys(pageMap).forEach(p=>{
+    document.getElementById(pageMap[p])?.classList.toggle('active',page===p);
+    document.getElementById(sbMap[p])?.classList.toggle('active',page===p);
+  });
+  if(page==='ferias'){ renderFerias(); renderUpcoming(); }
+  if(page==='prioridades') renderPriorities();
+  lastPage=page;
+  localStorage.setItem('qhub_page',page);
 }
 
 // 4. Fav button pop animation
@@ -2817,6 +2887,176 @@ function moveLink(linkId, fromSectionId, toSectionId, beforeLinkId){
   if(getToken() && getGistId()) saveToGist();
 }
 
+// ── Prioridades semanais ───────────────────────────────────────────────────────
+let priEditMode=false;
+let priWeekStart=null;
+
+function getMondayISO(d=new Date()){
+  const date=new Date(d);
+  const day=date.getDay();
+  const diff=date.getDate()-day+(day===0?-6:1);
+  date.setDate(diff);
+  date.setHours(0,0,0,0);
+  return date.toISOString().slice(0,10);
+}
+function ensurePrioritiesData(){
+  if(!data.priorities) data.priorities=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES));
+  if(!data.priorities.slots) data.priorities.slots={};
+  if(!data.priorities.queues?.length) data.priorities.queues=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES.queues));
+  if(!data.priorities.instructions) data.priorities.instructions=DEFAULT_PRIORITIES.instructions;
+  if(!data.priorities.weekStart) data.priorities.weekStart=getMondayISO();
+  if(!priWeekStart) priWeekStart=data.priorities.weekStart;
+  return data.priorities;
+}
+function formatPriWeekRange(weekStartISO){
+  const start=new Date(weekStartISO+'T12:00:00');
+  const end=new Date(start);
+  end.setDate(end.getDate()+4);
+  return `${start.getDate()} – ${end.getDate()} ${MONTHS_PT[end.getMonth()]} ${end.getFullYear()}`;
+}
+function priSlotKey(day,shift){ return day+'-'+shift; }
+function formatQueueShort(name){
+  if(!name) return '—';
+  return name.replace(/^data-labeling-/,'').replace(/^hsp-id-/,'hsp·');
+}
+function priChangeWeek(delta){
+  const d=new Date(priWeekStart+'T12:00:00');
+  d.setDate(d.getDate()+delta*7);
+  priWeekStart=getMondayISO(d);
+  if(priEditMode) cancelPrioritiesEdit();
+  renderPriorities();
+}
+function priGoCurrentWeek(){
+  priWeekStart=getMondayISO();
+  if(priEditMode) cancelPrioritiesEdit();
+  renderPriorities();
+}
+function priIsConfiguredWeek(){
+  ensurePrioritiesData();
+  return priWeekStart===data.priorities.weekStart;
+}
+function priGetSlot(day,shift){
+  if(!priIsConfiguredWeek()) return '';
+  return data.priorities.slots[priSlotKey(day,shift)]||'';
+}
+function togglePrioritiesEdit(){
+  if(!getToken()){ openConfig(); return; }
+  priEditMode=true;
+  ensurePrioritiesData();
+  if(!priIsConfiguredWeek()){
+    data.priorities.weekStart=priWeekStart;
+    if(!Object.keys(data.priorities.slots).length){
+      data.priorities.slots=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES.slots));
+    }
+  }
+  document.getElementById('priInstructionsEdit').value=data.priorities.instructions||'';
+  updatePriEditUI();
+  renderPriorities();
+}
+function cancelPrioritiesEdit(){
+  priEditMode=false;
+  priWeekStart=data.priorities.weekStart||getMondayISO();
+  updatePriEditUI();
+  renderPriorities();
+}
+function updatePriEditUI(){
+  document.getElementById('btnPriEdit').style.display=getToken()&&!priEditMode?'inline-flex':'none';
+  document.getElementById('btnPriSave').style.display=priEditMode?'inline-flex':'none';
+  document.getElementById('btnPriCancel').style.display=priEditMode?'inline-flex':'none';
+  document.getElementById('priInstructionsView').style.display=priEditMode?'none':'block';
+  document.getElementById('priInstructionsEdit').style.display=priEditMode?'block':'none';
+}
+function collectPrioritiesFromUI(){
+  const pri=ensurePrioritiesData();
+  pri.weekStart=priWeekStart;
+  pri.instructions=document.getElementById('priInstructionsEdit').value.trim()||pri.instructions;
+  PRI_DAYS.forEach(day=>{
+    PRI_SHIFTS.forEach(shift=>{
+      const sel=document.getElementById('pri-cell-'+priSlotKey(day.key,shift.key));
+      if(sel) pri.slots[priSlotKey(day.key,shift.key)]=sel.value||'';
+    });
+  });
+  document.querySelectorAll('[data-pri-queue-id]').forEach(inp=>{
+    const id=inp.dataset.priQueueId;
+    const q=pri.queues.find(x=>x.id===id);
+    if(q) q.count=parseInt(inp.value,10)||0;
+  });
+}
+async function savePriorities(){
+  if(!getToken()){ openConfig(); return; }
+  collectPrioritiesFromUI();
+  data.priorities.updatedAt=new Date().toISOString();
+  priEditMode=false;
+  updatePriEditUI();
+  renderPriorities();
+  await saveToGist();
+}
+function renderPriorities(){
+  const pri=ensurePrioritiesData();
+  document.getElementById('priWeekLabel').textContent=formatPriWeekRange(priWeekStart);
+  const meta=document.getElementById('priMeta');
+  const configured=priIsConfiguredWeek();
+  if(configured&&pri.updatedAt){
+    meta.textContent='Atualizado em '+new Date(pri.updatedAt).toLocaleString('pt-BR');
+  } else if(!configured){
+    meta.textContent='Esta semana ainda não foi configurada.'+(getToken()?' Clique em Editar semana para definir.':'');
+  } else {
+    meta.textContent='Grade da semana atual do pack.';
+  }
+  const grid=document.getElementById('priGrid');
+  let html='<thead><tr><th class="pri-corner"></th>';
+  PRI_DAYS.forEach(d=>{ html+=`<th>${d.label}</th>`; });
+  html+='</tr></thead><tbody>';
+  PRI_SHIFTS.forEach(shift=>{
+    html+=`<tr><td class="pri-shift">${shift.label}</td>`;
+    PRI_DAYS.forEach(day=>{
+      const key=priSlotKey(day.key,shift.key);
+      const val=priGetSlot(day.key,shift.key);
+      if(priEditMode&&configured){
+        html+=`<td class="pri-cell"><select class="pri-cell-select" id="pri-cell-${key}">`;
+        html+=`<option value="">— vazio —</option>`;
+        pri.queues.forEach(q=>{
+          html+=`<option value="${escapeAttr(q.name)}"${val===q.name?' selected':''}>${escapeHtml(formatQueueShort(q.name))}</option>`;
+        });
+        if(val&&!pri.queues.some(q=>q.name===val)){
+          html+=`<option value="${escapeAttr(val)}" selected>${escapeHtml(formatQueueShort(val))}</option>`;
+        }
+        html+='</select></td>';
+      } else {
+        const cls=val?'':' pri-cell-empty';
+        html+=`<td class="pri-cell${cls}" title="${escapeAttr(val)}">`;
+        if(val){
+          html+=`<span class="pri-queue-short">${escapeHtml(formatQueueShort(val))}</span>`;
+          html+=`<span class="pri-queue-full">${escapeHtml(val)}</span>`;
+        } else html+='—';
+        html+='</td>';
+      }
+    });
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  grid.innerHTML=html;
+  const viewEl=document.getElementById('priInstructionsView');
+  viewEl.textContent=pri.instructions||'';
+  const sum=document.getElementById('priSummary');
+  let total=0;
+  let shtml='<thead><tr><th>Fila</th><th style="text-align:right;width:100px">Casos</th></tr></thead><tbody>';
+  pri.queues.forEach(q=>{
+    total+=q.count||0;
+    shtml+=`<tr><td class="pri-queue-name">${escapeHtml(q.name)}</td><td style="text-align:right">`;
+    if(priEditMode&&configured){
+      shtml+=`<input type="number" min="0" class="pri-count-input" data-pri-queue-id="${q.id}" value="${q.count||0}">`;
+    } else {
+      shtml+=`<strong>${q.count||0}</strong>`;
+    }
+    shtml+='</td></tr>';
+  });
+  shtml+=`<tr class="pri-summary-total"><td>TOTAL DE AMOSTRAS</td><td style="text-align:right"><strong>${total}</strong></td></tr>`;
+  shtml+='</tbody>';
+  sum.innerHTML=shtml;
+  updatePriEditUI();
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
   initTagFilterUI();
@@ -2937,6 +3177,50 @@ window.addEventListener('DOMContentLoaded',()=>{
   <div class="upcoming-list" id="upcomingList"></div>
 </div></div><!-- end layout -->
 <!-- end pageFerias -->
+
+<div class="page" id="pagePrioridades"><div class="layout">
+<div class="zoom-bar" id="zoomBarPrioridades">
+  <span class="zoom-label"><i class="ti ti-zoom-in" style="font-size:13px;vertical-align:-2px"></i> Zoom</span>
+  <button class="btn-sm" onclick="adjustZoom(-10)"><i class="ti ti-minus"></i></button>
+  <span class="zoom-value" id="zoomValPrioridades">100%</span>
+  <button class="btn-sm" onclick="adjustZoom(10)"><i class="ti ti-plus"></i></button>
+  <button class="btn-sm" onclick="resetZoom()">Reset</button>
+</div>
+
+<div class="pri-wrap">
+  <div class="pri-header">
+    <div class="pri-title">
+      <i class="ti ti-calendar-week" style="font-size:22px;color:#7c3aed"></i>
+      Prioridade da semana
+    </div>
+    <div class="pri-header-actions">
+      <div class="pri-week-nav">
+        <button class="btn-sm" onclick="priChangeWeek(-1)" title="Semana anterior"><i class="ti ti-chevron-left"></i></button>
+        <span class="pri-week-label" id="priWeekLabel"></span>
+        <button class="btn-sm" onclick="priChangeWeek(1)" title="Próxima semana"><i class="ti ti-chevron-right"></i></button>
+      </div>
+      <button class="btn-sm" onclick="priGoCurrentWeek()">Hoje</button>
+      <button class="btn primary" id="btnPriEdit" style="display:none" onclick="togglePrioritiesEdit()"><i class="ti ti-pencil"></i> Editar semana</button>
+      <button class="btn danger" id="btnPriSave" style="display:none" onclick="savePriorities()"><i class="ti ti-cloud-upload"></i> Salvar</button>
+      <button class="btn" id="btnPriCancel" style="display:none" onclick="cancelPrioritiesEdit()"><i class="ti ti-x"></i> Cancelar</button>
+    </div>
+  </div>
+  <div class="pri-meta" id="priMeta"></div>
+  <div class="pri-grid-wrap">
+    <table class="pri-grid" id="priGrid"></table>
+  </div>
+  <div class="pri-card">
+    <h4><i class="ti ti-info-circle" style="color:#0071e3"></i> Instruções</h4>
+    <div class="pri-instructions" id="priInstructionsView"></div>
+    <textarea class="pri-instructions-edit" id="priInstructionsEdit" style="display:none"></textarea>
+  </div>
+  <div class="pri-card">
+    <h4><i class="ti ti-chart-bar" style="color:#7c3aed"></i> Quantidade de casos por fila</h4>
+    <table class="pri-summary-table" id="priSummary"></table>
+  </div>
+</div>
+</div><!-- end layout -->
+<!-- end pagePrioridades -->
 
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell --></body>
