@@ -4071,6 +4071,10 @@ function hideFeriasBarTooltip(){
   const tip=document.getElementById('feriasBarTooltip');
   if(tip) tip.classList.remove('visible');
 }
+if(!window.__feriasTooltipBound){
+  window.__feriasTooltipBound=true;
+  window.addEventListener('scroll',hideFeriasBarTooltip,true);
+}
 function bindFeriasBarTooltip(bar,f,nome,canEdit){
   bar.addEventListener('mouseenter',()=>showFeriasBarTooltip(bar,f,nome,canEdit));
   bar.addEventListener('mouseleave',hideFeriasBarTooltip);
@@ -4461,8 +4465,9 @@ function renderFerias(){
       const barSpan=barEnd-barStart+1;
       const label = barSpan >= 2 ? formatFeriasBarLabel(f,nome) : '';
       bar.textContent = label;
-      bar.title = getFeriasTimelineTitle(f,nome,canEditBar);
+      bar.setAttribute('aria-label',getFeriasTimelineTitle(f,nome,canEditBar));
       bar.style.cursor='pointer';
+      bindFeriasBarTooltip(bar,f,nome,canEditBar);
       bar.addEventListener('click', ev=>{
         ev.stopPropagation();
         openFeriasEdit(f.id);
