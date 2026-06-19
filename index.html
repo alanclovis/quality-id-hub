@@ -420,7 +420,14 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .auth-admin-box{background:var(--purple-bg);border:1px solid rgba(0,113,227,0.2);border-radius:var(--rs);padding:14px;margin-bottom:18px;}
 .auth-admin-box .auth-admin-title{font-size:13px;font-weight:600;color:var(--purple-l);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
 .auth-admin-divider{border:none;border-top:1px solid var(--border);margin:18px 0;}
-.auth-member-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;}
+.auth-choice{display:flex;flex-direction:column;gap:10px;margin-bottom:4px;}
+.auth-choice-btn{width:100%;justify-content:flex-start;padding:14px 16px;text-align:left;flex-direction:column;align-items:flex-start;gap:4px;height:auto;}
+.auth-choice-btn strong{font-size:14px;font-weight:600;}
+.auth-choice-btn span{font-size:12px;color:var(--text2);font-weight:400;line-height:1.45;}
+.auth-choice-btn.primary strong,.auth-choice-btn.primary span{color:inherit;}
+.auth-choice-btn.primary span{opacity:0.9;}
+.auth-back-link{background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:0;margin-bottom:12px;display:inline-flex;align-items:center;gap:4px;}
+.auth-back-link:hover{color:var(--text2);}
 .auth-status{text-align:center;font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5;}
 .auth-error{text-align:center;font-size:13px;color:var(--amber);padding:12px;line-height:1.5;}
 .auth-email-display{font-size:12px;color:var(--text3);margin-top:4px;word-break:break-all;}
@@ -878,10 +885,35 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <div class="name-backdrop" id="nameBackdrop">
   <div class="name-modal profile-modal">
     <div class="profile-step active" id="profileStepAuth">
-      <h3>Código de acesso</h3>
+      <h3>Bem-vindo ao Hub</h3>
+      <div id="authChoosePanel">
+        <p class="profile-intro">Como você quer entrar?</p>
+        <div class="auth-choice">
+          <button type="button" class="btn auth-choice-btn" onclick="enterAsVisitor()">
+            <strong><i class="ti ti-eye"></i> Entrar como visitante</strong>
+            <span>Ver links, prioridades e férias — sem cadastro nem código</span>
+          </button>
+          <button type="button" class="btn primary auth-choice-btn" onclick="showMemberCodeForm()">
+            <strong><i class="ti ti-users"></i> Sou membro do pack</strong>
+            <span>Informe o código pessoal enviado pelo admin no Slack</span>
+          </button>
+        </div>
+      </div>
+      <div id="authMemberPanel" style="display:none">
+        <button type="button" class="auth-back-link" onclick="showAuthChoose()"><i class="ti ti-arrow-left"></i> Voltar</button>
+        <p class="profile-intro">Digite o <strong>código pessoal</strong> da sua ficha no pack.</p>
+        <div class="profile-field invite-code-field">
+          <label for="inviteCodeInput">Seu código</label>
+          <input type="text" id="inviteCodeInput" placeholder="LUC-8K3M" autocomplete="off" maxlength="12">
+        </div>
+        <p class="invite-code-hint">Formato: três letras, hífen, quatro caracteres. Só funciona se o admin já cadastrou você.</p>
+        <button class="btn primary profile-save" onclick="submitInviteCode()"><i class="ti ti-key"></i> Entrar com código</button>
+        <p class="auth-status" id="authStatusMsg" style="display:none"></p>
+      </div>
+      <hr class="auth-admin-divider" id="authAdminDivider">
       <div id="authAdminSetup" class="auth-admin-box">
         <div class="auth-admin-title"><i class="ti ti-shield"></i> Admin do pack</div>
-        <p class="profile-intro" style="margin-bottom:10px">Primeiro acesso? Configure o token e entre <strong>sem código</strong>.</p>
+        <p class="profile-intro" style="margin-bottom:10px">Primeiro acesso? Configure o token e entre sem código de membro.</p>
         <div id="authAdminTokenStep">
           <button class="btn" type="button" style="width:100%;justify-content:center" onclick="openConfigFromAuth()"><i class="ti ti-settings"></i> 1. Configurar token (Técnico)</button>
         </div>
@@ -904,21 +936,11 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
           </div>
         </div>
       </div>
-      <hr class="auth-admin-divider">
-      <p class="auth-member-label">Membro ou visitante</p>
-      <p class="profile-intro">Digite o <strong>código pessoal</strong> enviado no Slack (cadastro na lista do pack).</p>
-      <div class="profile-field invite-code-field">
-        <label for="inviteCodeInput">Seu código</label>
-        <input type="text" id="inviteCodeInput" placeholder="ABC-7K3M" autocomplete="off" maxlength="12">
-      </div>
-      <p class="invite-code-hint">Formato: três letras, hífen, quatro caracteres (ex.: LUC-8K3M). Código visitante do pack também funciona.</p>
-      <button class="btn primary profile-save" onclick="submitInviteCode()"><i class="ti ti-key"></i> Entrar com código</button>
-      <p class="auth-status" id="authStatusMsg" style="display:none"></p>
     </div>
     <div class="profile-step" id="profileStepVisitor">
       <h3>Acesso visitante</h3>
       <p class="profile-intro">Você pode navegar <strong>links</strong>, <strong>prioridades</strong> e <strong>férias</strong> em modo leitura. Perfil, token e registro de férias não estão disponíveis.</p>
-      <p class="profile-intro">Para acesso completo, peça ao admin para promover você a <strong>Membro</strong> em Configuração → Usuários.</p>
+      <p class="profile-intro">Para acesso completo, saia e escolha <strong>Sou membro do pack</strong> com o código enviado pelo admin.</p>
       <button class="btn primary profile-save" onclick="closeName()"><i class="ti ti-check"></i> Entendi</button>
     </div>
     <div class="profile-step" id="profileStepToken">
@@ -992,7 +1014,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
             <div class="guide-pill"><i class="ti ti-beach"></i> Férias</div>
             <div class="guide-pill"><i class="ti ti-user"></i> Perfil</div>
           </div>
-          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita, use o <strong>código de acesso</strong> (Slack do admin), configure o <strong>token</strong> e complete seu perfil — só uma vez por navegador.</span></div>
+          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita, escolha <strong>Visitante</strong> (sem código) ou <strong>Membro do pack</strong> (código do admin).</span></div>
         </div>
       </div>
 
@@ -1001,11 +1023,11 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 2 de 7</div>
           <h3>Seu perfil no pack</h3>
-          <p>O admin cadastra cada pessoa em <strong>Configuração → Usuários</strong> e envia um <strong>código pessoal</strong> no Slack. Na primeira vez, você informa o código, o <strong>token do pack</strong> e só depois edita foto, nível e área.</p>
+          <p>O admin cadastra membros em <strong>Configuração → Usuários</strong> e envia um código no Slack. Visitantes entram direto; membros usam o código, depois configuram o <strong>token</strong> e completam o perfil.</p>
           <div class="guide-illustration" style="flex-direction:column;gap:8px;align-items:stretch">
             <div class="guide-step-list">
-              <div class="guide-step-item"><span class="num">1</span><span>Digite seu código de acesso (uma vez por navegador)</span></div>
-              <div class="guide-step-item"><span class="num">2</span><span>Informe o token fornecido pelo admin</span></div>
+              <div class="guide-step-item"><span class="num">1</span><span><strong>Visitante</strong> — um clique, sem código</span></div>
+              <div class="guide-step-item"><span class="num">2</span><span><strong>Membro</strong> — código pessoal + token do pack</span></div>
               <div class="guide-step-item"><span class="num">3</span><span>Complete foto, nível e área de atuação</span></div>
             </div>
           </div>
@@ -1066,8 +1088,8 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
           <h3>Configuração e acessos</h3>
           <p>Abra a <strong>engrenagem</strong>, no canto superior direito, para ver seu papel (Membro, Editor ou Admin) e, na aba <strong>Técnico</strong>, colar o Gist ID — qualquer membro pode configurar.</p>
           <div class="guide-illustration guide-step-list">
-            <div class="guide-step-item"><i class="ti ti-user-check" style="color:var(--green);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Membro</strong> — código pessoal; perfil e férias próprias</span></div>
-            <div class="guide-step-item"><i class="ti ti-eye" style="color:var(--text2);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Visitante</strong> — só leitura (links, prioridades, férias)</span></div>
+            <div class="guide-step-item"><i class="ti ti-eye" style="color:var(--text2);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Visitante</strong> — entra sem código; só leitura</span></div>
+            <div class="guide-step-item"><i class="ti ti-user-check" style="color:var(--green);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Membro</strong> — código pessoal; perfil e férias</span></div>
             <div class="guide-step-item"><i class="ti ti-pencil" style="color:#0071e3;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Editor</strong> — edita links e prioridades (precisa do token GitHub)</span></div>
             <div class="guide-step-item"><i class="ti ti-shield" style="color:#7c3aed;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Admin</strong> — tudo + gerenciar papéis na aba Usuários</span></div>
           </div>
@@ -1141,15 +1163,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       </div>
     </div>
     <div class="config-panel" id="configPanelUsers">
-      <p class="access-hint">Cadastre cada pessoa com nome e papel. Um <strong>código pessoal</strong> é gerado — envie no Slack. Visitantes cadastrados ou o código visitante do pack entram só em leitura.</p>
-      <div class="profiles-publish-box visitor-code-box" id="visitorCodeBox" style="display:none;margin-bottom:14px">
-        <p class="access-hint"><strong>Código visitante do pack</strong> — leitura geral, sem cadastro individual. Quem usar entra como visitante.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
-          <div style="flex:1;min-width:140px"><label style="font-size:11px;color:var(--text3)">Código visitante</label><input type="text" id="visitorCodeInput" placeholder="VIS-7K3M" autocomplete="off" style="width:100%;font-family:monospace"></div>
-          <button class="btn-sm" type="button" onclick="adminGenerateVisitorCode()"><i class="ti ti-refresh"></i> Gerar</button>
-          <button class="btn primary btn-sm" type="button" onclick="adminSaveVisitorCode()"><i class="ti ti-check"></i> Salvar no pack</button>
-        </div>
-      </div>
+      <p class="access-hint">Cadastre cada pessoa com nome e papel. Membros recebem <strong>código pessoal</strong> no Slack. Visitantes entram pelo hub sem código.</p>
       <div class="profiles-publish-box" id="profilesPublishBox" style="display:none">
         <p class="access-hint">Cada membro publica o próprio perfil ao salvar (com o token do pack em Técnico). Use o botão abaixo só para recuperar perfis que existam <strong>neste navegador</strong> — não alcança outros computadores.</p>
         <p class="access-hint" id="profilesPublishSummary"></p>
@@ -1560,10 +1574,6 @@ const VISITOR_PACK_USER_ID='__visitor_pack__';
 function ensureAuthConfig(){
   if(!data.authConfig) data.authConfig={};
 }
-function getPackVisitorCode(){
-  ensureAuthConfig();
-  return (data.authConfig.visitorCode||'').trim();
-}
 function isVisitor(){
   return getUserRole()==='visitor';
 }
@@ -1587,13 +1597,34 @@ function findUserByInviteCode(code){
   ensureAccessUsers();
   const norm=normalizeInviteCode(code);
   if(!norm) return null;
-  const u=data.accessUsers.find(x=>x.status==='active'&&x.inviteCode&&normalizeInviteCode(x.inviteCode)===norm);
-  if(u) return u;
-  const vc=getPackVisitorCode();
-  if(vc&&normalizeInviteCode(vc)===norm){
-    return {id:VISITOR_PACK_USER_ID,name:'Visitante',role:'visitor',status:'active',isPackVisitor:true};
+  return data.accessUsers.find(x=>x.status==='active'&&x.inviteCode&&normalizeInviteCode(x.inviteCode)===norm)||null;
+}
+function enterAsVisitor(){
+  localStorage.setItem('qhub_user_id',VISITOR_PACK_USER_ID);
+  localStorage.setItem('qhub_username','Visitante');
+  localStorage.setItem('qhub_claimed_name','1');
+  localStorage.removeItem('qhub_saved_invite_code');
+  renderUserChip();
+  renderAccessStatusBox();
+  updateEditButtonVisibility();
+  closeName();
+  if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
+}
+function showAuthChoose(){
+  document.getElementById('authChoosePanel').style.display='block';
+  document.getElementById('authMemberPanel').style.display='none';
+  const statusEl=document.getElementById('authStatusMsg');
+  if(statusEl){ statusEl.style.display='none'; statusEl.textContent=''; }
+}
+function showMemberCodeForm(){
+  document.getElementById('authChoosePanel').style.display='none';
+  document.getElementById('authMemberPanel').style.display='block';
+  const fromUrl=new URLSearchParams(location.search).get('code');
+  const inp=document.getElementById('inviteCodeInput');
+  if(inp){
+    if(fromUrl&&!inp.value) inp.value=fromUrl;
+    setTimeout(()=>inp.focus(),80);
   }
-  return null;
 }
 function getAccessUserById(id){
   if(id===VISITOR_PACK_USER_ID){
@@ -1664,7 +1695,6 @@ function submitInviteCode(){
   if(isVisitor()){
     closeName();
     if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
-    else{ showStatus('success','Acesso visitante ativo — leitura apenas.'); setTimeout(hideStatus,3500); }
     return;
   }
   refreshProfileModal();
@@ -1674,21 +1704,23 @@ function openConfigFromAuth(){
   setTimeout(openConfig,150);
 }
 function initInviteAuth(){
+  showAuthChoose();
   const box=document.getElementById('authAdminSetup');
+  const divider=document.getElementById('authAdminDivider');
   const tokenStep=document.getElementById('authAdminTokenStep');
   const enterStep=document.getElementById('authAdminEnterStep');
   const bootstrapInner=document.getElementById('authBootstrapInner');
   const recoverInner=document.getElementById('authRecoverInner');
   const hasToken=!!getToken();
-  if(box) box.style.display=hasClaimedIdentity()?'none':'block';
+  const showAdmin=!hasClaimedIdentity();
+  if(box) box.style.display=showAdmin?'block':'none';
+  if(divider) divider.style.display=showAdmin?'block':'none';
   if(tokenStep) tokenStep.style.display=hasToken?'none':'block';
   if(enterStep) enterStep.style.display=hasToken?'block':'none';
   if(bootstrapInner) bootstrapInner.style.display=hasToken&&!hasActiveAccessRoster()?'block':'none';
   if(recoverInner) recoverInner.style.display=hasToken&&hasActiveAccessRoster()?'block':'none';
-  const inp=document.getElementById('inviteCodeInput');
-  if(!inp) return;
   const fromUrl=new URLSearchParams(location.search).get('code');
-  if(fromUrl&&!inp.value) inp.value=fromUrl;
+  if(fromUrl) showMemberCodeForm();
 }
 function refreshAuthAdminPanel(){
   if(document.getElementById('nameBackdrop')?.classList.contains('active')) initInviteAuth();
@@ -1754,6 +1786,7 @@ async function claimBootstrapAdmin(){
   localStorage.setItem('qhub_user_id',u.id);
   localStorage.setItem('qhub_username',name);
   localStorage.setItem('qhub_claimed_name','1');
+  localStorage.setItem('qhub_saved_invite_code',code);
   saveLocal();
   if(canWriteGist()&&getGistId()) await saveToGist();
   alert('Admin criado. Guarde seu código para outros dispositivos: '+code);
@@ -2040,33 +2073,11 @@ function canUseMemberFeatures(){
   const role=getUserRole();
   return role==='member'||role==='editor'||role==='admin';
 }
-function renderVisitorCodeSection(){
-  const box=document.getElementById('visitorCodeBox');
-  const inp=document.getElementById('visitorCodeInput');
-  if(!box) return;
-  box.style.display=canManageAccess()?'block':'none';
-  if(inp&&canManageAccess()) inp.value=getPackVisitorCode();
-}
-async function adminSaveVisitorCode(){
-  if(!canManageAccess()) return;
-  const code=document.getElementById('visitorCodeInput')?.value.trim();
-  if(!code){ alert('Informe ou gere um código visitante.'); return; }
-  ensureAuthConfig();
-  data.authConfig.visitorCode=code;
-  saveLocal();
-  await saveToGist();
-  alert('Código visitante salvo: '+code);
-}
-function adminGenerateVisitorCode(){
-  if(!canManageAccess()) return;
-  const inp=document.getElementById('visitorCodeInput');
-  if(inp) inp.value=generateInviteCode('Visitante').replace(/^[^-]+/,'VIS');
-}
 function switchConfigTab(tab){
   document.querySelectorAll('.config-tab').forEach(b=>b.classList.toggle('active',b.dataset.configTab===tab));
   document.querySelectorAll('.config-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('configPanel'+tab.charAt(0).toUpperCase()+tab.slice(1))?.classList.add('active');
-  if(tab==='users'){ renderProfilesPublishSection(); renderVisitorCodeSection(); renderAccessUsersPanel(); }
+  if(tab==='users'){ renderProfilesPublishSection(); renderAccessUsersPanel(); }
   if(tab==='access') renderAccessStatusBox();
 }
 function renderAccessStatusBox(){
@@ -2079,7 +2090,7 @@ function renderAccessStatusBox(){
   tabUsers.style.display=canManageAccess()?'inline-flex':'none';
   tabTech.style.display='inline-flex';
   if(!name){
-    box.innerHTML='<div class="access-empty">Digite seu código de acesso para começar (botão com seu nome no topo, ou abrirá na primeira visita).</div>';
+    box.innerHTML='<div class="access-empty">Escolha <strong>Visitante</strong> ou <strong>Membro do pack</strong> no popup de entrada (ou clique no seu nome no topo).</div>';
     hint.textContent='';
     return;
   }
@@ -2091,7 +2102,7 @@ function renderAccessStatusBox(){
   if(isAccessBootstrap()){ roleLabel='Admin'; roleClass='admin'; }
   else if(u&&u.status==='revoked'){ roleLabel='Revogado'; roleClass='revoked'; }
   const profileMeta=formatProfileSummary(findProfile(name));
-  box.innerHTML=`<div class="access-status"><div class="access-status-av">${avHtml}</div><div class="access-status-info"><div class="access-status-name">${escapeHtml(name)}</div>${profileMeta?`<div class="access-status-meta">${escapeHtml(profileMeta)}</div>`:''}<div class="access-status-role">${roleLabel}</div></div><span class="access-role-pill ${roleClass}">${roleLabel}</span></div>${hasClaimedIdentity()?`<div style="margin-top:12px"><button class="btn" type="button" onclick="signOutIdentity()" style="width:100%;justify-content:center"><i class="ti ti-logout"></i> Trocar de conta / outro código</button></div>`:''}`;
+  box.innerHTML=`<div class="access-status"><div class="access-status-av">${avHtml}</div><div class="access-status-info"><div class="access-status-name">${escapeHtml(name)}</div>${profileMeta?`<div class="access-status-meta">${escapeHtml(profileMeta)}</div>`:''}<div class="access-status-role">${roleLabel}</div></div><span class="access-role-pill ${roleClass}">${roleLabel}</span></div>${hasClaimedIdentity()?`<div style="margin-top:12px"><button class="btn" type="button" onclick="signOutIdentity()" style="width:100%;justify-content:center"><i class="ti ti-logout"></i> Sair / trocar modo de entrada</button></div>`:''}`;
   if(u&&u.status==='revoked'){
     hint.textContent='Seu acesso foi revogado. Fale com um admin do pack.';
   }else if(getToken()&&!hasAdminInRoster(name)){
@@ -2101,7 +2112,7 @@ function renderAccessStatusBox(){
   }else if(getToken()&&role==='member'){
     hint.textContent='Token ativo — ao salvar o perfil, foto e dados vão para o pack. Você não edita links nem prioridades.';
   }else if(role==='visitor'){
-    hint.textContent='Acesso visitante — leitura do hub. Peça ao admin para promover a Membro para perfil e férias.';
+    hint.textContent='Modo visitante — leitura do hub. Para perfil e férias, saia e entre como membro com seu código.';
   }else if(role==='member'){
     hint.textContent='Configure o token do pack na aba Técnico para publicar seu perfil (peça ao admin).';
   }else if(role==='admin'){
@@ -2114,7 +2125,6 @@ function renderAccessUsersPanel(){
   const panel=document.getElementById('accessUsersPanel');
   if(!panel||!canManageAccess()) return;
   renderProfilesPublishSection();
-  renderVisitorCodeSection();
   ensureAccessUsers();
   let codesAdded=false;
   data.accessUsers.forEach(u=>{
@@ -3289,7 +3299,7 @@ function refreshProfileModal(){
 async function saveOnboardToken(){
   const t=document.getElementById('onboardTokenInput')?.value.trim();
   if(!t){ alert('Informe o token do pack.'); return; }
-  if(!hasClaimedIdentity()||!getUserName()){ alert('Informe seu código de acesso antes de configurar o token.'); showProfileModalStep('auth'); return; }
+  if(!hasClaimedIdentity()||!getUserName()){ alert('Entre como visitante ou membro antes de configurar o token.'); showProfileModalStep('auth'); return; }
   localStorage.setItem('qhub_token',t);
   syncTokenHolderRole();
   ensureRegisteredMember(getUserName());
