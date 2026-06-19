@@ -504,7 +504,13 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .tl-cell:last-child{border-right:none;}
 .tl-cell.tl-today-col{background:rgba(139,92,246,0.05);}
 .tl-bar{position:absolute;top:5px;height:24px;border-radius:4px;display:flex;align-items:center;padding:0 7px;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;cursor:pointer;transition:opacity .15s;z-index:1;}
-.tl-bar:hover{opacity:.8;}
+.tl-bar:hover{opacity:.8;z-index:3;}
+.ferias-bar-tooltip{position:fixed;z-index:320;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;min-width:180px;max-width:260px;pointer-events:none;opacity:0;transition:opacity .15s ease,transform .15s ease;box-shadow:0 6px 24px rgba(0,0,0,0.12);transform:translateY(4px);}
+.ferias-bar-tooltip.visible{opacity:1;transform:translateY(0);}
+.fbt-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;}
+.fbt-row{font-size:12px;color:var(--text2);line-height:1.45;margin-top:3px;}
+.fbt-label{color:var(--text3);margin-right:4px;}
+.fbt-action{font-size:11px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
 .tl-today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--purple);z-index:2;pointer-events:none;}
 .tl-empty{padding:24px;text-align:center;color:var(--text3);font-size:13px;}
 .tl-empty-state{padding:40px 24px 36px;text-align:center;}
@@ -876,6 +882,8 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   <div class="pt-url"><i class="ti ti-link" style="flex-shrink:0;font-size:12px"></i><span id="ptUrl"></span></div>
   <div class="pt-open"><i class="ti ti-external-link"></i> Clique para abrir</div>
 </div>
+
+<div class="ferias-bar-tooltip" id="feriasBarTooltip"></div>
 
 <!-- Mobile detail sheet -->
 <div class="detail-sheet-backdrop" id="detailSheetBackdrop" onclick="if(event.target===this)closeDetailSheet()">
@@ -2547,6 +2555,7 @@ async function loadFromGistInner(){
       return;
     }
     data=parsed;
+    normalizeFeriasRecordsInData();
     initKnownFeriasIds();
     ensurePageOrder();
     ensurePrioritiesData();
@@ -2610,7 +2619,7 @@ async function saveToGist(){
 }
 function showStatus(type,msg){const bar=document.getElementById('statusBar');bar.className='status-bar '+type;document.getElementById('statusMsg').textContent=msg;}
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
-function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();}
+function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -4003,6 +4012,9 @@ function applyFeriasStatusFields(record,tipo,tipoId,statusId){
   if(tipo==='ferias') record.status=getFeriasStatusFromForm(tipoId,statusId);
   else delete record.status;
 }
+function normalizeFeriasRecordsInData(){
+  (data.ferias||[]).forEach(f=>{ if(!isFeriasRecord(f)) delete f.status; });
+}
 function formatFeriasRecordLabel(f){
   const tipo=getFeriasTipo(f);
   if(!isFeriasRecord(f)) return TIPO_LABEL[tipo];
@@ -4014,6 +4026,55 @@ function formatFeriasBarLabel(f,nome){
   const e=new Date(f.fim+'T00:00:00');
   const days=Math.round((e-s)/86400000)+1;
   return tipo+' '+nome.split(' ')[0]+' ('+days+'d)';
+}
+const FERIAS_MONTHS_S=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function formatFeriasPeriod(inicio,fim){
+  const [sy,sm,sd]=inicio.split('-');
+  const [ey,em,ed]=fim.split('-');
+  const days=Math.round((new Date(fim+'T00:00:00')-new Date(inicio+'T00:00:00'))/86400000)+1;
+  return sd+' '+FERIAS_MONTHS_S[parseInt(sm,10)-1]+' → '+ed+' '+FERIAS_MONTHS_S[parseInt(em,10)-1]+' · '+days+'d';
+}
+let feriasTooltipTimeout=null;
+function buildFeriasBarTooltipHtml(f,nome,canEdit){
+  const tipo=TIPO_LABEL[getFeriasTipo(f)];
+  const period=formatFeriasPeriod(f.inicio,f.fim);
+  const statusLine=isFeriasRecord(f)?`<div class="fbt-row"><span class="fbt-label">Situação</span>${escapeHtml(STATUS_LABEL[f.status]||f.status)}</div>`:'';
+  return `<div class="fbt-name">${escapeHtml(nome)}</div>
+    <div class="fbt-row"><span class="fbt-label">Tipo</span>${escapeHtml(tipo)}</div>
+    <div class="fbt-row"><span class="fbt-label">Período</span>${escapeHtml(period)}</div>
+    ${statusLine}
+    <div class="fbt-action">${canEdit?'Clique para editar':'Clique para ver'}</div>`;
+}
+function positionFeriasBarTooltip(bar){
+  const tip=document.getElementById('feriasBarTooltip');
+  if(!tip||!tip.classList.contains('visible')) return;
+  const rect=bar.getBoundingClientRect();
+  let left=rect.left+rect.width/2-tip.offsetWidth/2;
+  let top=rect.top-tip.offsetHeight-8;
+  left=Math.max(8,Math.min(left,window.innerWidth-tip.offsetWidth-8));
+  if(top<8) top=rect.bottom+8;
+  tip.style.left=left+'px';
+  tip.style.top=top+'px';
+}
+function showFeriasBarTooltip(bar,f,nome,canEdit){
+  const tip=document.getElementById('feriasBarTooltip');
+  if(!tip) return;
+  clearTimeout(feriasTooltipTimeout);
+  feriasTooltipTimeout=setTimeout(()=>{
+    tip.innerHTML=buildFeriasBarTooltipHtml(f,nome,canEdit);
+    tip.classList.add('visible');
+    positionFeriasBarTooltip(bar);
+  },120);
+}
+function hideFeriasBarTooltip(){
+  clearTimeout(feriasTooltipTimeout);
+  const tip=document.getElementById('feriasBarTooltip');
+  if(tip) tip.classList.remove('visible');
+}
+function bindFeriasBarTooltip(bar,f,nome,canEdit){
+  bar.addEventListener('mouseenter',()=>showFeriasBarTooltip(bar,f,nome,canEdit));
+  bar.addEventListener('mouseleave',hideFeriasBarTooltip);
+  bar.addEventListener('mousemove',()=>positionFeriasBarTooltip(bar));
 }
 function renderFeriasLegend(){
   const el=document.getElementById('feriasLegend');
