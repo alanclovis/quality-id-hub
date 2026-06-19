@@ -2063,7 +2063,8 @@ async function syncFeriasToGist(){
     const file=json.files[GIST_FILENAME];
     if(!file?.content) throw new Error('Arquivo não encontrado no Gist');
     const remote=JSON.parse(file.content);
-    remote.ferias=mergeFeriasById(remote.ferias,data.ferias);
+    const me=getUserName();
+    remote.ferias=mergeFeriasForMemberSync(remote.ferias,data.ferias,me);
     const patchRes=await fetch(`https://api.github.com/gists/${gistId}`,{
       method:'PATCH',
       headers:{'Authorization':`token ${token}`,'Content-Type':'application/json'},
@@ -2071,6 +2072,7 @@ async function syncFeriasToGist(){
     });
     if(!patchRes.ok) throw new Error('Erro ao salvar ('+patchRes.status+')');
     data.ferias=remote.ferias;
+    initKnownFeriasIds();
     saveLocal();
     document.getElementById('lastSaved').textContent='Férias publicadas';
     showStatus('success','Férias publicadas no pack!');setTimeout(hideStatus,3000);
@@ -2485,13 +2487,38 @@ function mergeFeriasById(remoteList,localList){
   });
   return Array.from(map.values());
 }
+let knownFeriasIds=new Set();
+function initKnownFeriasIds(){
+  knownFeriasIds=new Set((data.ferias||[]).map(f=>f.id).filter(Boolean));
+}
+function noteFeriasIds(list){
+  (list||[]).forEach(f=>{ if(f?.id) knownFeriasIds.add(f.id); });
+}
+function mergeFeriasForMemberSync(remoteList,localList,memberName){
+  const map=new Map();
+  (remoteList||[]).forEach(f=>{
+    if(f?.id&&!namesMatch(f.nome,memberName)) map.set(f.id,{...f});
+  });
+  (localList||[]).forEach(f=>{
+    if(f?.id&&namesMatch(f.nome,memberName)) map.set(f.id,{...f});
+  });
+  return Array.from(map.values());
+}
 async function mergeRemoteFeriasBeforeSave(){
   if(!getGistId()) return;
   const remote=await fetchRemotePackData();
   if(!remote) return;
-  const prev=JSON.stringify(data.ferias||[]);
-  data.ferias=mergeFeriasById(remote.ferias,data.ferias);
-  if(JSON.stringify(data.ferias)!==prev) saveLocal();
+  const local=data.ferias||[];
+  const localIds=new Set(local.map(f=>f.id));
+  const merged=[...local];
+  (remote.ferias||[]).forEach(f=>{
+    if(!f?.id||localIds.has(f.id)) return;
+    if(knownFeriasIds.has(f.id)) return;
+    merged.push(f);
+  });
+  data.ferias=merged;
+  noteFeriasIds(data.ferias);
+  saveLocal();
 }
 let gistLoadPromise=null;
 async function loadFromGist(){
@@ -2518,6 +2545,7 @@ async function loadFromGistInner(){
       return;
     }
     data=parsed;
+    initKnownFeriasIds();
     ensurePageOrder();
     ensurePrioritiesData();
     ensureProfilesData();
@@ -2556,7 +2584,7 @@ async function loadFromGistInner(){
 }
 async function saveToGist(){
   const token=getToken(),gistId=getGistId();
-  if(!canWriteGist()){openConfig();return;}
+  if(!canWriteGist()){openConfig();return false;}
   if(editMode){
     data.notice.title=document.getElementById('noticeTitleInput').value||data.notice.title;
     data.notice.text=document.getElementById('noticeTextInput').value||data.notice.text;
@@ -2573,12 +2601,14 @@ async function saveToGist(){
     const json=await res.json();
     if(!gistId){localStorage.setItem('qhub_gist_id',json.id);const lnk=document.getElementById('gistFooterLink');lnk.href=json.html_url;lnk.style.display='flex';}
     document.getElementById('lastSaved').textContent='Salvo agora';
+    initKnownFeriasIds();
     showStatus('success','Salvo com sucesso!');setTimeout(hideStatus,3000);
-  }catch(e){showStatus('error','Erro ao salvar: '+e.message);setTimeout(hideStatus,4000);}
+    return true;
+  }catch(e){showStatus('error','Erro ao salvar: '+e.message);setTimeout(hideStatus,4000);return false;}
 }
 function showStatus(type,msg){const bar=document.getElementById('statusBar');bar.className='status-bar '+type;document.getElementById('statusMsg').textContent=msg;}
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
-function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();}
+function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -4089,10 +4119,13 @@ async function deleteFeriasCurrent(){
   if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para remover este registro.'); return; }
   if(!ensurePackTokenOrRedirect()) return;
   if(!confirm('Remover este registro?')) return;
+  knownFeriasIds.add(id);
   data.ferias = (data.ferias||[]).filter(x=>x.id!==id);
   closeFeriasEdit();
   renderFerias();
-  await persistFeriasToPack();
+  renderUpcoming();
+  const ok=await persistFeriasToPack();
+  if(!ok) alert('Não foi possível publicar a remoção no pack. Tente de novo ou recarregue após salvar.');
 }
 
 function renderUpcoming(){
@@ -4239,9 +4272,12 @@ async function saveFerias(){
     }
   }
   if(!data.ferias) data.ferias = [];
-  data.ferias.push({ id:'f'+Date.now(), nome, inicio, fim, status, tipo });
+  const newRec={ id:'f'+Date.now(), nome, inicio, fim, status, tipo };
+  data.ferias.push(newRec);
+  noteFeriasIds([newRec]);
   closeFeriasForm();
   renderFerias();
+  renderUpcoming();
   await persistFeriasToPack();
 }
 
