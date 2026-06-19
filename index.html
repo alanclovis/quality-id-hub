@@ -945,14 +945,13 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     </div>
     <div class="profile-step" id="profileStepToken">
       <h3>Token do pack</h3>
-      <p class="profile-intro">Peça o token ao admin do pack. Ele é necessário para publicar foto, nível e área no hub compartilhado.</p>
+      <p class="profile-intro">Peça o token ao admin do pack. É <strong>obrigatório</strong> para publicar perfil, férias e sincronizar com o time.</p>
       <div class="profile-field profile-token-field">
         <label for="onboardTokenInput">Token GitHub</label>
         <input type="password" id="onboardTokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
       </div>
       <p class="profile-field-hint">O Gist ID do pack já está configurado — só o token é necessário.</p>
       <button class="btn primary profile-save" onclick="saveOnboardToken()"><i class="ti ti-check"></i> Validar e continuar</button>
-      <button class="btn" style="width:100%;justify-content:center;margin-top:8px" type="button" onclick="closeName()">Depois</button>
     </div>
     <div class="profile-step" id="profileStepEdit">
       <div class="profile-header">
@@ -1023,11 +1022,11 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 2 de 7</div>
           <h3>Seu perfil no pack</h3>
-          <p>O admin cadastra membros em <strong>Configuração → Usuários</strong> e envia um código no Slack. Visitantes entram direto; membros usam o código, depois configuram o <strong>token</strong> e completam o perfil.</p>
+          <p>Membros entram com o código do Slack e em seguida <strong>precisam configurar o token</strong> (passo obrigatório) antes de usar perfil e férias.</p>
           <div class="guide-illustration" style="flex-direction:column;gap:8px;align-items:stretch">
             <div class="guide-step-list">
               <div class="guide-step-item"><span class="num">1</span><span><strong>Visitante</strong> — um clique, sem código</span></div>
-              <div class="guide-step-item"><span class="num">2</span><span><strong>Membro</strong> — código pessoal + token do pack</span></div>
+              <div class="guide-step-item"><span class="num">2</span><span><strong>Membro</strong> — código pessoal → token (obrigatório)</span></div>
               <div class="guide-step-item"><span class="num">3</span><span>Complete foto, nível e área de atuação</span></div>
             </div>
           </div>
@@ -1577,6 +1576,9 @@ function ensureAuthConfig(){
 function isVisitor(){
   return getUserRole()==='visitor';
 }
+function needsMandatoryToken(){
+  return hasClaimedIdentity()&&!!getUserName()&&!isVisitor()&&!getToken();
+}
 function canBrowseHub(){
   return hasClaimedIdentity()&&!!getUserName();
 }
@@ -1697,7 +1699,12 @@ function submitInviteCode(){
     if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
     return;
   }
+  document.getElementById('nameBackdrop').classList.add('active');
   refreshProfileModal();
+  if(!getToken()){
+    showProfileModalStep('token');
+    setTimeout(()=>document.getElementById('onboardTokenInput')?.focus(),100);
+  }
 }
 function openConfigFromAuth(){
   closeName();
@@ -2486,7 +2493,7 @@ document.getElementById('searchInput').addEventListener('keydown',e=>{
     if(document.getElementById('statsModal').classList.contains('active')) closeStats();
     if(document.getElementById('feriasEditBackdrop').classList.contains('active')) closeFeriasEdit();
     if(document.getElementById('detailSheetBackdrop').classList.contains('active')) closeDetailSheet();
-    if(getUserName()&&document.getElementById('nameBackdrop').classList.contains('active')) closeName();
+    if(document.getElementById('nameBackdrop').classList.contains('active')&&!needsMandatoryToken()) closeName();
   }
 });
 document.addEventListener('keydown',e=>{
@@ -3401,6 +3408,8 @@ async function saveOnboardToken(){
 function maybeShowOnboarding(){
   if(!hasClaimedIdentity()||!getUserName()){
     setTimeout(()=>openNameModal(),300);
+  }else if(needsMandatoryToken()){
+    setTimeout(()=>openNameModal(),300);
   }else if(!localStorage.getItem('qhub_guide_seen')){
     setTimeout(openGuide,600);
   }
@@ -3409,6 +3418,12 @@ function getInitials(name){
   return name.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
 }
 function closeName(){
+  if(needsMandatoryToken()){
+    document.getElementById('nameBackdrop').classList.add('active');
+    showProfileModalStep('token');
+    setTimeout(()=>document.getElementById('onboardTokenInput')?.focus(),80);
+    return;
+  }
   document.getElementById('nameBackdrop').classList.remove('active');
   pendingAvatar=undefined;
 }
