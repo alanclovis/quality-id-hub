@@ -2241,6 +2241,37 @@ function openConfig(){
 function closeConfig(){document.getElementById('configModal').classList.remove('active');}
 
 // ── Gist API ───────────────────────────────────────────────────────────────────
+async function fetchRemotePackData(){
+  const gistId=getGistId();
+  if(!gistId) return null;
+  const token=getToken();
+  const headers=token?{'Authorization':`token ${token}`}:{};
+  try{
+    const res=await fetch(`https://api.github.com/gists/${gistId}`,{headers});
+    if(!res.ok) return null;
+    const json=await res.json();
+    const file=json.files[GIST_FILENAME];
+    if(!file?.content) return null;
+    return JSON.parse(file.content);
+  }catch(e){ return null; }
+}
+function mergeFeriasById(remoteList,localList){
+  const map=new Map();
+  (remoteList||[]).forEach(f=>{ if(f?.id) map.set(f.id,{...f}); });
+  (localList||[]).forEach(f=>{
+    if(!f?.id) return;
+    map.set(f.id,{...(map.get(f.id)||{}),...f});
+  });
+  return Array.from(map.values());
+}
+async function mergeRemoteFeriasBeforeSave(){
+  if(!getGistId()) return;
+  const remote=await fetchRemotePackData();
+  if(!remote) return;
+  const prev=JSON.stringify(data.ferias||[]);
+  data.ferias=mergeFeriasById(remote.ferias,data.ferias);
+  if(JSON.stringify(data.ferias)!==prev) saveLocal();
+}
 async function loadFromGist(){
   const gistId=getGistId();
   showStatus('loading','Carregando do Gist...');
@@ -2275,6 +2306,7 @@ async function loadFromGist(){
     render();
     renderUserChip();
     updateEditButtonVisibility();
+    saveLocal();
     if(roleSynced){
       saveLocal();
       if(canWriteGist()&&getGistId()) await saveToGist();
@@ -2302,6 +2334,7 @@ async function saveToGist(){
     data.notice.text=document.getElementById('noticeTextInput').value||data.notice.text;
   }
   showStatus('loading','Salvando...');
+  if(gistId) await mergeRemoteFeriasBeforeSave();
   const body={files:{[GIST_FILENAME]:{content:JSON.stringify(data,null,2)}}};
   const method=gistId?'PATCH':'POST';
   const url=gistId?`https://api.github.com/gists/${gistId}`:'https://api.github.com/gists';
