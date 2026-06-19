@@ -489,6 +489,16 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .sb-item i{font-size:24px;flex-shrink:0;}
 .sb-label{display:none;overflow:hidden;text-overflow:ellipsis;}
 .sidebar.open .sb-label{display:block;}
+.sb-nav{display:flex;flex-direction:column;width:100%;gap:4px;}
+.sidebar.edit-mode .sb-item{cursor:grab;}
+.sidebar.edit-mode .sb-item[draggable="true"]:active{cursor:grabbing;}
+.sidebar.edit-mode .sb-item.dragging{opacity:0.35;outline:2px dashed var(--purple);background:var(--purple-bg);}
+.sidebar.edit-mode .sb-item.drag-target{outline:2px solid var(--purple);background:var(--purple-bg);}
+.sb-nav.drag-over{outline:2px dashed rgba(139,92,246,0.5);outline-offset:2px;border-radius:var(--rs);}
+.sb-drag-handle{display:none;color:var(--text3);font-size:14px;cursor:grab;flex-shrink:0;}
+.sidebar.edit-mode .sb-drag-handle{display:flex;align-items:center;}
+.sb-reorder-hint{display:none;font-size:10px;color:var(--text3);text-align:center;padding:4px 10px;line-height:1.3;width:100%;}
+.sidebar.edit-mode.open .sb-reorder-hint{display:block;}
 .sb-spacer{flex:1;}
 .sb-toggle{padding:10px 12px;cursor:pointer;color:var(--text3);display:flex;align-items:center;justify-content:center;width:calc(100% - 8px);margin:0 4px;border-radius:var(--rs);font-size:22px;}
 .sb-toggle:hover{color:var(--text);background:var(--bg3);}
@@ -920,18 +930,21 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <div class="sidebar" id="sidebar">
   <div class="sb-logo"><i class="ti ti-shield-check"></i></div>
   <div class="sb-divider"></div>
-  <div class="sb-item active" id="sbLinks" onclick="showPage('links')">
-    <i class="ti ti-layout-grid"></i>
-    <span class="sb-label">Links</span>
+  <div class="sb-nav" id="sbNav">
+    <div class="sb-item active" id="sbLinks" data-page="links" onclick="showPage('links')">
+      <i class="ti ti-layout-grid"></i>
+      <span class="sb-label">Links</span>
+    </div>
+    <div class="sb-item" id="sbFerias" data-page="ferias" onclick="showPage('ferias')">
+      <i class="ti ti-beach"></i>
+      <span class="sb-label">Férias</span>
+    </div>
+    <div class="sb-item" id="sbPrioridades" data-page="prioridades" onclick="showPage('prioridades')">
+      <i class="ti ti-calendar-week"></i>
+      <span class="sb-label">Prioridades</span>
+    </div>
   </div>
-  <div class="sb-item" id="sbFerias" onclick="showPage('ferias')">
-    <i class="ti ti-beach"></i>
-    <span class="sb-label">Férias</span>
-  </div>
-  <div class="sb-item" id="sbPrioridades" onclick="showPage('prioridades')">
-    <i class="ti ti-calendar-week"></i>
-    <span class="sb-label">Prioridades</span>
-  </div>
+  <div class="sb-reorder-hint" id="sbReorderHint">Arraste para reordenar</div>
   <div class="sb-spacer"></div>
   <div class="sb-toggle" onclick="toggleSidebar()" title="Recolher menu">
     <i class="ti ti-layout-sidebar-left-collapse" id="sbToggleIcon"></i>
@@ -1128,7 +1141,11 @@ const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
 let logoCb=null,logoSelected=null;
 let tooltipTimeout=null;
 
+const DEFAULT_PAGE_ORDER=['links','ferias','prioridades'];
+const SB_ID_MAP={links:'sbLinks',ferias:'sbFerias',prioridades:'sbPrioridades'};
+
 const DEFAULT_DATA={
+  pageOrder:['links','ferias','prioridades'],
   notice:{title:"Bem-vindos ao pack!",text:"Aqui você encontra todos os links úteis do dia a dia. Dúvidas? Chama no canal <strong>#quality-id</strong> no Slack."},
   sections:[
     {id:"s1",name:"Ferramentas principais",links:[
@@ -1282,12 +1299,16 @@ async function loadFromGist(){
     const parsed=JSON.parse(file.content);
     if(!parsed?.sections?.length){
       data=JSON.parse(JSON.stringify(DEFAULT_DATA));
+      ensurePageOrder();
+      applySidebarOrder();
       render();
       hideStatus();
       return;
     }
     data=parsed;
+    ensurePageOrder();
     ensurePrioritiesData();
+    applySidebarOrder();
     renderFerias();
     setTimeout(renderUpcoming, 100);
     render();
@@ -1325,7 +1346,7 @@ async function saveToGist(){
 }
 function showStatus(type,msg){const bar=document.getElementById('statusBar');bar.className='status-bar '+type;document.getElementById('statusMsg').textContent=msg;}
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
-function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));render();}
+function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();applySidebarOrder();render();}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -1600,6 +1621,7 @@ function toggleEditMode(){
   const nt=document.getElementById('noticeTitle'),ntx=document.getElementById('noticeText'),nea=document.getElementById('noticeEditArea');
   if(editMode){nea.style.display='block';document.getElementById('noticeTitleInput').value=data.notice.title;document.getElementById('noticeTextInput').value=data.notice.text;nt.style.display='none';ntx.style.display='none';}
   else{nea.style.display='none';nt.style.display='';ntx.style.display='';}
+  updateSidebarEditMode();
   render();
 }
 
@@ -1945,7 +1967,84 @@ function collapseSidebar(){
 let currentPage = 'links';
 
 function showPage(page){
+  if(editMode||sbDragging) return;
   showPageAnimated(page);
+}
+
+function ensurePageOrder(){
+  if(!data.pageOrder||!Array.isArray(data.pageOrder)) data.pageOrder=[...DEFAULT_PAGE_ORDER];
+  DEFAULT_PAGE_ORDER.forEach(p=>{ if(!data.pageOrder.includes(p)) data.pageOrder.push(p); });
+  data.pageOrder=data.pageOrder.filter(p=>DEFAULT_PAGE_ORDER.includes(p));
+}
+
+function applySidebarOrder(){
+  ensurePageOrder();
+  const nav=document.getElementById('sbNav');
+  if(!nav) return;
+  data.pageOrder.forEach(page=>{
+    const el=document.getElementById(SB_ID_MAP[page]);
+    if(el) nav.appendChild(el);
+  });
+}
+
+let sbDragListenersAttached=false;
+let sbDragging=false;
+
+function updateSidebarEditMode(){
+  const sidebar=document.getElementById('sidebar');
+  sidebar.classList.toggle('edit-mode',editMode);
+  detachSbDragListeners();
+  document.querySelectorAll('#sbNav .sb-item').forEach(item=>{
+    item.querySelector('.sb-drag-handle')?.remove();
+    item.draggable=false;
+  });
+  if(!editMode){
+    document.querySelectorAll('.sb-item.dragging,.sb-item.drag-target,#sbNav.drag-over').forEach(el=>{
+      el.classList.remove('dragging','drag-target','drag-over');
+    });
+    return;
+  }
+  document.querySelectorAll('#sbNav .sb-item').forEach(item=>{
+    item.draggable=true;
+    const handle=document.createElement('i');
+    handle.className='ti ti-grip-vertical sb-drag-handle';
+    handle.title='Arrastar';
+    handle.addEventListener('mousedown',e=>e.stopPropagation());
+    item.insertBefore(handle,item.firstChild);
+  });
+  attachSbDragListeners();
+}
+
+function attachSbDragListeners(){
+  if(sbDragListenersAttached) return;
+  const nav=document.getElementById('sbNav');
+  nav.addEventListener('dragover',onSbNavDragOver);
+  nav.addEventListener('dragleave',onSbNavDragLeave);
+  nav.addEventListener('drop',onSbDrop);
+  document.querySelectorAll('#sbNav .sb-item').forEach(item=>{
+    item.addEventListener('dragstart',onSbDragStart);
+    item.addEventListener('dragend',onSbDragEnd);
+    item.addEventListener('dragover',onSbDragOver);
+    item.addEventListener('dragleave',onSbDragLeave);
+    item.addEventListener('drop',onSbDrop);
+  });
+  sbDragListenersAttached=true;
+}
+
+function detachSbDragListeners(){
+  if(!sbDragListenersAttached) return;
+  const nav=document.getElementById('sbNav');
+  nav.removeEventListener('dragover',onSbNavDragOver);
+  nav.removeEventListener('dragleave',onSbNavDragLeave);
+  nav.removeEventListener('drop',onSbDrop);
+  document.querySelectorAll('#sbNav .sb-item').forEach(item=>{
+    item.removeEventListener('dragstart',onSbDragStart);
+    item.removeEventListener('dragend',onSbDragEnd);
+    item.removeEventListener('dragover',onSbDragOver);
+    item.removeEventListener('dragleave',onSbDragLeave);
+    item.removeEventListener('drop',onSbDrop);
+  });
+  sbDragListenersAttached=false;
 }
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
@@ -2814,6 +2913,85 @@ function initTagFilterUI(){
 
 // ── Drag & Drop ───────────────────────────────────────────────────────────────
 let dragState = null; // { linkId, fromSectionId }
+let sbDragState = null; // { page }
+
+function onSbDragStart(e){
+  sbDragging=true;
+  const item=e.currentTarget;
+  sbDragState={page:item.dataset.page};
+  item.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',item.dataset.page);
+}
+
+function onSbDragEnd(e){
+  sbDragging=false;
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.sb-item.drag-target,#sbNav.drag-over').forEach(el=>{
+    el.classList.remove('drag-target','drag-over');
+  });
+  sbDragState=null;
+}
+
+function onSbDragOver(e){
+  e.preventDefault();
+  e.stopPropagation();
+  if(!sbDragState) return;
+  const target=e.currentTarget;
+  if(target.dataset.page===sbDragState.page) return;
+  document.querySelectorAll('.sb-item.drag-target').forEach(el=>el.classList.remove('drag-target'));
+  target.classList.add('drag-target');
+}
+
+function onSbDragLeave(e){
+  e.currentTarget.classList.remove('drag-target');
+}
+
+function onSbNavDragOver(e){
+  e.preventDefault();
+  if(sbDragState) e.currentTarget.classList.add('drag-over');
+}
+
+function onSbNavDragLeave(e){
+  if(!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
+}
+
+function onSbDrop(e){
+  e.preventDefault();
+  e.stopPropagation();
+  if(!sbDragState) return;
+  const nav=document.getElementById('sbNav');
+  nav.classList.remove('drag-over');
+  document.querySelectorAll('.sb-item.drag-target').forEach(el=>el.classList.remove('drag-target'));
+
+  let targetPage=null;
+  if(e.currentTarget.classList.contains('sb-item')){
+    targetPage=e.currentTarget.dataset.page;
+  } else if(!e.currentTarget.classList.contains('sb-nav')){
+    return;
+  }
+
+  const order=[...data.pageOrder];
+  const fromIdx=order.indexOf(sbDragState.page);
+  if(fromIdx===-1) return;
+
+  if(!targetPage){
+    order.splice(fromIdx,1);
+    order.push(sbDragState.page);
+  } else if(targetPage===sbDragState.page){
+    return;
+  } else {
+    const toIdx=order.indexOf(targetPage);
+    if(toIdx===-1) return;
+    order.splice(fromIdx,1);
+    order.splice(toIdx,0,sbDragState.page);
+  }
+
+  data.pageOrder=order;
+  applySidebarOrder();
+  if(editMode) updateSidebarEditMode();
+  if(getToken()&&getGistId()) saveToGist();
+}
 
 function onDragStart(e){
   const card = e.currentTarget;
@@ -3066,6 +3244,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(savedZoom!==100)applyZoom(savedZoom);
   updateEditButtonVisibility();
   initSidebar();
+  ensurePageOrder();
+  applySidebarOrder();
   const savedPage = localStorage.getItem('qhub_page');
   if(savedPage && savedPage !== 'links') showPage(savedPage);
   renderUserChip();
