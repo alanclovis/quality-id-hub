@@ -413,7 +413,7 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .profile-token-field input:focus{border-color:var(--purple);}
 .profile-locked-notice{background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.35);border-radius:var(--rs);padding:10px 13px;font-size:12px;color:var(--amber);line-height:1.5;margin-bottom:14px;display:flex;align-items:flex-start;gap:8px;}
 .profile-locked-notice i{flex-shrink:0;margin-top:2px;}
-.profile-form-locked .profile-av-actions,.profile-form-locked .profile-pills,.profile-form-locked .profile-save{pointer-events:none;opacity:.45;}
+.profile-form-locked .profile-av-actions,.profile-form-locked .profile-pills,.profile-form-locked .profile-save,.profile-form-locked .profile-field input{pointer-events:none;opacity:.45;}
 .profile-form-locked .profile-av-hint{opacity:.6;}
 .invite-code-field input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:11px 14px;font-size:18px;font-family:monospace;letter-spacing:0.12em;text-align:center;text-transform:uppercase;outline:none;}
 .invite-code-field input:focus{border-color:var(--purple);}
@@ -973,12 +973,12 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       </div>
       <button class="btn-sm" id="profileGoTokenBtn" type="button" style="width:100%;justify-content:center;margin-bottom:14px;display:none" onclick="showProfileModalStep('token')"><i class="ti ti-key"></i> Configurar token</button>
       <p class="profile-intro" id="profileEditIntro">Confira seus dados. Eles aparecem no hub para o restante do pack.</p>
-      <div class="profile-field">
-        <label>Nome</label>
-        <div class="profile-name-display" id="profileNameDisplay"></div>
-        <input type="hidden" id="nameInput">
-      </div>
       <div id="profileFormBody">
+        <div class="profile-field">
+          <label for="nameInput">Nome</label>
+          <input type="text" id="nameInput" maxlength="40" placeholder="Seu nome completo" autocomplete="name">
+          <p class="profile-field-hint">Atualiza sua ficha aqui e na lista de usuários do pack.</p>
+        </div>
         <div class="profile-field">
           <label>Nível</label>
           <div class="profile-pills" id="profileLevelPills"></div>
@@ -2041,6 +2041,32 @@ function ensureRegisteredMemberInData(pack,name){
     u.approvedAt=u.approvedAt||new Date().toISOString();
   }
 }
+function renameMemberIdentity(oldName,newName){
+  const normNew=(newName||'').trim().replace(/\s+/g,' ');
+  if(!normNew) return null;
+  if(namesMatch(normNew,oldName)) return normNew;
+  ensureAccessUsers();
+  const uid=localStorage.getItem('qhub_user_id');
+  if(!uid||uid===VISITOR_PACK_USER_ID) return null;
+  const taken=data.accessUsers.some(u=>u.status==='active'&&u.id!==uid&&namesMatch(u.name,normNew));
+  if(taken){
+    alert('Já existe outra pessoa com esse nome no pack. Escolha outro ou peça ao admin.');
+    return null;
+  }
+  const u=getAccessUserById(uid)||getAccessUserRecord(oldName);
+  if(u) u.name=normNew;
+  ensureProfilesData();
+  const profileKey=Object.keys(data.profiles).find(k=>namesMatch(k,oldName));
+  if(profileKey){
+    data.profiles[normNew]={...(data.profiles[profileKey]||{}),updatedAt:Date.now()};
+    if(profileKey!==normNew) delete data.profiles[profileKey];
+  }
+  (data.ferias||[]).forEach(f=>{
+    if(namesMatch(f.nome,oldName)) f.nome=normNew;
+  });
+  localStorage.setItem('qhub_username',normNew);
+  return normNew;
+}
 async function syncOwnProfileToGist(name,oldName){
   if(!canSyncProfileToGist()) return false;
   const token=getToken(),gistId=getGistId();
@@ -2055,6 +2081,15 @@ async function syncOwnProfileToGist(name,oldName){
     if(!file?.content) throw new Error('Arquivo não encontrado no Gist');
     const remote=JSON.parse(file.content);
     if(!remote.profiles) remote.profiles={};
+    if(oldName&&oldName!==name){
+      if(!remote.accessUsers) remote.accessUsers=[];
+      const uid=localStorage.getItem('qhub_user_id');
+      const ru=remote.accessUsers.find(x=>x.id===uid)||remote.accessUsers.find(x=>namesMatch(x.name,oldName));
+      if(ru) ru.name=name;
+      (remote.ferias||[]).forEach(f=>{
+        if(namesMatch(f.nome,oldName)) f.nome=name;
+      });
+    }
     if(oldName&&oldName!==name&&remote.profiles[oldName]){
       const merged=mergeProfileRecords(remote.profiles[oldName],profile);
       remote.profiles[name]=mergeProfileRecords(remote.profiles[name],merged)||merged;
@@ -2070,6 +2105,10 @@ async function syncOwnProfileToGist(name,oldName){
     });
     if(!patchRes.ok) throw new Error('Erro ao salvar ('+patchRes.status+')');
     data.profiles[name]=remote.profiles[name];
+    if(oldName&&oldName!==name){
+      const lu=getAccessUserById(localStorage.getItem('qhub_user_id'));
+      if(lu) lu.name=name;
+    }
     ensureRegisteredMember(name);
     saveLocal();
     document.getElementById('lastSaved').textContent='Perfil publicado';
@@ -3409,8 +3448,8 @@ function refreshProfileModal(){
   showProfileModalStep(step);
   if(step==='edit'){
     const name=getUserName();
-    document.getElementById('nameInput').value=name;
-    document.getElementById('profileNameDisplay').textContent=name;
+    const nameInp=document.getElementById('nameInput');
+    if(nameInp) nameInp.value=name;
     loadProfileFormValues(name);
     updateProfilePreview(name);
   }
@@ -3432,7 +3471,8 @@ async function saveOnboardToken(){
     hideStatus();
     await loadFromGist();
     const name=getUserName();
-    document.getElementById('profileNameDisplay').textContent=name;
+    const nameInp=document.getElementById('nameInput');
+    if(nameInp) nameInp.value=name;
     loadProfileFormValues(name);
     updateProfilePreview(name);
     showProfileModalStep('edit');
@@ -3469,9 +3509,15 @@ async function saveProfile(){
     showProfileModalStep('token');
     return;
   }
-  const val=getUserName();
-  if(!val) return;
-  const oldName=val;
+  const oldName=getUserName();
+  if(!oldName) return;
+  const rawName=document.getElementById('nameInput')?.value.trim()||oldName;
+  let val=oldName;
+  if(!namesMatch(rawName,oldName)){
+    const renamed=renameMemberIdentity(oldName,rawName);
+    if(!renamed) return;
+    val=renamed;
+  }
   ensureProfilesData();
   const {level,areas}=readProfileFormValues();
   const profilePatch={level,areas,updatedAt:Date.now()};
@@ -3498,6 +3544,7 @@ async function saveProfile(){
   renderMural();
   renderFerias();
   renderAccessStatusBox();
+  if(document.getElementById('configPanelUsers')?.classList.contains('active')) renderAccessUsersPanel();
   saveLocal();
   if(canSyncProfileToGist()) await syncOwnProfileToGist(val,oldName);
   if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
