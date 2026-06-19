@@ -1159,6 +1159,12 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
       <label style="margin-top:10px">Gist ID</label>
       <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
+      <div id="packSharedTokenBox" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <p class="access-hint"><strong>Admin — token compartilhado:</strong> salvo no Gist (não no Git). Membros entram só com o código pessoal, sem colar token.</p>
+        <label>Token do pack (para todos os membros)</label>
+        <input type="password" id="packSharedTokenInput" placeholder="ghp_..." autocomplete="off">
+        <button class="btn primary btn-sm" type="button" style="margin-top:10px;width:100%;justify-content:center" onclick="adminSaveSharedPackToken()"><i class="ti ti-cloud-upload"></i> Salvar token no pack</button>
+      </div>
       <div class="modal-actions" style="margin-top:14px">
         <button class="btn" onclick="closeConfig()">Fechar</button>
         <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar</button>
@@ -1439,8 +1445,8 @@ let data={notice:{title:'',text:''},sections:[]};
 let editMode=false;
 const GIST_FILENAME='quality-hub-data.json';
 const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
-// Token compartilhado do pack (opcional). Se preenchido, membros entram só com o código pessoal.
-// Use um PAT só com escopo gist neste Gist. Repositório público = token visível no código-fonte.
+// NÃO cole token aqui — o GitHub bloqueia o push (secret scanning).
+// Admin: salve o token compartilhado em Configuração → Técnico (vai pro Gist, não pro Git).
 const DEFAULT_PACK_TOKEN='';
 let logoCb=null,logoSelected=null;
 let tooltipTimeout=null;
@@ -1590,7 +1596,8 @@ function canBrowseHub(){
 }
 
 function getEmbeddedPackToken(){
-  return (DEFAULT_PACK_TOKEN||'').trim();
+  ensureAuthConfig();
+  return (data.authConfig?.packToken||'').trim();
 }
 function hasEmbeddedPackToken(){
   return !!getEmbeddedPackToken();
@@ -2218,6 +2225,16 @@ function switchConfigTab(tab){
   document.getElementById('configPanel'+tab.charAt(0).toUpperCase()+tab.slice(1))?.classList.add('active');
   if(tab==='users'){ renderProfilesPublishSection(); renderAccessUsersPanel(); }
   if(tab==='access') renderAccessStatusBox();
+  if(tab==='tech'){
+    const packBox=document.getElementById('packSharedTokenBox');
+    if(packBox) packBox.style.display=canManageAccess()?'block':'none';
+    const packInp=document.getElementById('packSharedTokenInput');
+    if(packInp){
+      ensureAuthConfig();
+      packInp.value='';
+      packInp.placeholder=getEmbeddedPackToken()?'Token do pack já configurado (digite para substituir)':'ghp_...';
+    }
+  }
 }
 function renderAccessStatusBox(){
   const box=document.getElementById('accessStatusBox');
@@ -2349,6 +2366,25 @@ async function adminDeleteUser(id){
   renderAccessUsersPanel();
   await saveToGist();
 }
+async function adminSaveSharedPackToken(){
+  if(!canManageAccess()) return;
+  const t=document.getElementById('packSharedTokenInput')?.value.trim();
+  if(!t){ alert('Informe o token do pack.'); return; }
+  ensureAuthConfig();
+  data.authConfig.packToken=t;
+  saveLocal();
+  showStatus('loading','Salvando token no Gist...');
+  try{
+    await saveToGist();
+    hideStatus();
+    alert('Token compartilhado salvo. Membros entram com código pessoal — sem configurar token.');
+    document.getElementById('packSharedTokenInput').value='';
+    openConfig();
+  }catch(e){
+    hideStatus();
+    alert('Erro ao salvar: '+e.message);
+  }
+}
 function saveConfig(){
   const t=document.getElementById('tokenInput').value.trim();
   const g=document.getElementById('gistIdInput').value.trim();
@@ -2373,11 +2409,19 @@ function updateEditButtonVisibility(){
 function openConfig(){
   document.getElementById('tokenInput').value=localStorage.getItem('qhub_token')||'';
   document.getElementById('gistIdInput').value=getGistId();
+  const packBox=document.getElementById('packSharedTokenBox');
+  const packInp=document.getElementById('packSharedTokenInput');
+  if(packBox) packBox.style.display=canManageAccess()?'block':'none';
+  if(packInp){
+    ensureAuthConfig();
+    packInp.value='';
+    packInp.placeholder=getEmbeddedPackToken()?'Token do pack já configurado (digite para substituir)':'ghp_...';
+  }
   const techHint=document.getElementById('techConfigHint');
   if(techHint){
     techHint.textContent=hasEmbeddedPackToken()
-      ? 'Token do pack já embutido no hub — membros entram só com o código pessoal. Abaixo você pode sobrescrever o token neste navegador.'
-      : 'Token GitHub com permissão gist para publicar perfil, férias e (se editor) links. O Gist ID já vem preenchido.';
+      ? 'Token compartilhado já está no pack — membros usam só o código pessoal. Abaixo: token deste navegador (opcional).'
+      : 'Token GitHub com permissão gist. Admin pode salvar um token compartilhado abaixo para o time não precisar configurar.';
   }
   switchConfigTab('access');
   renderAccessStatusBox();
