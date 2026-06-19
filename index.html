@@ -72,10 +72,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-text);min-hei
 .tag-edit{display:none;font-size:11px;background:rgba(245,158,11,0.12);color:#f59e0b;border:none;padding:3px 9px;border-radius:20px;align-items:center;gap:5px;}
 .tag-edit.active{display:flex;}
 
-/* ── Search bar ── */
-.search-wrap{position:relative;margin-bottom:1.25rem;z-index:50;}
-.search-input{width:100%;background:var(--bg2);border:1.5px solid #0071e3;border-radius:var(--r);color:var(--text);padding:11px 16px 11px 42px;font-size:14px;outline:none;font-family:inherit;box-shadow:0 0 0 3px rgba(0,113,227,0.1);transition:box-shadow .15s;}
-.search-input:focus{border-color:#0071e3;box-shadow:0 0 0 4px rgba(0,113,227,0.2);}
+/* ── Search & discover card ── */
+.discover-card{background:var(--bg2);border-radius:var(--r);padding:14px 16px 16px;margin-bottom:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.discover-divider{height:1px;background:var(--border);margin:12px 0 14px;}
+.search-wrap{position:relative;z-index:50;margin-bottom:0;}
+.search-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:10px 16px 10px 40px;font-size:14px;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s;}
+.search-input:focus{border-color:#0071e3;box-shadow:0 0 0 3px rgba(0,113,227,0.12);}
 .search-input::placeholder{color:var(--text3);}
 .search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:17px;pointer-events:none;}
 .search-kbd{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:11px;color:var(--text3);}
@@ -92,11 +94,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-text);min-hei
 .search-empty{padding:24px;text-align:center;color:var(--text3);font-size:13px;}
 
 /* ── Notice ── */
-.notice{background:var(--bg2);border:none;border-left:4px solid #0071e3;border-radius:0 12px 12px 0;padding:16px 20px;margin-bottom:1.75rem;display:flex;align-items:flex-start;gap:14px;box-shadow:0 2px 8px rgba(0,113,227,0.08);}
-.notice-icon{color:#0071e3;font-size:20px;margin-top:2px;flex-shrink:0;}
+.notice{background:#f0f7ff;border:none;border-left:3px solid rgba(0,113,227,0.35);border-radius:12px;padding:14px 18px;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:12px;box-shadow:none;}
+.notice-icon{color:#0071e3;font-size:18px;margin-top:2px;flex-shrink:0;opacity:0.85;}
 .notice-body{flex:1;}
-.notice-title{font-family:var(--font-display);font-weight:600;font-size:17px;color:var(--text);letter-spacing:-.2px;}
-.notice-text{font-size:14px;color:var(--text2);margin-top:4px;line-height:1.6;}
+.notice-title{font-family:var(--font-display);font-weight:600;font-size:16px;color:#1d1d1f;letter-spacing:-.2px;}
+.notice-text{font-size:14px;color:#48484a;margin-top:3px;line-height:1.55;}
 .notice-edit input,.notice-edit textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:7px 10px;font-size:12px;font-family:inherit;margin-top:6px;outline:none;}
 .notice-edit input:focus,.notice-edit textarea:focus{border-color:var(--purple);}
 .notice-edit textarea{resize:vertical;min-height:56px;}
@@ -399,6 +401,11 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .tl-bar:hover{opacity:.8;}
 .tl-today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--purple);z-index:2;pointer-events:none;}
 .tl-empty{padding:24px;text-align:center;color:var(--text3);font-size:13px;}
+.tl-empty-state{padding:40px 24px 36px;text-align:center;}
+.tl-empty-state i.tl-empty-icon{font-size:40px;color:var(--text3);opacity:0.35;display:block;margin-bottom:14px;}
+.tl-empty-state h4{font-family:var(--font-display);font-size:17px;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:-.2px;}
+.tl-empty-state p{font-size:13px;color:var(--text3);line-height:1.5;max-width:280px;margin:0 auto 16px;}
+.tl-empty-state .btn-sm.purple{margin-top:4px;}
 
 /* status colors */
 /* dark mode (default) — high contrast */
@@ -413,10 +420,6 @@ body.light .fs-laranja{background:#fef3c7;color:#92400e;}
 body.light .fs-amarelo{background:#fef9c3;color:#854d0e;}
 body.light .fs-azul   {background:#dbeafe;color:#1e40af;}
 body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
-
-.ferias-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
-.fl-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);}
-.fl-dot{width:10px;height:10px;border-radius:2px;}
 
 /* Férias form */
 .ferias-form{background:var(--bg2);border:1px solid rgba(52,211,153,0.3);border-radius:var(--r);padding:14px;margin-bottom:12px;display:none;flex-direction:column;gap:8px;}
@@ -493,18 +496,18 @@ body.light .sp-roxo   {background:#ede9fe;color:#5b21b6;}
 
 
 /* ── Link tags ── */
-.link-tag{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;}
-.tag-id  {background:#3b82f6;}
-.tag-csat{background:#34d399;}
-.tag-vp  {background:#f472b6;}
-body.light .tag-id  {background:#3b82f6;}
-body.light .tag-csat{background:#10b981;}
-body.light .tag-vp  {background:#ec4899;}
+.link-tag-pill{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;flex-shrink:0;display:inline-block;letter-spacing:0.02em;line-height:1.3;}
+.tag-id  {background:rgba(0,113,227,0.12);color:#0071e3;}
+.tag-csat{background:rgba(5,150,105,0.12);color:#059669;}
+.tag-vp  {background:rgba(219,39,119,0.12);color:#db2777;}
+body.light .tag-id  {background:rgba(0,113,227,0.12);color:#0071e3;}
+body.light .tag-csat{background:rgba(5,150,105,0.12);color:#059669;}
+body.light .tag-vp  {background:rgba(219,39,119,0.12);color:#db2777;}
 
 /* ── Tag filter bar ── */
-.tag-filter-bar{display:flex;align-items:center;gap:6px;margin-bottom:1rem;flex-wrap:wrap;}
-.tag-filter-btn{font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;border:none;background:var(--bg2);color:var(--text);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
-.tag-filter-btn:hover{background:var(--bg2);color:var(--text);box-shadow:0 2px 6px rgba(0,0,0,0.1);}
+.tag-filter-bar{display:flex;align-items:center;gap:6px;margin-bottom:0;flex-wrap:wrap;}
+.tag-filter-btn{font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;border:none;background:var(--bg);color:var(--text);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;}
+.tag-filter-btn:hover{background:var(--bg3);color:var(--text);}
 .tag-filter-btn.active{background:#0071e3;color:#fff;box-shadow:none;}
 .tag-filter-btn.tf-id.active{background:#0071e3;color:#fff;}
 .tag-filter-btn.tf-csat.active{background:#059669;color:#fff;}
@@ -544,7 +547,6 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 /* ── Search overlay ── */
 .search-overlay{display:none;position:fixed;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:40;pointer-events:auto;}
 .search-overlay.active{display:block;}
-.search-wrap{position:relative;z-index:50;margin-bottom:1.25rem;}
 
 .fav-btn.active{opacity:1!important;}
 .link-card .link-text{width:100%;}
@@ -732,23 +734,23 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   <button class="btn-sm" onclick="resetZoom()">Reset</button>
 </div>
 
-<!-- Search -->
-<div class="search-wrap">
-  <i class="ti ti-search search-icon"></i>
-  <input class="search-input" id="searchInput" type="text" placeholder="Buscar link... (/ ou ⌘K)" autocomplete="off">
-  <span class="search-kbd" id="searchKbd">/</span>
-  <div class="search-results" id="searchResults"></div>
-</div>
-
-
-<!-- Tag filter -->
-<div class="tag-filter-bar" id="tagFilterBar">
-  <span style="font-size:11px;color:var(--text3)">Filtrar:</span>
-  <button class="tag-filter-btn active" id="tf-all" onclick="setTagFilter('all')">Todos</button>
-  <button class="tag-filter-btn tf-id" id="tf-id" onclick="setTagFilter('id')">ID</button>
-  <button class="tag-filter-btn tf-csat" id="tf-csat" onclick="setTagFilter('csat')">CSAT</button>
-  <button class="tag-filter-btn tf-vp" onclick="setTagFilter('vp')" id="tf-vp">VP</button>
-  <button class="pin-filter-link" id="pinFilterBtn" style="display:none" onclick="pinCurrentFilter()" title="Salvar este filtro como padrão"><i class="ti ti-pin"></i> Fixar filtro</button>
+<!-- Search + filters -->
+<div class="discover-card">
+  <div class="search-wrap">
+    <i class="ti ti-search search-icon"></i>
+    <input class="search-input" id="searchInput" type="text" placeholder="Buscar link... (/ ou ⌘K)" autocomplete="off">
+    <span class="search-kbd" id="searchKbd">/</span>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <div class="discover-divider"></div>
+  <div class="tag-filter-bar" id="tagFilterBar">
+    <span style="font-size:11px;color:var(--text3)">Filtrar:</span>
+    <button class="tag-filter-btn active" id="tf-all" onclick="setTagFilter('all')">Todos</button>
+    <button class="tag-filter-btn tf-id" id="tf-id" onclick="setTagFilter('id')">ID</button>
+    <button class="tag-filter-btn tf-csat" id="tf-csat" onclick="setTagFilter('csat')">CSAT</button>
+    <button class="tag-filter-btn tf-vp" onclick="setTagFilter('vp')" id="tf-vp">VP</button>
+    <button class="pin-filter-link" id="pinFilterBtn" style="display:none" onclick="pinCurrentFilter()" title="Salvar este filtro como padrão"><i class="ti ti-pin"></i> Fixar filtro</button>
+  </div>
 </div>
 
 <!-- Section nav (sticky) -->
@@ -2148,6 +2150,25 @@ function renderFerias(){
     return s <= monthEnd && e >= monthStart;
   });
 
+  if(!visible.length){
+    const empty = document.createElement('div');
+    empty.className = 'tl-empty-state';
+    if(!allFerias.length){
+      empty.innerHTML = `<i class="ti ti-beach tl-empty-icon"></i>
+        <h4>Nenhuma férias registrada ainda</h4>
+        <p>Registre as férias do pack para visualizar a timeline e avisar o time.</p>
+        <button class="btn-sm purple" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar férias</button>`;
+      card.appendChild(empty);
+      return;
+    }
+    empty.innerHTML = `<i class="ti ti-calendar-off tl-empty-icon"></i>
+      <h4>Nenhuma férias em ${MESES[feriasMonth]} ${feriasYear}</h4>
+      <p>Use as setas para ver outros meses ou registre um novo período.</p>
+      <button class="btn-sm purple" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar férias</button>`;
+    card.appendChild(empty);
+    return;
+  }
+
   // days header
   const colTemplate = '110px repeat('+daysInMonth+',1fr)';
   const header = document.createElement('div');
@@ -2167,66 +2188,59 @@ function renderFerias(){
   const rowsWrap = document.createElement('div');
   rowsWrap.className = 'tl-rows';
 
-  if(!visible.length){
-    const empty = document.createElement('div');
-    empty.className = 'tl-empty';
-    empty.innerHTML = '<i class="ti ti-beach" style="font-size:20px;display:block;margin-bottom:6px;opacity:.4"></i>Nenhuma férias registrada para este mês';
-    rowsWrap.appendChild(empty);
-  } else {
-    // group by person
-    const byPerson = {};
-    visible.forEach(f=>{ if(!byPerson[f.nome]) byPerson[f.nome]=[]; byPerson[f.nome].push(f); });
+  // group by person
+  const byPerson = {};
+  visible.forEach(f=>{ if(!byPerson[f.nome]) byPerson[f.nome]=[]; byPerson[f.nome].push(f); });
 
-    Object.entries(byPerson).forEach(([nome, entries])=>{
-      const row = document.createElement('div');
-      row.className = 'tl-row';
+  Object.entries(byPerson).forEach(([nome, entries])=>{
+    const row = document.createElement('div');
+    row.className = 'tl-row';
 
-      const pc = getPersonColor(nome);
-      const initials = nome.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
-      const personEl = document.createElement('div');
-      personEl.className = 'tl-person';
-      personEl.innerHTML = `<div class="tl-av" style="background:${pc.bg};color:${pc.tx}">${initials}</div><span class="tl-pname">${nome.split(' ')[0]}</span>`;
-      row.appendChild(personEl);
+    const pc = getPersonColor(nome);
+    const initials = nome.trim().split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const personEl = document.createElement('div');
+    personEl.className = 'tl-person';
+    personEl.innerHTML = `<div class="tl-av" style="background:${pc.bg};color:${pc.tx}">${initials}</div><span class="tl-pname">${nome.split(' ')[0]}</span>`;
+    row.appendChild(personEl);
 
-      const gridRow = document.createElement('div');
-      gridRow.className = 'tl-grid-row';
-      gridRow.style.gridTemplateColumns = 'repeat('+daysInMonth+',1fr)';
+    const gridRow = document.createElement('div');
+    gridRow.className = 'tl-grid-row';
+    gridRow.style.gridTemplateColumns = 'repeat('+daysInMonth+',1fr)';
 
-      for(let d=1;d<=daysInMonth;d++){
-        const cell = document.createElement('div');
-        cell.className = 'tl-cell' + (d===todayDay?' tl-today-col':'');
-        gridRow.appendChild(cell);
-      }
+    for(let d=1;d<=daysInMonth;d++){
+      const cell = document.createElement('div');
+      cell.className = 'tl-cell' + (d===todayDay?' tl-today-col':'');
+      gridRow.appendChild(cell);
+    }
 
-      // bars for each entry
-      entries.forEach(f=>{
-        const s = new Date(f.inicio+'T00:00:00');
-        const e = new Date(f.fim+'T00:00:00');
-        const barStart = Math.max(1, s.getMonth()===feriasMonth&&s.getFullYear()===feriasYear ? s.getDate() : 1);
-        const barEnd   = Math.min(daysInMonth, e.getMonth()===feriasMonth&&e.getFullYear()===feriasYear ? e.getDate() : daysInMonth);
-        const leftPct  = ((barStart-1)/daysInMonth*100).toFixed(2);
-        const widthPct = ((barEnd-barStart+1)/daysInMonth*100).toFixed(2);
-        const days = Math.round((e-s)/(86400000))+1;
+    // bars for each entry
+    entries.forEach(f=>{
+      const s = new Date(f.inicio+'T00:00:00');
+      const e = new Date(f.fim+'T00:00:00');
+      const barStart = Math.max(1, s.getMonth()===feriasMonth&&s.getFullYear()===feriasYear ? s.getDate() : 1);
+      const barEnd   = Math.min(daysInMonth, e.getMonth()===feriasMonth&&e.getFullYear()===feriasYear ? e.getDate() : daysInMonth);
+      const leftPct  = ((barStart-1)/daysInMonth*100).toFixed(2);
+      const widthPct = ((barEnd-barStart+1)/daysInMonth*100).toFixed(2);
+      const days = Math.round((e-s)/(86400000))+1;
 
-        const bar = document.createElement('div');
-        bar.className = 'tl-bar fs-'+f.status;
-        bar.style.left  = leftPct+'%';
-        bar.style.width = widthPct+'%';
-        const label = (barEnd-barStart+1) > 3 ? nome.split(' ')[0]+' ('+days+'d)' : '';
-        bar.textContent = label;
-        bar.title = nome+' · '+f.inicio+' até '+f.fim+' — clique para editar';
-        bar.addEventListener('click', ev=>{
-          ev.stopPropagation();
-          openFeriasEdit(f.id);
-        });
-
-        gridRow.appendChild(bar);
+      const bar = document.createElement('div');
+      bar.className = 'tl-bar fs-'+f.status;
+      bar.style.left  = leftPct+'%';
+      bar.style.width = widthPct+'%';
+      const label = (barEnd-barStart+1) > 3 ? nome.split(' ')[0]+' ('+days+'d)' : '';
+      bar.textContent = label;
+      bar.title = nome+' · '+f.inicio+' até '+f.fim+' — clique para editar';
+      bar.addEventListener('click', ev=>{
+        ev.stopPropagation();
+        openFeriasEdit(f.id);
       });
 
-      row.appendChild(gridRow);
-      rowsWrap.appendChild(row);
+      gridRow.appendChild(bar);
     });
-  }
+
+    row.appendChild(gridRow);
+    rowsWrap.appendChild(row);
+  });
 
   // today line
   if(todayDay){
@@ -2240,7 +2254,6 @@ function renderFerias(){
   card.appendChild(rowsWrap);
 
   // badge
-  renderUpcoming();
   renderUpcoming();
   const badge = document.getElementById('feriasBadge');
   if(badge) badge.textContent = visible.length ? visible.length+' registro'+(visible.length>1?'s':'') : '';
@@ -2567,7 +2580,7 @@ function setupMobileLongPress(card, link, sectionName){
 }
 
 function tagLabel(t){ return t==='id'?'ID':t==='csat'?'CSAT':t==='vp'?'VP':''; }
-function tagDot(t){ return `<span class="link-tag tag-${t}" title="${tagLabel(t)}"></span>`; }
+function tagDot(t){ return `<span class="link-tag-pill tag-${t}">${tagLabel(t)}</span>`; }
 function tagClass(t){ return 'link-tag tag-'+t; }
 
 function initTagFilterUI(){
@@ -2762,13 +2775,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   <div style="overflow-x:auto;width:100%;border-radius:var(--r);">
   <div class="tl-card" id="feriasCard" style="min-width:600px;"></div>
 </div>
-  <div class="ferias-legend">
-    <div class="fl-item"><div class="fl-dot fs-verde"></div> Aprovado</div>
-    <div class="fl-item"><div class="fl-dot fs-laranja"></div> Confirmado c/ gestor</div>
-    <div class="fl-item"><div class="fl-dot fs-amarelo"></div> Pendente aprovação</div>
-    <div class="fl-item"><div class="fl-dot fs-azul"></div> Planejado</div>
-    <div class="fl-item"><div class="fl-dot fs-roxo"></div> Ausência programada</div>
-  </div>
 
 <!-- Férias legend card -->
 <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-top:14px;">
