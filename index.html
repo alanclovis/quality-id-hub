@@ -1892,6 +1892,8 @@ function showPageAnimated(page){
     document.getElementById(pageMap[p])?.classList.toggle('active',page===p);
     document.getElementById(sbMap[p])?.classList.toggle('active',page===p);
   });
+  const noticeEl=document.querySelector('.notice');
+  if(noticeEl) noticeEl.style.display=page==='links'?'':'none';
   if(page==='ferias'){ renderFerias(); renderUpcoming(); }
   if(page==='prioridades') renderPriorities();
   lastPage=page;
@@ -3075,7 +3077,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   loadFromGist();
 });
 </script>
-</div><!-- end pageLinks -->
 
 <div class="page" id="pageFerias"><div class="layout">
 <div class="zoom-bar" id="zoomBarFerias">
@@ -3176,7 +3177,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   </div>
   <div class="upcoming-list" id="upcomingList"></div>
 </div></div><!-- end layout -->
-<!-- end pageFerias -->
+</div><!-- end pageFerias -->
 
 <div class="page" id="pagePrioridades"><div class="layout">
 <div class="zoom-bar" id="zoomBarPrioridades">
@@ -3220,7 +3221,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   </div>
 </div>
 </div><!-- end layout -->
-<!-- end pagePrioridades -->
+</div><!-- end pagePrioridades -->
 
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell --></body>
