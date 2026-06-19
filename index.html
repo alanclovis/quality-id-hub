@@ -509,8 +509,18 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .pri-grid td.pri-shift{background:var(--bg3);font-size:12px;font-weight:600;color:var(--text2);text-align:center;padding:10px 8px;width:88px;white-space:nowrap;}
 .pri-cell{padding:10px 8px;min-height:52px;font-size:11px;line-height:1.4;color:var(--text);text-align:center;background:#fff;}
 .pri-cell-empty{color:var(--text3);opacity:0.5;}
+.pri-cell-editable{cursor:pointer;user-select:none;transition:background .12s,box-shadow .12s;}
+.pri-cell-editable:hover{background:#f5f3ff;}
+.pri-cell-selected{background:#ede9fe!important;box-shadow:inset 0 0 0 2px #7c3aed;}
+.pri-cell-editing{padding:0!important;}
 .pri-cell-select{width:100%;min-height:48px;border:none;background:transparent;font-size:11px;font-family:inherit;color:var(--text);padding:8px;text-align:center;cursor:pointer;outline:none;}
 .pri-cell-select:focus{background:#f0f7ff;}
+.pri-bulk-bar{display:none;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-bottom:none;}
+.pri-bulk-count{font-size:12px;color:var(--text2);white-space:nowrap;}
+.pri-bulk-count strong{color:#5b21b6;}
+.pri-bulk-select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:#fff;min-width:200px;max-width:100%;}
+.pri-bulk-select:focus{border-color:#7c3aed;outline:none;box-shadow:0 0 0 3px rgba(124,58,237,0.12);}
+.pri-grid-hint{font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.45;}
 .pri-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
 .pri-card h4{font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px;color:var(--text);}
 .pri-instructions{font-size:13px;color:var(--text2);line-height:1.65;white-space:pre-wrap;}
@@ -3743,6 +3753,8 @@ function moveLink(linkId, fromSectionId, toSectionId, beforeLinkId){
 let priEditMode=false;
 let priWeekStart=null;
 let priEditDraft=null;
+let priSelectedSlots=new Set();
+let priLastSelectedSlot=null;
 
 function getMondayISO(d=new Date()){
   const date=new Date(d);
@@ -3822,10 +3834,113 @@ function startPriEditDraft(){
     counts:configured?priQueueCountsFromData():priZeroQueueCounts(),
   };
 }
+function priAllSlotKeys(){
+  const keys=[];
+  PRI_SHIFTS.forEach(shift=>{
+    PRI_DAYS.forEach(day=>{ keys.push(priSlotKey(day.key,shift.key)); });
+  });
+  return keys;
+}
+function priResetSelection(){
+  priSelectedSlots=new Set();
+  priLastSelectedSlot=null;
+}
+function priToggleSlotSelection(key,shiftKey){
+  if(!priEditMode) return;
+  if(shiftKey&&priLastSelectedSlot){
+    const all=priAllSlotKeys();
+    const i1=all.indexOf(priLastSelectedSlot);
+    const i2=all.indexOf(key);
+    if(i1>=0&&i2>=0){
+      const start=Math.min(i1,i2);
+      const end=Math.max(i1,i2);
+      for(let i=start;i<=end;i++) priSelectedSlots.add(all[i]);
+    }
+  } else if(priSelectedSlots.has(key)){
+    priSelectedSlots.delete(key);
+  } else {
+    priSelectedSlots.add(key);
+  }
+  priLastSelectedSlot=key;
+  updatePriSelectionUI();
+}
+function updatePriSelectionUI(){
+  document.querySelectorAll('.pri-cell-editable').forEach(td=>{
+    const key=td.dataset.priSlot;
+    td.classList.toggle('pri-cell-selected',!!key&&priSelectedSlots.has(key));
+  });
+  const bar=document.getElementById('priBulkBar');
+  const count=priSelectedSlots.size;
+  if(bar) bar.style.display=count>0?'flex':'none';
+  const countEl=document.getElementById('priBulkCount');
+  if(countEl) countEl.textContent=count;
+}
+function priClearSelection(){
+  priResetSelection();
+  updatePriSelectionUI();
+}
+function priApplyBulkQueue(){
+  if(!priEditMode||!priEditDraft||!priSelectedSlots.size) return;
+  const sel=document.getElementById('priBulkQueue');
+  const value=sel?sel.value||'':'';
+  priSelectedSlots.forEach(key=>{ priEditDraft.slots[key]=value; });
+  renderPriorities();
+}
+function priClearSelectedSlotValues(){
+  if(!priEditMode||!priEditDraft||!priSelectedSlots.size) return;
+  priSelectedSlots.forEach(key=>{ priEditDraft.slots[key]=''; });
+  renderPriorities();
+}
+function priBuildQueueOptions(selectedVal){
+  const pri=ensurePrioritiesData();
+  let html=`<option value="">— vazio —</option>`;
+  pri.queues.forEach(q=>{
+    html+=`<option value="${escapeAttr(q.name)}"${selectedVal===q.name?' selected':''}>${escapeHtml(formatQueueShort(q.name))}</option>`;
+  });
+  if(selectedVal&&!pri.queues.some(q=>q.name===selectedVal)){
+    html+=`<option value="${escapeAttr(selectedVal)}" selected>${escapeHtml(formatQueueShort(selectedVal))}</option>`;
+  }
+  return html;
+}
+function priStartCellEdit(td,key){
+  if(!priEditMode||!priEditDraft||td.classList.contains('pri-cell-editing')) return;
+  const val=priEditDraft.slots[key]||'';
+  td.classList.add('pri-cell-editing');
+  td.innerHTML=`<select class="pri-cell-select" id="pri-cell-${key}">${priBuildQueueOptions(val)}</select>`;
+  const sel=td.querySelector('select');
+  sel.focus();
+  const finish=()=>{
+    priEditDraft.slots[key]=sel.value||'';
+    renderPriorities();
+  };
+  sel.addEventListener('change',finish);
+  sel.addEventListener('blur',finish,{once:true});
+}
+function initPriGridEvents(){
+  const wrap=document.querySelector('.pri-grid-wrap');
+  if(!wrap||wrap._priBound) return;
+  wrap._priBound=true;
+  wrap.addEventListener('click',e=>{
+    if(!priEditMode) return;
+    const td=e.target.closest('.pri-cell-editable');
+    if(!td||td.classList.contains('pri-cell-editing')) return;
+    if(e.target.closest('.pri-cell-select')) return;
+    e.preventDefault();
+    priToggleSlotSelection(td.dataset.priSlot,e.shiftKey);
+  });
+  wrap.addEventListener('dblclick',e=>{
+    if(!priEditMode) return;
+    const td=e.target.closest('.pri-cell-editable');
+    if(!td||td.classList.contains('pri-cell-editing')) return;
+    e.preventDefault();
+    priStartCellEdit(td,td.dataset.priSlot);
+  });
+}
 function togglePrioritiesEdit(){
   if(!canEditContent()){ openConfig(); return; }
   priEditMode=true;
   ensurePrioritiesData();
+  priResetSelection();
   startPriEditDraft();
   document.getElementById('priInstructionsEdit').value=data.priorities.instructions||'';
   updatePriEditUI();
@@ -3834,6 +3949,7 @@ function togglePrioritiesEdit(){
 function cancelPrioritiesEdit(){
   priEditMode=false;
   priEditDraft=null;
+  priResetSelection();
   priWeekStart=data.priorities.weekStart||getMondayISO();
   updatePriEditUI();
   renderPriorities();
@@ -3844,6 +3960,10 @@ function updatePriEditUI(){
   document.getElementById('btnPriCancel').style.display=priEditMode?'inline-flex':'none';
   const gridToolbar=document.getElementById('priGridToolbar');
   if(gridToolbar) gridToolbar.style.display=priEditMode?'flex':'none';
+  const gridHint=document.getElementById('priGridHint');
+  if(gridHint) gridHint.style.display=priEditMode?'block':'none';
+  const bulkBar=document.getElementById('priBulkBar');
+  if(bulkBar&&!priEditMode) bulkBar.style.display='none';
   document.getElementById('priInstructionsView').style.display=priEditMode?'none':'block';
   document.getElementById('priInstructionsEdit').style.display=priEditMode?'block':'none';
 }
@@ -3852,11 +3972,9 @@ function collectPrioritiesFromUI(){
   const pri=ensurePrioritiesData();
   priEditDraft.weekStart=priWeekStart;
   pri.instructions=document.getElementById('priInstructionsEdit').value.trim()||pri.instructions;
-  PRI_DAYS.forEach(day=>{
-    PRI_SHIFTS.forEach(shift=>{
-      const sel=document.getElementById('pri-cell-'+priSlotKey(day.key,shift.key));
-      if(sel) priEditDraft.slots[priSlotKey(day.key,shift.key)]=sel.value||'';
-    });
+  document.querySelectorAll('.pri-cell-select').forEach(sel=>{
+    const key=sel.id.replace('pri-cell-','');
+    if(key) priEditDraft.slots[key]=sel.value||'';
   });
   document.querySelectorAll('[data-pri-queue-id]').forEach(inp=>{
     const id=inp.dataset.priQueueId;
@@ -3919,6 +4037,7 @@ async function savePriorities(){
   data.priorities.updatedAt=new Date().toISOString();
   priEditMode=false;
   priEditDraft=null;
+  priResetSelection();
   priWeekStart=data.priorities.weekStart;
   updatePriEditUI();
   renderPriorities();
@@ -3946,15 +4065,14 @@ function renderPriorities(){
       const key=priSlotKey(day.key,shift.key);
       const val=priGetSlot(day.key,shift.key);
       if(priEditMode){
-        html+=`<td class="pri-cell"><select class="pri-cell-select" id="pri-cell-${key}">`;
-        html+=`<option value="">— vazio —</option>`;
-        pri.queues.forEach(q=>{
-          html+=`<option value="${escapeAttr(q.name)}"${val===q.name?' selected':''}>${escapeHtml(formatQueueShort(q.name))}</option>`;
-        });
-        if(val&&!pri.queues.some(q=>q.name===val)){
-          html+=`<option value="${escapeAttr(val)}" selected>${escapeHtml(formatQueueShort(val))}</option>`;
-        }
-        html+='</select></td>';
+        const selCls=priSelectedSlots.has(key)?' pri-cell-selected':'';
+        const emptyCls=val?'':' pri-cell-empty';
+        html+=`<td class="pri-cell pri-cell-editable${selCls}${emptyCls}" data-pri-slot="${key}" title="${escapeAttr(val||'Clique para selecionar · duplo clique para editar')}">`;
+        if(val){
+          html+=`<span class="pri-queue-short">${escapeHtml(formatQueueShort(val))}</span>`;
+          html+=`<span class="pri-queue-full">${escapeHtml(val)}</span>`;
+        } else html+='—';
+        html+='</td>';
       } else {
         const cls=val?'':' pri-cell-empty';
         html+=`<td class="pri-cell${cls}" title="${escapeAttr(val)}">`;
@@ -3969,6 +4087,9 @@ function renderPriorities(){
   });
   html+='</tbody>';
   grid.innerHTML=html;
+  const bulkQueue=document.getElementById('priBulkQueue');
+  if(bulkQueue) bulkQueue.innerHTML=priBuildQueueOptions('');
+  updatePriSelectionUI();
   const viewEl=document.getElementById('priInstructionsView');
   viewEl.textContent=pri.instructions||'';
   const sum=document.getElementById('priSummary');
@@ -4019,6 +4140,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     setTimeout(openGuide,600);
   }
   loadFromGist();
+  initPriGridEvents();
 });
 </script>
 
@@ -4156,7 +4278,15 @@ window.addEventListener('DOMContentLoaded',()=>{
   <div class="pri-grid-toolbar" id="priGridToolbar" style="display:none">
     <button type="button" class="btn-sm" onclick="clearPriGrid()"><i class="ti ti-eraser"></i> Limpar grade</button>
   </div>
+  <p class="pri-grid-hint" id="priGridHint" style="display:none">Clique para selecionar células · Shift+clique para intervalo · Duplo clique para editar uma célula · Use a barra abaixo para aplicar fila em lote</p>
   <div class="pri-grid-wrap">
+    <div class="pri-bulk-bar" id="priBulkBar">
+      <span class="pri-bulk-count"><strong id="priBulkCount">0</strong> célula(s) selecionada(s)</span>
+      <select class="pri-bulk-select" id="priBulkQueue"></select>
+      <button type="button" class="btn-sm purple" onclick="priApplyBulkQueue()"><i class="ti ti-check"></i> Aplicar</button>
+      <button type="button" class="btn-sm" onclick="priClearSelectedSlotValues()"><i class="ti ti-eraser"></i> Limpar células</button>
+      <button type="button" class="btn-sm" onclick="priClearSelection()"><i class="ti ti-x"></i> Limpar seleção</button>
+    </div>
     <table class="pri-grid" id="priGrid"></table>
   </div>
   <div class="pri-card">
