@@ -3795,9 +3795,8 @@ function togglePrioritiesEdit(){
   ensurePrioritiesData();
   if(!priIsConfiguredWeek()){
     data.priorities.weekStart=priWeekStart;
-    if(!Object.keys(data.priorities.slots).length){
-      data.priorities.slots=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES.slots));
-    }
+    data.priorities.slots={};
+    data.priorities.queues.forEach(q=>{ q.count=0; });
   }
   document.getElementById('priInstructionsEdit').value=data.priorities.instructions||'';
   updatePriEditUI();
@@ -3923,11 +3922,12 @@ function renderPriorities(){
   let total=0;
   let shtml='<thead><tr><th>Fila</th><th style="text-align:right;width:140px">Casos</th></tr></thead><tbody>';
   pri.queues.forEach(q=>{
-    total+=q.count||0;
+    const qCount=configured?(q.count||0):0;
+    total+=qCount;
     shtml+=`<tr><td class="pri-queue-name">${escapeHtml(q.name)}</td><td style="text-align:right">`;
     if(priEditMode&&configured){
       shtml+=`<div class="pri-queue-actions">`;
-      shtml+=`<input type="number" min="0" class="pri-count-input" data-pri-queue-id="${escapeAttr(q.id)}" value="${q.count||0}">`;
+      shtml+=`<input type="number" min="0" class="pri-count-input" data-pri-queue-id="${escapeAttr(q.id)}" value="${qCount}">`;
       shtml+=`<button type="button" class="btn-sm pri-queue-del" onclick="deletePriQueue('${escapeAttr(q.id)}')" title="Remover fila"><i class="ti ti-trash"></i></button>`;
       shtml+=`<span style="font-size:10px;color:var(--text3);white-space:nowrap">remover</span>`;
       shtml+=`</div>`;
@@ -3936,12 +3936,6 @@ function renderPriorities(){
     }
     shtml+='</td></tr>';
   });
-  if(priEditMode&&configured){
-    shtml+=`<tr class="pri-add-queue-row"><td colspan="2"><div class="pri-add-queue">`;
-    shtml+=`<input type="text" id="priNewQueueName" placeholder="Nome da fila (ex: data-labeling-hsp-id-nova)" onkeydown="if(event.key==='Enter')addPriQueue()">`;
-    shtml+=`<button type="button" class="btn-sm purple" onclick="addPriQueue()"><i class="ti ti-plus"></i> Adicionar fila</button>`;
-    shtml+=`</div></td></tr>`;
-  }
   shtml+=`<tr class="pri-summary-total"><td>TOTAL DE AMOSTRAS</td><td style="text-align:right"><strong>${total}</strong></td></tr>`;
   shtml+='</tbody>';
   sum.innerHTML=shtml;
