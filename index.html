@@ -520,12 +520,14 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .fs-amarelo{background:rgba(253,224,71,0.25);color:#fef08a;}
 .fs-azul   {background:rgba(96,165,250,0.25);color:#93c5fd;}
 .fs-roxo   {background:rgba(139,92,246,0.25);color:#c4b5fd;}
+.fs-ausencia{background:rgba(139,92,246,0.25);color:#c4b5fd;}
 /* light mode */
 body.light .fs-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
 body.light .fs-laranja{background:#fef3c7;color:#92400e;}
 body.light .fs-amarelo{background:#fef9c3;color:#854d0e;}
 body.light .fs-azul   {background:#dbeafe;color:#1e40af;}
 body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
+body.light .fs-ausencia{background:#ede9fe;color:#5b21b6;}
 
 /* Legenda férias */
 .ferias-legend{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-top:14px;}
@@ -678,6 +680,7 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .upcoming-item[data-status="amarelo"]::before{background:#eab308;}
 .upcoming-item[data-status="azul"]::before{background:#3b82f6;}
 .upcoming-item[data-status="roxo"]::before{background:#8b5cf6;}
+.upcoming-item[data-status="ausencia"]::before{background:#8b5cf6;}
 .upcoming-card-inner{padding:14px 14px 14px 18px;display:flex;flex-direction:column;gap:12px;}
 .upcoming-top{display:flex;align-items:center;gap:12px;min-width:0;}
 .upcoming-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0;}
@@ -1251,7 +1254,6 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <option value="laranja">Confirmado c/ gestor</option>
       <option value="amarelo">Pendente de aprovação</option>
       <option value="azul">Planejado (possível)</option>
-      <option value="roxo">Programado / confirmado</option>
     </select>
     </div>
     <div class="ferias-edit-actions">
@@ -2084,7 +2086,7 @@ async function syncFeriasToGist(){
 }
 async function persistFeriasToPack(){
   saveLocal();
-  if(canWriteGist()&&getGistId()){ await saveToGist(); return true; }
+  if(canWriteGist()&&getGistId()) return await saveToGist();
   if(canSyncFeriasToGist()) return await syncFeriasToGist();
   return false;
 }
@@ -3941,8 +3943,8 @@ const STATUS_LABEL = {
   laranja: 'Confirmado c/ gestor',
   amarelo: 'Pendente de aprovação',
   azul:    'Planejado (possível)',
-  roxo:    'Programado / confirmado',
 };
+const FERIAS_STATUS_ORDER = ['verde','laranja','amarelo','azul'];
 const TIPO_LABEL = {
   ferias:      'Férias',
   atestado:    'Atestado médico',
@@ -3958,25 +3960,24 @@ const TIPO_LABEL_SHORT = {
   outro:       'Ausência',
 };
 const TIPO_LEGEND_DESC = {
-  ferias:      'Período de férias',
-  atestado:    'Afastamento com atestado',
-  maternidade: 'Licença maternidade',
-  paternidade: 'Licença paternidade',
-  outro:       'Outros afastamentos longos',
+  ferias:      'Período de férias — informe a situação',
+  atestado:    'Basta registrar tipo e datas',
+  maternidade: 'Basta registrar tipo e datas',
+  paternidade: 'Basta registrar tipo e datas',
+  outro:       'Basta registrar tipo e datas',
 };
 const STATUS_SWATCH = {
   verde:   'var(--ferias-verde-bg)',
   laranja: '#fef3c7',
   amarelo: '#fef9c3',
   azul:    '#dbeafe',
-  roxo:    '#ede9fe',
+  ausencia:'#ede9fe',
 };
 const STATUS_LEGEND_DESC = {
   verde:   'Já solicitou no Oracle. Férias confirmadas.',
   laranja: 'Alinhou com a supervisão, ainda não no sistema.',
   amarelo: 'Aguardando aprovação da supervisão.',
   azul:    'Interesse em férias nesse período.',
-  roxo:    'Atestados e licenças confirmados ou já registrados.',
 };
 const TIPO_ORDER = ['ferias','atestado','maternidade','paternidade','outro'];
 function normalizeFeriasTipo(tipo){
@@ -3986,11 +3987,26 @@ function normalizeFeriasTipo(tipo){
 function getFeriasTipo(f){
   return normalizeFeriasTipo(f?.tipo);
 }
+function isFeriasRecord(f){
+  return getFeriasTipo(f)==='ferias';
+}
+function getFeriasBarClass(f){
+  return isFeriasRecord(f)?'fs-'+(f.status||'verde'):'fs-ausencia';
+}
+function getFeriasTimelineTitle(f,nome,canEdit){
+  const base=nome+' · '+TIPO_LABEL[getFeriasTipo(f)]+' · '+f.inicio+' até '+f.fim;
+  const suffix=canEdit?' — clique para editar':' — clique para ver';
+  if(!isFeriasRecord(f)) return base+suffix;
+  return base+' · '+(STATUS_LABEL[f.status]||f.status)+suffix;
+}
+function applyFeriasStatusFields(record,tipo,tipoId,statusId){
+  if(tipo==='ferias') record.status=getFeriasStatusFromForm(tipoId,statusId);
+  else delete record.status;
+}
 function formatFeriasRecordLabel(f){
   const tipo=getFeriasTipo(f);
-  const status=f?.status||'verde';
-  if(tipo==='ferias') return STATUS_LABEL[status]||status;
-  return TIPO_LABEL[tipo]+' · '+(STATUS_LABEL[status]||status);
+  if(!isFeriasRecord(f)) return TIPO_LABEL[tipo];
+  return STATUS_LABEL[f?.status||'verde']||f.status;
 }
 function formatFeriasBarLabel(f,nome){
   const tipo=TIPO_LABEL_SHORT[getFeriasTipo(f)]||TIPO_LABEL[getFeriasTipo(f)];
@@ -4007,7 +4023,7 @@ function renderFeriasLegend(){
       <span class="ferias-legend-chip">${escapeHtml(TIPO_LABEL[t])}</span>
       <span class="ferias-legend-tipo-desc">${escapeHtml(TIPO_LEGEND_DESC[t]||'')}</span>
     </div>`).join('');
-  const feriasStatus=['verde','laranja','amarelo','azul'];
+  const feriasStatus=FERIAS_STATUS_ORDER;
   const statusHtml=feriasStatus.map(k=>`
     <div class="ferias-legend-status-item">
       <div class="ferias-legend-swatch" style="background:${STATUS_SWATCH[k]}"></div>
@@ -4028,14 +4044,14 @@ function renderFeriasLegend(){
     <div class="ferias-legend-section">
       <div class="ferias-legend-head"><i class="ti ti-palette"></i> Cores — férias</div>
       <div class="ferias-legend-status">${statusHtml}</div>
-      <p class="ferias-legend-note"><span class="ferias-legend-swatch" style="display:inline-block;vertical-align:-1px;background:${STATUS_SWATCH.roxo}"></span> <strong>${escapeHtml(STATUS_LABEL.roxo)}</strong> — ${escapeHtml(STATUS_LEGEND_DESC.roxo)} Ausências (atestado, licenças) usam essa cor por padrão.</p>
+      <p class="ferias-legend-note"><span class="ferias-legend-swatch" style="display:inline-block;vertical-align:-1px;background:${STATUS_SWATCH.ausencia}"></span> Atestados e licenças aparecem em <strong>roxo</strong> na timeline — basta registrar tipo e datas, sem situação.</p>
     </div>`;
 }
 function feriasTipoOptionsHtml(selected){
   return TIPO_ORDER.map(t=>`<option value="${t}"${t===selected?' selected':''}>${TIPO_LABEL[t]}</option>`).join('');
 }
 function feriasStatusOptionsHtml(selected){
-  return Object.entries(STATUS_LABEL).map(([k,l])=>`<option value="${k}"${k===selected?' selected':''}>${l}</option>`).join('');
+  return FERIAS_STATUS_ORDER.map(k=>`<option value="${k}"${k===selected?' selected':''}>${STATUS_LABEL[k]}</option>`).join('');
 }
 function onFeriasTipoChange(tipoId,statusId,statusWrapId){
   const tipo=document.getElementById(tipoId)?.value;
@@ -4043,9 +4059,7 @@ function onFeriasTipoChange(tipoId,statusId,statusWrapId){
   const wrap=statusWrapId?document.getElementById(statusWrapId):null;
   const isFerias=tipo==='ferias';
   if(wrap) wrap.style.display=isFerias?'':'none';
-  if(!st||!tipo) return;
-  if(!isFerias) st.value='roxo';
-  else if(st.value==='roxo') st.value='verde';
+  if(st&&isFerias&&st.value==='roxo') st.value='verde';
 }
 function syncFeriasDateMin(inicioId,fimId){
   const ini=document.getElementById(inicioId);
@@ -4061,7 +4075,7 @@ function syncFeriasDateMin(inicioId,fimId){
 }
 function getFeriasStatusFromForm(tipoId,statusId){
   const tipo=normalizeFeriasTipo(document.getElementById(tipoId)?.value);
-  if(tipo!=='ferias') return 'roxo';
+  if(tipo!=='ferias') return null;
   return document.getElementById(statusId)?.value||'verde';
 }
 
@@ -4105,10 +4119,10 @@ async function saveFeriasEdit(){
   if(!ensurePackTokenOrRedirect()) return;
   const inicio = document.getElementById('fEditInicio').value;
   const fim    = document.getElementById('fEditFim').value;
-  const status = getFeriasStatusFromForm('fEditTipo','fEditStatus');
   const tipo   = normalizeFeriasTipo(document.getElementById('fEditTipo')?.value);
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
-  f.inicio = inicio; f.fim = fim; f.status = status; f.tipo = tipo;
+  f.inicio = inicio; f.fim = fim; f.tipo = tipo;
+  applyFeriasStatusFields(f,tipo,'fEditTipo','fEditStatus');
   closeFeriasEdit();
   renderFerias();
   await persistFeriasToPack();
@@ -4161,7 +4175,7 @@ function renderUpcoming(){
     const canEdit=canEditFeriasRecord(f);
     const item=document.createElement('div');
     item.className='upcoming-item';
-    item.dataset.status=f.status||'verde';
+    item.dataset.status=isFeriasRecord(f)?(f.status||'verde'):'ausencia';
     item.style.cursor='pointer';
     item.innerHTML=`
       <div class="upcoming-card-inner">
@@ -4175,7 +4189,7 @@ function renderUpcoming(){
         </div>
         <div class="upcoming-footer">
           <span class="upcoming-tipo">${escapeHtml(TIPO_LABEL[getFeriasTipo(f)])}</span>
-          <span class="status-pill sp-${f.status}">${STATUS_LABEL[f.status]||f.status}</span>
+          ${isFeriasRecord(f)?`<span class="status-pill sp-${f.status||'verde'}">${STATUS_LABEL[f.status]||f.status}</span>`:''}
           <span class="${countdownClass}">${timeLabel}</span>
         </div>
       </div>
@@ -4254,7 +4268,6 @@ async function saveFerias(){
   const nome   = document.getElementById('fNome').value.trim();
   const inicio = document.getElementById('fInicio').value;
   const fim    = document.getElementById('fFim').value;
-  const status = getFeriasStatusFromForm('fTipo','fStatus');
   const tipo   = normalizeFeriasTipo(document.getElementById('fTipo')?.value);
   if(!nome||!inicio||!fim){ alert('Preencha todos os campos.'); return; }
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
@@ -4272,7 +4285,8 @@ async function saveFerias(){
     }
   }
   if(!data.ferias) data.ferias = [];
-  const newRec={ id:'f'+Date.now(), nome, inicio, fim, status, tipo };
+  const newRec={ id:'f'+Date.now(), nome, inicio, fim, tipo };
+  applyFeriasStatusFields(newRec,tipo,'fTipo','fStatus');
   data.ferias.push(newRec);
   noteFeriasIds([newRec]);
   closeFeriasForm();
@@ -4379,14 +4393,14 @@ function renderFerias(){
       const widthPct = ((barEnd-barStart+1)/daysInMonth*100).toFixed(2);
 
       const bar = document.createElement('div');
-      bar.className = 'tl-bar fs-'+f.status;
+      bar.className = 'tl-bar '+getFeriasBarClass(f);
       bar.style.left  = leftPct+'%';
       bar.style.width = widthPct+'%';
       const canEditBar=canEditFeriasRecord(f);
       const barSpan=barEnd-barStart+1;
       const label = barSpan >= 2 ? formatFeriasBarLabel(f,nome) : '';
       bar.textContent = label;
-      bar.title = nome+' · '+TIPO_LABEL[getFeriasTipo(f)]+' · '+f.inicio+' até '+f.fim+' · '+(STATUS_LABEL[f.status]||f.status)+(canEditBar?' — clique para editar':' — clique para ver');
+      bar.title = getFeriasTimelineTitle(f,nome,canEditBar);
       bar.style.cursor='pointer';
       bar.addEventListener('click', ev=>{
         ev.stopPropagation();
@@ -5371,7 +5385,6 @@ window.addEventListener('DOMContentLoaded',()=>{
           <option value="laranja">Confirmado c/ gestor</option>
           <option value="amarelo">Pendente de aprovação</option>
           <option value="azul">Planejado (possível)</option>
-          <option value="roxo">Programado / confirmado</option>
         </select>
       </div>
     </div>
