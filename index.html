@@ -918,7 +918,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
               <div style="font-size:11px;padding:5px 12px;border-radius:20px;background:#059669;color:#fff;font-weight:500">CSAT</div>
             </div>
           </div>
-          <p class="guide-caption">Foto e dados ficam visíveis para todo o pack via Gist.</p>
+          <p class="guide-caption">Para o pack ver sua foto e dados em qualquer computador, peça o <strong>token do pack</strong> ao admin e configure em <strong>Configuração → Técnico</strong> antes de salvar.</p>
         </div>
       </div>
 
@@ -1038,7 +1038,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <p class="access-hint" id="accessHint"></p>
     </div>
     <div class="config-panel" id="configPanelTech">
-      <p class="access-hint">Token GitHub com permissão <code>gist</code> para salvar alterações no pack. O Gist ID sincroniza os dados entre todos — qualquer membro pode configurar aqui.</p>
+      <p class="access-hint">Token GitHub com permissão <code>gist</code> (fornecido pelo admin do pack) para publicar seu perfil e, se você for editor, salvar links e prioridades. O Gist ID já vem preenchido — cada membro usa o mesmo pack.</p>
       <label>GitHub Token</label>
       <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
       <label style="margin-top:10px">Gist ID</label>
@@ -1051,7 +1051,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <div class="config-panel" id="configPanelUsers">
       <p class="access-hint">Gerencie papéis do pack. Quem salva o perfil entra como <strong>Membro</strong>; promova para Editor ou Admin abaixo.</p>
       <div class="profiles-publish-box" id="profilesPublishBox" style="display:none">
-        <p class="access-hint">Perfis (foto, nível e áreas) ficam no navegador de cada membro até serem publicados no Gist. Use o botão abaixo para enviar os perfis disponíveis neste navegador para o pack.</p>
+        <p class="access-hint">Cada membro publica o próprio perfil ao salvar (com o token do pack em Técnico). Use o botão abaixo só para recuperar perfis que existam <strong>neste navegador</strong> — não alcança outros computadores.</p>
         <p class="access-hint" id="profilesPublishSummary"></p>
         <button class="btn primary" id="btnPublishProfiles" onclick="publishProfilesToGist()"><i class="ti ti-cloud-upload"></i> Publicar perfis no Gist</button>
       </div>
@@ -1498,14 +1498,15 @@ function getUserRole(){
   if(!getToken()) return rosterRole;
   if(rosterRole==='admin') return 'admin';
   if(!hasAdminInRoster(name)) return 'admin';
-  return 'editor';
+  return rosterRole;
 }
 function roleForRegistration(name){
   if(!namesMatch(name,getUserName())||!getToken()) return 'member';
   const u=getAccessUserRecord(name);
-  if(u&&u.role==='admin') return 'admin';
+  if(u?.role==='admin') return 'admin';
+  if(u?.role==='editor') return 'editor';
   if(!hasAdminInRoster(name)) return 'admin';
-  return 'editor';
+  return 'member';
 }
 function syncTokenHolderRole(){
   const name=getUserName();
@@ -1570,6 +1571,62 @@ function mergeProfileRecords(existing,incoming){
   if(!incoming) return {...existing};
   const exAt=existing.updatedAt||0,inAt=incoming.updatedAt||0;
   return exAt>=inAt?{...incoming,...existing}:{...existing,...incoming};
+}
+function canSyncProfileToGist(){
+  return !!(getToken()&&getGistId()&&getUserName()&&canUseMemberFeatures());
+}
+function ensureRegisteredMemberInData(pack,name){
+  if(!name) return;
+  if(!pack.accessUsers) pack.accessUsers=[];
+  const u=pack.accessUsers.find(x=>namesMatch(x.name,name));
+  if(!u){
+    pack.accessUsers.push({
+      id:'u'+Date.now(),name,role:'member',status:'active',
+      joinedAt:new Date().toISOString(),autoRegistered:true
+    });
+  }else if(u.status==='pending'){
+    u.status='active'; u.role=u.role||'member';
+    u.approvedAt=u.approvedAt||new Date().toISOString();
+  }
+}
+async function syncOwnProfileToGist(name,oldName){
+  if(!canSyncProfileToGist()) return false;
+  const token=getToken(),gistId=getGistId();
+  const profile=data.profiles[name];
+  if(!profile) return false;
+  showStatus('loading','Publicando perfil no pack...');
+  try{
+    const res=await fetch(`https://api.github.com/gists/${gistId}`,{headers:{'Authorization':`token ${token}`}});
+    if(!res.ok) throw new Error('Gist indisponível ('+res.status+')');
+    const json=await res.json();
+    const file=json.files[GIST_FILENAME];
+    if(!file?.content) throw new Error('Arquivo não encontrado no Gist');
+    const remote=JSON.parse(file.content);
+    if(!remote.profiles) remote.profiles={};
+    if(oldName&&oldName!==name&&remote.profiles[oldName]){
+      const merged=mergeProfileRecords(remote.profiles[oldName],profile);
+      remote.profiles[name]=mergeProfileRecords(remote.profiles[name],merged)||merged;
+      delete remote.profiles[oldName];
+    }else{
+      remote.profiles[name]=mergeProfileRecords(remote.profiles[name],profile)||{...profile};
+    }
+    ensureRegisteredMemberInData(remote,name);
+    const patchRes=await fetch(`https://api.github.com/gists/${gistId}`,{
+      method:'PATCH',
+      headers:{'Authorization':`token ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({files:{[GIST_FILENAME]:{content:JSON.stringify(remote,null,2)}}})
+    });
+    if(!patchRes.ok) throw new Error('Erro ao salvar ('+patchRes.status+')');
+    data.profiles[name]=remote.profiles[name];
+    ensureRegisteredMember(name);
+    saveLocal();
+    document.getElementById('lastSaved').textContent='Perfil publicado';
+    showStatus('success','Perfil publicado no pack!');setTimeout(hideStatus,3000);
+    return true;
+  }catch(e){
+    showStatus('error','Erro ao publicar perfil: '+e.message);setTimeout(hideStatus,5000);
+    return false;
+  }
 }
 function mergeLocalProfilesIntoData(){
   ensureProfilesData();
@@ -1680,8 +1737,10 @@ function renderAccessStatusBox(){
     hint.textContent='Token GitHub detectado — você opera como Admin até outro admin ser definido na aba Usuários.';
   }else if(getToken()&&role==='editor'){
     hint.textContent='Token ativo — você pode editar conteúdo do hub e salvar no Gist.';
+  }else if(getToken()&&role==='member'){
+    hint.textContent='Token ativo — ao salvar o perfil, foto e dados vão para o pack. Você não edita links nem prioridades.';
   }else if(role==='member'){
-    hint.textContent='Acesso de membro ativo — perfil e férias próprias. Token e Gist ID na aba Técnico.';
+    hint.textContent='Perfil salvo só neste computador até configurar o token do pack na aba Técnico (peça ao admin).';
   }else if(role==='admin'){
     hint.textContent='Acesso total. Gerencie papéis na aba Usuários e o token na aba Técnico.';
   }else{
@@ -2809,7 +2868,11 @@ async function saveProfile(){
   renderMural();
   renderFerias();
   saveLocal();
-  if(canWriteGist()&&getGistId()) await saveToGist();
+  if(canSyncProfileToGist()) await syncOwnProfileToGist(val,oldName);
+  else if(!getToken()){
+    showStatus('error','Perfil salvo só neste computador. Configure o token do pack em Configuração → Técnico.');
+    setTimeout(hideStatus,6000);
+  }
   if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
 }
 function openNameModal(){
