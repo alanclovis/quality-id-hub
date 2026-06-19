@@ -76,11 +76,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-text);min-hei
 .discover-card{background:var(--bg2);border-radius:var(--r);padding:14px 16px 16px;margin-bottom:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
 .discover-divider{height:1px;background:var(--border);margin:12px 0 14px;}
 .search-wrap{position:relative;z-index:50;margin-bottom:0;}
-.search-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:10px 16px 10px 40px;font-size:14px;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s;}
-.search-input:focus{border-color:#0071e3;box-shadow:0 0 0 3px rgba(0,113,227,0.12);}
-.search-input::placeholder{color:var(--text3);}
-.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:17px;pointer-events:none;}
-.search-kbd{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:11px;color:var(--text3);}
+.search-field{position:relative;}
+.search-label{font-size:11px;font-weight:600;color:#0071e3;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.search-input{width:100%;background:#fff;border:1.5px solid rgba(0,113,227,0.35);border-radius:12px;color:var(--text);padding:13px 44px 13px 44px;font-size:15px;font-weight:500;outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s;box-shadow:0 0 0 4px rgba(0,113,227,0.08),0 2px 8px rgba(0,113,227,0.06);}
+.search-input::placeholder{color:#86868b;font-weight:400;}
+.search-input:focus{border-color:#0071e3;box-shadow:0 0 0 4px rgba(0,113,227,0.18),0 4px 14px rgba(0,113,227,0.12);}
+.search-input:hover:not(:focus){border-color:rgba(0,113,227,0.5);box-shadow:0 0 0 4px rgba(0,113,227,0.1),0 3px 10px rgba(0,113,227,0.08);}
+.search-icon{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#0071e3;font-size:18px;pointer-events:none;}
+.search-kbd{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(0,113,227,0.08);border:1px solid rgba(0,113,227,0.2);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;color:#0071e3;}
 .search-results{background:var(--bg2);border:none;border-radius:var(--r);margin-top:6px;overflow:hidden;display:none;position:relative;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,0.12);}
 .search-results.active{display:block;}
 .search-result-item{display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--border);}
@@ -952,9 +955,12 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <!-- Search + filters -->
 <div class="discover-card">
   <div class="search-wrap">
-    <i class="ti ti-search search-icon"></i>
-    <input class="search-input" id="searchInput" type="text" placeholder="Buscar link... (/ ou ⌘K)" autocomplete="off">
-    <span class="search-kbd" id="searchKbd">/</span>
+    <div class="search-label"><i class="ti ti-search" style="font-size:13px"></i> Buscar links</div>
+    <div class="search-field">
+      <i class="ti ti-search search-icon"></i>
+      <input class="search-input" id="searchInput" type="text" placeholder="Digite o nome do link... (/ ou ⌘K)" autocomplete="off">
+      <span class="search-kbd" id="searchKbd">/</span>
+    </div>
     <div class="search-results" id="searchResults"></div>
   </div>
   <div class="discover-divider"></div>
@@ -1276,7 +1282,7 @@ function doSearch(q){
   if(overlay){
     const sw = document.getElementById('searchInput');
     if(sw){
-      const rect = sw.closest('.search-wrap').getBoundingClientRect();
+      const rect = sw.getBoundingClientRect();
       overlay.style.top = (rect.bottom + 6) + 'px';
     }
     overlay.classList.add('active');
