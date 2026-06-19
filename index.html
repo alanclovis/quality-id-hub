@@ -175,6 +175,7 @@ body.light .sec-x .section-header{background:transparent;border:none;}
 .edit-panel textarea{resize:vertical;min-height:60px;}
 .edit-panel-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .edit-panel label{font-size:11px;color:var(--text3);margin-bottom:2px;display:block;}
+.edit-panel label.edit-tag-option,.edit-panel label.badge-toggle{display:inline-flex;align-items:center;gap:5px;margin-bottom:0;color:var(--text2);cursor:pointer;}
 .edit-panel-group{display:flex;flex-direction:column;}
 .edit-panel-actions{display:flex;gap:8px;align-items:center;margin-top:4px;}
 .edit-panel-meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
@@ -1664,7 +1665,7 @@ function doSearch(q){
     kbd.style.display='';
     if(overlay) overlay.classList.remove('active');
     if(discoverCard) discoverCard.classList.remove('search-active');
-    render();
+    if(!editMode) render();
     return;
   }
   kbd.style.display='none';
@@ -1744,6 +1745,7 @@ document.addEventListener('keydown',e=>{
   }
 });
 document.addEventListener('click',e=>{
+  if(e.target.closest('.edit-panel')) return;
   if(!e.target.closest('.discover-card')){
     doSearch('');
   }
@@ -2065,6 +2067,8 @@ function buildEditPanel(link,sectionId){
       <button class="btn danger" style="margin-left:auto" onclick="deleteLink('${sectionId}','${link.id}')"><i class="ti ti-trash"></i></button>
     </div>
   `;
+  panel.addEventListener('click',e=>e.stopPropagation());
+  panel.addEventListener('mousedown',e=>e.stopPropagation());
   return panel;
 }
 
