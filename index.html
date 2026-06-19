@@ -1073,10 +1073,11 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 5 de 7</div>
           <h3>Férias do pack</h3>
-          <p>Na página <strong>Férias</strong> (menu lateral), registre seu período e acompanhe quem está fora do time.</p>
+          <p>Na página <strong>Férias</strong>, registre seu período — com o <strong>token do pack</strong> configurado, o registro vai direto para o Gist e todo o time vê.</p>
           <div class="guide-illustration guide-step-list">
-            <div class="guide-step-item"><span class="num">1</span><span>Menu lateral → <strong>Férias</strong> → <strong>Registrar férias</strong></span></div>
-            <div class="guide-step-item"><span class="num">2</span><span>Clique em uma barra ou item da lista para editar status (titular ou editor)</span></div>
+            <div class="guide-step-item"><span class="num">1</span><span>Configure o token (Passo 2) se ainda não fez</span></div>
+            <div class="guide-step-item"><span class="num">2</span><span>Menu lateral → <strong>Férias</strong> → <strong>Registrar férias</strong></span></div>
+            <div class="guide-step-item"><span class="num">3</span><span>Clique em um item da lista para editar status</span></div>
           </div>
         </div>
       </div>
@@ -1946,6 +1947,50 @@ function mergeProfileRecords(existing,incoming){
 function canSyncProfileToGist(){
   if(isVisitor()) return false;
   return !!(getToken()&&getGistId()&&getUserName()&&canUseMemberFeatures());
+}
+function canSyncFeriasToGist(){
+  return canSyncProfileToGist();
+}
+function requirePackTokenForFerias(){
+  if(getToken()&&getGistId()) return true;
+  alert('Configure o token do pack antes de registrar férias — senão o registro fica só neste navegador.');
+  openNameModal();
+  showProfileModalStep('token');
+  return false;
+}
+async function syncFeriasToGist(){
+  if(!canSyncFeriasToGist()) return false;
+  const token=getToken(),gistId=getGistId();
+  showStatus('loading','Publicando férias no pack...');
+  try{
+    const res=await fetch(`https://api.github.com/gists/${gistId}`,{headers:{'Authorization':`token ${token}`}});
+    if(!res.ok) throw new Error('Gist indisponível ('+res.status+')');
+    const json=await res.json();
+    const file=json.files[GIST_FILENAME];
+    if(!file?.content) throw new Error('Arquivo não encontrado no Gist');
+    const remote=JSON.parse(file.content);
+    remote.ferias=mergeFeriasById(remote.ferias,data.ferias);
+    const patchRes=await fetch(`https://api.github.com/gists/${gistId}`,{
+      method:'PATCH',
+      headers:{'Authorization':`token ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({files:{[GIST_FILENAME]:{content:JSON.stringify(remote,null,2)}}})
+    });
+    if(!patchRes.ok) throw new Error('Erro ao salvar ('+patchRes.status+')');
+    data.ferias=remote.ferias;
+    saveLocal();
+    document.getElementById('lastSaved').textContent='Férias publicadas';
+    showStatus('success','Férias publicadas no pack!');setTimeout(hideStatus,3000);
+    return true;
+  }catch(e){
+    showStatus('error','Erro ao publicar férias: '+e.message);setTimeout(hideStatus,5000);
+    return false;
+  }
+}
+async function persistFeriasToPack(){
+  saveLocal();
+  if(canWriteGist()&&getGistId()){ await saveToGist(); return true; }
+  if(canSyncFeriasToGist()) return await syncFeriasToGist();
+  return false;
 }
 function ensureRegisteredMemberInData(pack,name){
   if(!name) return;
@@ -3696,10 +3741,11 @@ function closeFeriasEdit(){
   document.getElementById('feriasEditBackdrop').classList.remove('active');
   setFeriasEditModalMode(true);
 }
-function saveFeriasEdit(){
+async function saveFeriasEdit(){
   const id     = document.getElementById('fEditId').value;
   const f = (data.ferias||[]).find(x=>x.id===id);
   if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para editar este registro.'); return; }
+  if(!requirePackTokenForFerias()) return;
   const inicio = document.getElementById('fEditInicio').value;
   const fim    = document.getElementById('fEditFim').value;
   const status = document.getElementById('fEditStatus').value;
@@ -3707,17 +3753,18 @@ function saveFeriasEdit(){
   f.inicio = inicio; f.fim = fim; f.status = status;
   closeFeriasEdit();
   renderFerias();
-  if(canWriteGist()&&getGistId()) saveToGist();
+  await persistFeriasToPack();
 }
-function deleteFeriasCurrent(){
+async function deleteFeriasCurrent(){
   const id = document.getElementById('fEditId').value;
   const f = (data.ferias||[]).find(x=>x.id===id);
   if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para remover este registro.'); return; }
+  if(!requirePackTokenForFerias()) return;
   if(!confirm('Remover este registro de férias?')) return;
   data.ferias = (data.ferias||[]).filter(x=>x.id!==id);
   closeFeriasEdit();
   renderFerias();
-  if(canWriteGist()&&getGistId()) saveToGist();
+  await persistFeriasToPack();
 }
 
 function renderUpcoming(){
@@ -3818,6 +3865,12 @@ function openFeriasForm(){
     alert('Seu acesso não permite registrar férias. Solicite liberação em Configuração.');
     return;
   }
+  if(!getToken()||!getGistId()){
+    if(!confirm('Sem o token do pack, férias não são publicadas para o time. Configurar token agora?')) return;
+    openNameModal();
+    showProfileModalStep('token');
+    return;
+  }
   form.classList.add('active');
   if(!canWriteGist()){
     nameEl.value=me;
@@ -3836,7 +3889,7 @@ function closeFeriasForm(){
   document.getElementById('feriasForm').classList.remove('active');
 }
 
-function saveFerias(){
+async function saveFerias(){
   const nome   = document.getElementById('fNome').value.trim();
   const inicio = document.getElementById('fInicio').value;
   const fim    = document.getElementById('fFim').value;
@@ -3847,6 +3900,7 @@ function saveFerias(){
     alert('Seu acesso não permite registrar férias. Solicite liberação em Configuração.');
     return;
   }
+  if(!requirePackTokenForFerias()) return;
   if(!canWriteGist()){
     const me=getUserName();
     if(!me){ openNameModal(); return; }
@@ -3859,7 +3913,7 @@ function saveFerias(){
   data.ferias.push({ id:'f'+Date.now(), nome, inicio, fim, status });
   closeFeriasForm();
   renderFerias();
-  if(canWriteGist()&&getGistId()) saveToGist();
+  await persistFeriasToPack();
 }
 
 function renderFerias(){
