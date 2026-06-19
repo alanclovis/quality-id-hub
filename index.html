@@ -2658,8 +2658,13 @@ async function saveToGist(){
     const res=await fetch(url,{method,headers:{'Authorization':`token ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!res.ok)throw new Error('Erro '+res.status);
     const json=await res.json();
-    if(!gistId){localStorage.setItem('qhub_gist_id',json.id);const lnk=document.getElementById('gistFooterLink');lnk.href=json.html_url;lnk.style.display='flex';}
-    document.getElementById('lastSaved').textContent='Salvo agora';
+    if(!gistId){
+      localStorage.setItem('qhub_gist_id',json.id);
+      const lnk=document.getElementById('gistFooterLink');
+      if(lnk){ lnk.href=json.html_url; lnk.style.display='flex'; }
+    }
+    const lastSaved=document.getElementById('lastSaved');
+    if(lastSaved) lastSaved.textContent='Salvo agora';
     initKnownFeriasIds();
     showStatus('success','Salvo com sucesso!');setTimeout(hideStatus,3000);
     return true;
@@ -3797,11 +3802,12 @@ function getAvisos(){ return (data.avisos||[]); }
 function renderMural(){
   const wrap = document.getElementById('muralWrap');
   const grid = document.getElementById('muralGrid');
+  if(!wrap||!grid) return;
   const badge = document.getElementById('muralBadge');
   const btnAdd = document.getElementById('btnAddAviso');
   const avisos = getAvisos();
 
-  if(canEditContent()) btnAdd.style.display='flex';
+  if(btnAdd&&canEditContent()) btnAdd.style.display='flex';
   if(!avisos.length && !getToken()){ wrap.style.display='none'; return; }
   wrap.style.display='block';
 
@@ -3813,14 +3819,15 @@ function renderMural(){
   });
 
   // count pending for current user
-  const me = getUserName();
   const myConfirmed = JSON.parse(localStorage.getItem('qhub_confirmed')||'{}');
   const pending = avisos.filter(a=>a.tipo==='processo'&&!myConfirmed[a.id]).length;
-  if(pending>0){
-    badge.textContent = pending+' pendente'+(pending>1?'s':'');
-    badge.style.display='inline-flex';
-  } else {
-    badge.style.display='none';
+  if(badge){
+    if(pending>0){
+      badge.textContent = pending+' pendente'+(pending>1?'s':'');
+      badge.style.display='inline-flex';
+    } else {
+      badge.style.display='none';
+    }
   }
 
   grid.innerHTML='';
