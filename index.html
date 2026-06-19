@@ -898,6 +898,9 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
             <span>Informe o código pessoal enviado pelo admin no Slack</span>
           </button>
         </div>
+        <p style="margin-top:14px;text-align:center">
+          <button type="button" class="auth-back-link" onclick="showAuthAdminPanel()">Primeiro acesso como admin</button>
+        </p>
       </div>
       <div id="authMemberPanel" style="display:none">
         <button type="button" class="auth-back-link" onclick="showAuthChoose()"><i class="ti ti-arrow-left"></i> Voltar</button>
@@ -1013,7 +1016,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
             <div class="guide-pill"><i class="ti ti-beach"></i> Férias</div>
             <div class="guide-pill"><i class="ti ti-user"></i> Perfil</div>
           </div>
-          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita, escolha <strong>Visitante</strong> (sem código) ou <strong>Membro do pack</strong> (código do admin).</span></div>
+          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita: <strong>Visitante</strong> (sem código) ou <strong>Membro do pack</strong> → código pessoal → token.</span></div>
         </div>
       </div>
 
@@ -1615,12 +1618,40 @@ function enterAsVisitor(){
 function showAuthChoose(){
   document.getElementById('authChoosePanel').style.display='block';
   document.getElementById('authMemberPanel').style.display='none';
+  hideAuthAdminPanel();
   const statusEl=document.getElementById('authStatusMsg');
   if(statusEl){ statusEl.style.display='none'; statusEl.textContent=''; }
+}
+function hideAuthAdminPanel(){
+  const box=document.getElementById('authAdminSetup');
+  const divider=document.getElementById('authAdminDivider');
+  if(box) box.style.display='none';
+  if(divider) divider.style.display='none';
+}
+function updateAuthAdminSteps(){
+  const tokenStep=document.getElementById('authAdminTokenStep');
+  const enterStep=document.getElementById('authAdminEnterStep');
+  const bootstrapInner=document.getElementById('authBootstrapInner');
+  const recoverInner=document.getElementById('authRecoverInner');
+  const hasToken=!!getToken();
+  if(tokenStep) tokenStep.style.display=hasToken?'none':'block';
+  if(enterStep) enterStep.style.display=hasToken?'block':'none';
+  if(bootstrapInner) bootstrapInner.style.display=hasToken&&!hasActiveAccessRoster()?'block':'none';
+  if(recoverInner) recoverInner.style.display=hasToken&&hasActiveAccessRoster()?'block':'none';
+}
+function showAuthAdminPanel(){
+  document.getElementById('authChoosePanel').style.display='none';
+  document.getElementById('authMemberPanel').style.display='none';
+  const box=document.getElementById('authAdminSetup');
+  const divider=document.getElementById('authAdminDivider');
+  if(box) box.style.display='block';
+  if(divider) divider.style.display='block';
+  updateAuthAdminSteps();
 }
 function showMemberCodeForm(){
   document.getElementById('authChoosePanel').style.display='none';
   document.getElementById('authMemberPanel').style.display='block';
+  hideAuthAdminPanel();
   const fromUrl=new URLSearchParams(location.search).get('code');
   const inp=document.getElementById('inviteCodeInput');
   if(inp){
@@ -1691,7 +1722,18 @@ function claimWithInviteCode(rawCode){
   updateEditButtonVisibility();
   return true;
 }
-function submitInviteCode(){
+async function submitInviteCode(){
+  if(!hasActiveAccessRoster()){
+    showStatus('loading','Carregando cadastro do pack...');
+    try{
+      await loadFromGist();
+      hideStatus();
+    }catch(e){
+      hideStatus();
+      alert('Não foi possível carregar o pack. Verifique sua conexão e tente de novo.');
+      return;
+    }
+  }
   const raw=document.getElementById('inviteCodeInput')?.value||'';
   if(!claimWithInviteCode(raw)) return;
   if(isVisitor()){
@@ -1700,8 +1742,8 @@ function submitInviteCode(){
     return;
   }
   document.getElementById('nameBackdrop').classList.add('active');
-  refreshProfileModal();
-  if(!getToken()){
+  if(getToken()) refreshProfileModal();
+  else{
     showProfileModalStep('token');
     setTimeout(()=>document.getElementById('onboardTokenInput')?.focus(),100);
   }
@@ -1712,20 +1754,8 @@ function openConfigFromAuth(){
 }
 function initInviteAuth(){
   showAuthChoose();
-  const box=document.getElementById('authAdminSetup');
-  const divider=document.getElementById('authAdminDivider');
-  const tokenStep=document.getElementById('authAdminTokenStep');
-  const enterStep=document.getElementById('authAdminEnterStep');
-  const bootstrapInner=document.getElementById('authBootstrapInner');
-  const recoverInner=document.getElementById('authRecoverInner');
-  const hasToken=!!getToken();
-  const showAdmin=!hasClaimedIdentity();
-  if(box) box.style.display=showAdmin?'block':'none';
-  if(divider) divider.style.display=showAdmin?'block':'none';
-  if(tokenStep) tokenStep.style.display=hasToken?'none':'block';
-  if(enterStep) enterStep.style.display=hasToken?'block':'none';
-  if(bootstrapInner) bootstrapInner.style.display=hasToken&&!hasActiveAccessRoster()?'block':'none';
-  if(recoverInner) recoverInner.style.display=hasToken&&hasActiveAccessRoster()?'block':'none';
+  hideAuthAdminPanel();
+  updateAuthAdminSteps();
   const fromUrl=new URLSearchParams(location.search).get('code');
   if(fromUrl) showMemberCodeForm();
 }
@@ -2322,7 +2352,13 @@ async function mergeRemoteFeriasBeforeSave(){
   data.ferias=mergeFeriasById(remote.ferias,data.ferias);
   if(JSON.stringify(data.ferias)!==prev) saveLocal();
 }
+let gistLoadPromise=null;
 async function loadFromGist(){
+  if(gistLoadPromise) return gistLoadPromise;
+  gistLoadPromise=loadFromGistInner().finally(()=>{ gistLoadPromise=null; });
+  return gistLoadPromise;
+}
+async function loadFromGistInner(){
   const gistId=getGistId();
   showStatus('loading','Carregando do Gist...');
   try{
@@ -4946,6 +4982,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   const savedPage = localStorage.getItem('qhub_page');
   if(savedPage && savedPage !== 'links') showPage(savedPage);
   renderUserChip();
+  if(!hasClaimedIdentity()||needsMandatoryToken()) openNameModal();
   loadFromGist();
   initPriGridEvents();
 });
