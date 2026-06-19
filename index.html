@@ -49,18 +49,20 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-text);min-hei
 .header .logo{width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,0.1);border:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;flex-shrink:0;}
 .header .title{font-family:var(--font-display);font-size:28px;font-weight:600;letter-spacing:-.6px;color:#fff;}
 .header .subtitle{font-size:14px;color:#a1a1a6;margin-top:4px;letter-spacing:-.1px;}
-.header-actions{display:flex;gap:8px;flex-shrink:0;justify-content:flex-end;flex-wrap:wrap;}
-.header .btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:none;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.92);font-size:14px;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:-.1px;}
-.header .btn:hover{background:rgba(255,255,255,0.2);color:#fff;}
-.header .btn.primary{background:#0071e3;color:#fff;}
-.header .btn.primary:hover{background:#0077ed;color:#fff;}
-.header .btn.danger{color:#ff6961;background:rgba(255,105,97,0.18);}
-.header .btn.danger:hover{background:rgba(255,105,97,0.28);color:#fff;}
+.header-actions{display:flex;gap:10px;flex-shrink:0;justify-content:flex-end;flex-wrap:wrap;align-items:center;}
+.header .btn{display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.16);color:#fff;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s,color .15s;white-space:nowrap;letter-spacing:-.1px;}
+.header .btn i{font-size:18px;line-height:1;}
+.header .btn:hover{background:rgba(255,255,255,0.26);border-color:rgba(255,255,255,0.3);color:#fff;}
+.header .btn.icon-only{width:40px;min-width:40px;padding:0;}
+.header .btn.primary{background:#0071e3;border-color:rgba(64,156,255,0.45);color:#fff;box-shadow:0 1px 0 rgba(255,255,255,0.12) inset;}
+.header .btn.primary:hover{background:#0077ed;border-color:rgba(64,156,255,0.6);color:#fff;}
+.header .btn.danger{color:#ffb4af;background:rgba(255,105,97,0.22);border-color:rgba(255,105,97,0.35);}
+.header .btn.danger:hover{background:rgba(255,105,97,0.32);border-color:rgba(255,105,97,0.45);color:#fff;}
 .header .tag-edit{display:none;font-size:11px;background:rgba(245,158,11,0.22);color:#fbbf24;border:none;padding:3px 9px;border-radius:20px;align-items:center;gap:5px;}
 .header .tag-edit.active{display:flex;}
-.header .user-chip{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);border:none;border-radius:20px;padding:4px 12px 4px 6px;cursor:pointer;transition:all .15s;font-size:12px;color:#fff;}
-.header .user-chip:hover{background:rgba(255,255,255,0.2);}
-.header .user-avatar{width:22px;height:22px;border-radius:50%;background:#0071e3;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;overflow:hidden;}
+.header .user-chip{display:flex;align-items:center;gap:8px;min-height:40px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.18);border-radius:12px;padding:4px 14px 4px 6px;cursor:pointer;transition:background .15s,border-color .15s;font-size:13px;font-weight:500;color:#fff;}
+.header .user-chip:hover{background:rgba(255,255,255,0.26);border-color:rgba(255,255,255,0.3);}
+.header .user-avatar{width:28px;height:28px;border-radius:8px;background:#0071e3;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;flex-shrink:0;overflow:hidden;}
 
 /* ── Buttons (global) ── */
 .btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:none;background:var(--gray-bg);color:var(--text2);font-size:14px;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:-.1px;}
@@ -1050,11 +1052,10 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <span class="tag-edit" id="editModeTag"><i class="ti ti-pencil"></i> Modo edição</span>
     <button class="btn" id="btnSave" style="display:none" onclick="saveToGist()"><i class="ti ti-cloud-upload"></i> Salvar</button>
     <div class="user-chip" id="userChip" onclick="openNameModal()" title="Editar perfil" style="display:none"><div class="user-avatar profile-av" id="userAvatarEl"></div><span id="userNameEl"></span></div>
-    <button class="btn" onclick="openGuide()" title="Guia de uso"><i class="ti ti-help"></i></button>
-    <button class="btn" onclick="openStats()" title="Estatísticas de uso" id="btnStats"><i class="ti ti-chart-bar"></i></button>
+    <button class="btn icon-only" onclick="openGuide()" title="Guia de uso" aria-label="Guia de uso"><i class="ti ti-help"></i></button>
+    <button class="btn icon-only" onclick="openStats()" title="Estatísticas de uso" aria-label="Estatísticas de uso" id="btnStats"><i class="ti ti-chart-bar"></i></button>
     <button class="btn primary" id="btnEditMode" onclick="toggleEditMode()" style="display:none"><i class="ti ti-pencil"></i> Editar</button>
-
-    <button class="btn" onclick="openConfig()"><i class="ti ti-settings"></i></button>
+    <button class="btn icon-only" onclick="openConfig()" title="Configuração" aria-label="Configuração"><i class="ti ti-settings"></i></button>
   </div>
 </div>
 
