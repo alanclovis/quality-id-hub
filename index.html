@@ -589,6 +589,13 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 }
 .modal-backdrop,.guide-backdrop,.name-backdrop,.ferias-edit-backdrop,.logo-modal-backdrop,.stats-modal-backdrop{
   transition:background 200ms ease;
+  padding:1rem;
+  overflow-y:auto;
+  box-sizing:border-box;
+}
+.modal-backdrop .modal,.guide-backdrop .guide-modal,.name-backdrop .name-modal,.ferias-edit-backdrop .ferias-edit-modal,.logo-modal-backdrop .logo-modal,.stats-modal-backdrop .stats-modal{
+  margin:auto;
+  flex-shrink:0;
 }
 
 /* 5. Button spring press */
@@ -662,6 +669,192 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     </div>
   </div>
 </div>
+
+
+<!-- Modals (outside contentWrap so zoom transform does not break fixed centering) -->
+<!-- Name modal -->
+<div class="name-backdrop" id="nameBackdrop">
+  <div class="name-modal">
+    <div style="font-size:32px;margin-bottom:12px">👋</div>
+    <h3>Como você se chama?</h3>
+    <p>Seu nome aparece quando você confirmar a leitura de um aviso. Fica salvo só no seu browser.</p>
+    <input type="text" id="nameInput" placeholder="Ex: Alan" maxlength="30">
+    <button class="btn primary" style="width:100%;justify-content:center;padding:10px" onclick="saveName()"><i class="ti ti-check"></i> Confirmar</button>
+  </div>
+</div>
+
+
+<!-- Onboarding Guide Modal -->
+<div class="guide-backdrop" id="guideBackdrop" onclick="if(event.target===this)closeGuide()">
+  <div class="guide-modal">
+    <div class="guide-header">
+      <div class="guide-logo"><i class="ti ti-shield-check"></i></div>
+      <button class="guide-close" onclick="closeGuide()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="guide-steps" id="guideSteps">
+
+      <!-- Step 1 -->
+      <div class="guide-step active" data-step="0">
+        <div style="padding:20px 24px 0">
+          <div class="guide-step-num">Passo 1 de 5</div>
+          <h3>Bem-vindo ao Quality ID Hub</h3>
+          <p>Seu ponto central para acessar ferramentas, registrar férias e manter o time alinhado. Este guia mostra tudo em menos de 1 minuto.</p>
+          <div class="guide-illustration">
+            <div class="guide-pill"><i class="ti ti-layout-grid"></i> Links</div>
+            <div class="guide-pill"><i class="ti ti-beach"></i> Férias</div>
+            <div class="guide-pill"><i class="ti ti-star"></i> Favoritos</div>
+            <div class="guide-pill"><i class="ti ti-zoom-in"></i> Zoom</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="guide-step" data-step="1">
+        <div style="padding:20px 24px 0">
+          <div class="guide-step-num">Passo 2 de 5</div>
+          <h3>Ver detalhes de um link</h3>
+          <p>Passe o mouse sobre qualquer card para ver a descrição completa, a URL e mais informações — sem precisar abri-lo.</p>
+          <div class="guide-illustration" style="flex-direction:column;gap:8px">
+            <div style="background:var(--bg2);border:1px solid var(--border-h);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+              <div style="width:28px;height:28px;border-radius:7px;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;color:var(--purple-l);font-size:13px;flex-shrink:0"><i class="ti ti-route"></i></div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">SPOT Quality Team</div><div style="font-size:11px;color:var(--text3)">Monitorias & alocação</div></div>
+            </div>
+            <div style="background:var(--bg2);border:1px solid rgba(139,92,246,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.55">Ferramenta de alocação e gestão de monitorias do time. Use para registrar e acompanhar as sessões.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="guide-step" data-step="2">
+        <div style="padding:20px 24px 0">
+          <div class="guide-step-num">Passo 3 de 5</div>
+          <h3>Filtrar por distrito e favoritar</h3>
+          <p>Use os filtros <strong>ID</strong>, <strong>CSAT</strong> e <strong>VP</strong> abaixo da busca para ver só os links do seu distrito. Clique na estrela em qualquer card para favoritar — seus favoritos aparecem no topo.</p>
+          <div class="guide-illustration" style="flex-direction:column;gap:8px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);color:var(--text2)">Todos</div>
+              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(96,165,250,0.5);background:rgba(96,165,250,0.12);color:#93c5fd;font-weight:500">ID</div>
+              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(52,211,153,0.5);background:rgba(52,211,153,0.12);color:#6ee7b7;font-weight:500">CSAT</div>
+              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(244,114,182,0.5);background:rgba(244,114,182,0.12);color:#f9a8d4;font-weight:500">VP</div>
+            </div>
+          </div>
+          <div class="tip"><i class="ti ti-info-circle"></i> Favoritos ficam salvos só no seu browser — cada pessoa tem os seus.</div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="guide-step" data-step="3">
+        <div style="padding:20px 24px 0">
+          <div class="guide-step-num">Passo 4 de 5</div>
+          <h3>Registrar e acompanhar férias</h3>
+          <p>Na página <strong>Férias</strong> (menu lateral), qualquer pessoa pode registrar o próprio período. Clique em qualquer barra da timeline ou item da lista para editar o status.</p>
+          <div class="guide-illustration" style="flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><div style="width:18px;height:18px;border-radius:50%;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--purple-l)">1</div> Clique em <strong style="color:var(--text)">Férias</strong> no menu lateral</div>
+            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><div style="width:18px;height:18px;border-radius:50%;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--purple-l)">2</div> Clique em <strong style="color:var(--text)">Registrar férias</strong> e preencha período e status</div>
+            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><div style="width:18px;height:18px;border-radius:50%;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--purple-l)">3</div> Clique em qualquer <strong style="color:var(--text)">barra ou item</strong> para editar o status</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5 -->
+      <div class="guide-step" data-step="4">
+        <div style="padding:20px 24px 0">
+          <div class="guide-step-num">Passo 5 de 5</div>
+          <h3>Personalizar a visualização</h3>
+          <p>Use os botões no header para ajustar o hub ao seu gosto.</p>
+          <div class="guide-illustration" style="flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><i class="ti ti-zoom-in" style="color:var(--blue);font-size:16px;flex-shrink:0"></i> <strong style="color:var(--text)">Zoom</strong> — ajusta o tamanho da página de 70% a 150%</div>
+            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><i class="ti ti-user" style="color:var(--green);font-size:16px;flex-shrink:0"></i> <strong style="color:var(--text)">Seu nome</strong> — clique no chip para editar como aparece nos registros</div>
+          </div>
+          <div class="tip" style="margin-top:10px"><i class="ti ti-repeat"></i> Este guia fica disponível pelo botão <strong>?</strong> no header.</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="guide-footer">
+      <div class="guide-dots" id="guideDots"></div>
+      <div class="guide-nav">
+        <button class="guide-skip" onclick="closeGuide()">Pular</button>
+        <button class="btn primary" id="guideNextBtn" onclick="guideNext()">Próximo <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Stats modal -->
+<div class="stats-modal-backdrop" id="statsModal" onclick="if(event.target===this)closeStats()">
+  <div class="stats-modal">
+    <h3><i class="ti ti-chart-bar" style="color:var(--purple)"></i> Links mais acessados</h3>
+    <div class="stats-orphan-notice" id="statsOrphanNotice" style="display:none"></div>
+    <div class="stats-list" id="statsList"></div>
+    <div class="stats-footer">
+      <button class="stats-reset" onclick="resetStats()"><i class="ti ti-trash"></i> Zerar estatísticas</button>
+      <button class="btn" onclick="closeStats()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Config modal -->
+<div class="modal-backdrop" id="configModal" onclick="if(event.target===this)closeConfig()">
+  <div class="modal">
+    <h3><i class="ti ti-settings" style="margin-right:6px"></i>Configuração</h3>
+    <p>Para editar e sincronizar, você precisa de um <strong>GitHub Personal Access Token</strong> com permissão <code>gist</code>, e do ID do Gist onde os dados ficam salvos.</p>
+    <label>GitHub Token</label>
+    <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+    <label>Gist ID</label>
+    <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
+    <div class="modal-actions">
+      <button class="btn" onclick="closeConfig()">Cancelar</button>
+      <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Logo picker modal -->
+<div class="logo-modal-backdrop" id="logoModal" onclick="if(event.target===this)closeLogoModal()">
+  <div class="logo-modal">
+    <h4><i class="ti ti-photo" style="margin-right:6px"></i>Escolher logotipo</h4>
+    <div class="logo-tabs" id="logoTabs"></div>
+    <div class="logo-grid-modal" id="logoGridModal"></div>
+    <div class="logo-modal-footer">
+      <button class="btn" onclick="closeLogoModal()">Cancelar</button>
+      <button class="btn primary" onclick="confirmLogo()"><i class="ti ti-check"></i> Usar este</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Férias edit modal -->
+<div class="ferias-edit-backdrop" id="feriasEditBackdrop" onclick="if(event.target===this)closeFeriasEdit()">
+  <div class="ferias-edit-modal">
+    <h3><i class="ti ti-beach" style="color:var(--green)"></i> Editar férias</h3>
+    <input type="hidden" id="fEditId">
+    <label>Nome</label>
+    <input type="text" id="fEditNome" readonly style="opacity:.6;cursor:not-allowed">
+    <label>Data de início</label>
+    <input type="date" id="fEditInicio">
+    <label>Data de fim</label>
+    <input type="date" id="fEditFim">
+    <label>Status</label>
+    <select id="fEditStatus">
+      <option value="verde">Aprovado e agendado</option>
+      <option value="laranja">Confirmado/Alinhado com gestor</option>
+      <option value="amarelo">Pendente de aprovação</option>
+      <option value="azul">Planejado (possível)</option>
+      <option value="roxo">Ausência programada</option>
+    </select>
+    <div class="ferias-edit-actions">
+      <button class="btn danger" onclick="deleteFeriasCurrent()"><i class="ti ti-trash"></i> Remover</button>
+      <button class="btn" onclick="closeFeriasEdit()">Cancelar</button>
+      <button class="btn primary" onclick="saveFeriasEdit()"><i class="ti ti-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+
+
 
 <!-- Sidebar -->
 <div class="app-shell">
@@ -777,117 +970,8 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   <div class="recents-row" id="recentsRow"></div>
 </div>
 
-<!-- Name modal -->
-<div class="name-backdrop" id="nameBackdrop">
-  <div class="name-modal">
-    <div style="font-size:32px;margin-bottom:12px">👋</div>
-    <h3>Como você se chama?</h3>
-    <p>Seu nome aparece quando você confirmar a leitura de um aviso. Fica salvo só no seu browser.</p>
-    <input type="text" id="nameInput" placeholder="Ex: Alan" maxlength="30">
-    <button class="btn primary" style="width:100%;justify-content:center;padding:10px" onclick="saveName()"><i class="ti ti-check"></i> Confirmar</button>
-  </div>
-</div>
-
 <!-- Confirmed by tooltip -->
 <div class="confirmedby-tip" id="confirmedbyTip"></div>
-
-<!-- Onboarding Guide Modal -->
-<div class="guide-backdrop" id="guideBackdrop" onclick="if(event.target===this)closeGuide()">
-  <div class="guide-modal">
-    <div class="guide-header">
-      <div class="guide-logo"><i class="ti ti-shield-check"></i></div>
-      <button class="guide-close" onclick="closeGuide()"><i class="ti ti-x"></i></button>
-    </div>
-    <div class="guide-steps" id="guideSteps">
-
-      <!-- Step 1 -->
-      <div class="guide-step active" data-step="0">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 1 de 5</div>
-          <h3>Bem-vindo ao Quality ID Hub</h3>
-          <p>Seu ponto central para acessar ferramentas, registrar férias e manter o time alinhado. Este guia mostra tudo em menos de 1 minuto.</p>
-          <div class="guide-illustration">
-            <div class="guide-pill"><i class="ti ti-layout-grid"></i> Links</div>
-            <div class="guide-pill"><i class="ti ti-beach"></i> Férias</div>
-            <div class="guide-pill"><i class="ti ti-star"></i> Favoritos</div>
-            <div class="guide-pill"><i class="ti ti-zoom-in"></i> Zoom</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 2 -->
-      <div class="guide-step" data-step="1">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 2 de 5</div>
-          <h3>Ver detalhes de um link</h3>
-          <p>Passe o mouse sobre qualquer card para ver a descrição completa, a URL e mais informações — sem precisar abri-lo.</p>
-          <div class="guide-illustration" style="flex-direction:column;gap:8px">
-            <div style="background:var(--bg2);border:1px solid var(--border-h);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
-              <div style="width:28px;height:28px;border-radius:7px;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;color:var(--purple-l);font-size:13px;flex-shrink:0"><i class="ti ti-route"></i></div>
-              <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">SPOT Quality Team</div><div style="font-size:11px;color:var(--text3)">Monitorias & alocação</div></div>
-            </div>
-            <div style="background:var(--bg2);border:1px solid rgba(139,92,246,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.55">Ferramenta de alocação e gestão de monitorias do time. Use para registrar e acompanhar as sessões.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 3 -->
-      <div class="guide-step" data-step="2">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 3 de 5</div>
-          <h3>Filtrar por distrito e favoritar</h3>
-          <p>Use os filtros <strong>ID</strong>, <strong>CSAT</strong> e <strong>VP</strong> abaixo da busca para ver só os links do seu distrito. Clique na estrela em qualquer card para favoritar — seus favoritos aparecem no topo.</p>
-          <div class="guide-illustration" style="flex-direction:column;gap:8px">
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);color:var(--text2)">Todos</div>
-              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(96,165,250,0.5);background:rgba(96,165,250,0.12);color:#93c5fd;font-weight:500">ID</div>
-              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(52,211,153,0.5);background:rgba(52,211,153,0.12);color:#6ee7b7;font-weight:500">CSAT</div>
-              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(244,114,182,0.5);background:rgba(244,114,182,0.12);color:#f9a8d4;font-weight:500">VP</div>
-            </div>
-          </div>
-          <div class="tip"><i class="ti ti-info-circle"></i> Favoritos ficam salvos só no seu browser — cada pessoa tem os seus.</div>
-        </div>
-      </div>
-
-      <!-- Step 4 -->
-      <div class="guide-step" data-step="3">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 4 de 5</div>
-          <h3>Registrar e acompanhar férias</h3>
-          <p>Na página <strong>Férias</strong> (menu lateral), qualquer pessoa pode registrar o próprio período. Clique em qualquer barra da timeline ou item da lista para editar o status.</p>
-          <div class="guide-illustration" style="flex-direction:column;gap:7px">
-            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><div style="width:18px;height:18px;border-radius:50%;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--purple-l)">1</div> Clique em <strong style="color:var(--text)">Férias</strong> no menu lateral</div>
-            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><div style="width:18px;height:18px;border-radius:50%;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--purple-l)">2</div> Clique em <strong style="color:var(--text)">Registrar férias</strong> e preencha período e status</div>
-            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><div style="width:18px;height:18px;border-radius:50%;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:var(--purple-l)">3</div> Clique em qualquer <strong style="color:var(--text)">barra ou item</strong> para editar o status</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 5 -->
-      <div class="guide-step" data-step="4">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 5 de 5</div>
-          <h3>Personalizar a visualização</h3>
-          <p>Use os botões no header para ajustar o hub ao seu gosto.</p>
-          <div class="guide-illustration" style="flex-direction:column;gap:7px">
-            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><i class="ti ti-zoom-in" style="color:var(--blue);font-size:16px;flex-shrink:0"></i> <strong style="color:var(--text)">Zoom</strong> — ajusta o tamanho da página de 70% a 150%</div>
-            <div style="display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text2)"><i class="ti ti-user" style="color:var(--green);font-size:16px;flex-shrink:0"></i> <strong style="color:var(--text)">Seu nome</strong> — clique no chip para editar como aparece nos registros</div>
-          </div>
-          <div class="tip" style="margin-top:10px"><i class="ti ti-repeat"></i> Este guia fica disponível pelo botão <strong>?</strong> no header.</div>
-        </div>
-      </div>
-
-    </div>
-    <div class="guide-footer">
-      <div class="guide-dots" id="guideDots"></div>
-      <div class="guide-nav">
-        <button class="guide-skip" onclick="closeGuide()">Pular</button>
-        <button class="btn primary" id="guideNextBtn" onclick="guideNext()">Próximo <i class="ti ti-arrow-right"></i></button>
-      </div>
-    </div>
-  </div>
-</div>
-
 
 <div id="sectionsContainer"></div>
 
@@ -904,48 +988,6 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <span class="footer-left" id="lastSaved"></span>
   </div>
 </div>
-</div>
-
-<!-- Stats modal -->
-<div class="stats-modal-backdrop" id="statsModal" onclick="if(event.target===this)closeStats()">
-  <div class="stats-modal">
-    <h3><i class="ti ti-chart-bar" style="color:var(--purple)"></i> Links mais acessados</h3>
-    <div class="stats-orphan-notice" id="statsOrphanNotice" style="display:none"></div>
-    <div class="stats-list" id="statsList"></div>
-    <div class="stats-footer">
-      <button class="stats-reset" onclick="resetStats()"><i class="ti ti-trash"></i> Zerar estatísticas</button>
-      <button class="btn" onclick="closeStats()">Fechar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Config modal -->
-<div class="modal-backdrop" id="configModal" onclick="if(event.target===this)closeConfig()">
-  <div class="modal">
-    <h3><i class="ti ti-settings" style="margin-right:6px"></i>Configuração</h3>
-    <p>Para editar e sincronizar, você precisa de um <strong>GitHub Personal Access Token</strong> com permissão <code>gist</code>, e do ID do Gist onde os dados ficam salvos.</p>
-    <label>GitHub Token</label>
-    <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-    <label>Gist ID</label>
-    <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
-    <div class="modal-actions">
-      <button class="btn" onclick="closeConfig()">Cancelar</button>
-      <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Logo picker modal -->
-<div class="logo-modal-backdrop" id="logoModal" onclick="if(event.target===this)closeLogoModal()">
-  <div class="logo-modal">
-    <h4><i class="ti ti-photo" style="margin-right:6px"></i>Escolher logotipo</h4>
-    <div class="logo-tabs" id="logoTabs"></div>
-    <div class="logo-grid-modal" id="logoGridModal"></div>
-    <div class="logo-modal-footer">
-      <button class="btn" onclick="closeLogoModal()">Cancelar</button>
-      <button class="btn primary" onclick="confirmLogo()"><i class="ti ti-check"></i> Usar este</button>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -2685,34 +2727,6 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 </script>
 </div><!-- end pageLinks -->
-
-<!-- Férias edit modal -->
-<div class="ferias-edit-backdrop" id="feriasEditBackdrop" onclick="if(event.target===this)closeFeriasEdit()">
-  <div class="ferias-edit-modal">
-    <h3><i class="ti ti-beach" style="color:var(--green)"></i> Editar férias</h3>
-    <input type="hidden" id="fEditId">
-    <label>Nome</label>
-    <input type="text" id="fEditNome" readonly style="opacity:.6;cursor:not-allowed">
-    <label>Data de início</label>
-    <input type="date" id="fEditInicio">
-    <label>Data de fim</label>
-    <input type="date" id="fEditFim">
-    <label>Status</label>
-    <select id="fEditStatus">
-      <option value="verde">Aprovado e agendado</option>
-      <option value="laranja">Confirmado/Alinhado com gestor</option>
-      <option value="amarelo">Pendente de aprovação</option>
-      <option value="azul">Planejado (possível)</option>
-      <option value="roxo">Ausência programada</option>
-    </select>
-    <div class="ferias-edit-actions">
-      <button class="btn danger" onclick="deleteFeriasCurrent()"><i class="ti ti-trash"></i> Remover</button>
-      <button class="btn" onclick="closeFeriasEdit()">Cancelar</button>
-      <button class="btn primary" onclick="saveFeriasEdit()"><i class="ti ti-check"></i> Salvar</button>
-    </div>
-  </div>
-</div>
-
 
 <div class="page" id="pageFerias"><div class="layout">
 <div class="zoom-bar" id="zoomBarFerias">
