@@ -1218,8 +1218,6 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <option value="atestado">Atestado médico</option>
       <option value="maternidade">Licença maternidade</option>
       <option value="paternidade">Licença paternidade</option>
-      <option value="licenca">Licença / afastamento</option>
-      <option value="luto">Licença nojo / luto</option>
       <option value="outro">Outra ausência</option>
     </select>
     <label>Data de início</label>
@@ -3897,12 +3895,11 @@ const TIPO_LABEL = {
   atestado:    'Atestado médico',
   maternidade: 'Licença maternidade',
   paternidade: 'Licença paternidade',
-  licenca:     'Licença / afastamento',
-  luto:        'Licença nojo / luto',
   outro:       'Outra ausência',
 };
-const TIPO_ORDER = ['ferias','atestado','maternidade','paternidade','licenca','luto','outro'];
+const TIPO_ORDER = ['ferias','atestado','maternidade','paternidade','outro'];
 function normalizeFeriasTipo(tipo){
+  if(tipo==='licenca'||tipo==='luto') return 'outro';
   return tipo&&TIPO_LABEL[tipo]?tipo:'ferias';
 }
 function getFeriasTipo(f){
@@ -5201,8 +5198,6 @@ window.addEventListener('DOMContentLoaded',()=>{
           <option value="atestado">Atestado médico</option>
           <option value="maternidade">Licença maternidade</option>
           <option value="paternidade">Licença paternidade</option>
-          <option value="licenca">Licença / afastamento</option>
-          <option value="luto">Licença nojo / luto</option>
           <option value="outro">Outra ausência</option>
         </select>
       </div>
@@ -5248,8 +5243,6 @@ window.addEventListener('DOMContentLoaded',()=>{
     <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Atestado médico</span>
     <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença maternidade</span>
     <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença paternidade</span>
-    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença / afastamento</span>
-    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença nojo / luto</span>
     <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Outra ausência</span>
   </div>
   <div style="font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:10px;">
