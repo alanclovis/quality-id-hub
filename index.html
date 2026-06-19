@@ -417,7 +417,10 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .profile-form-locked .profile-av-hint{opacity:.6;}
 .invite-code-field input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:11px 14px;font-size:18px;font-family:monospace;letter-spacing:0.12em;text-align:center;text-transform:uppercase;outline:none;}
 .invite-code-field input:focus{border-color:var(--purple);}
-.invite-code-hint{font-size:12px;color:var(--text3);line-height:1.5;margin-top:8px;}
+.auth-admin-box{background:var(--purple-bg);border:1px solid rgba(0,113,227,0.2);border-radius:var(--rs);padding:14px;margin-bottom:18px;}
+.auth-admin-box .auth-admin-title{font-size:13px;font-weight:600;color:var(--purple-l);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.auth-admin-divider{border:none;border-top:1px solid var(--border);margin:18px 0;}
+.auth-member-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;}
 .auth-status{text-align:center;font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5;}
 .auth-error{text-align:center;font-size:13px;color:var(--amber);padding:12px;line-height:1.5;}
 .auth-email-display{font-size:12px;color:var(--text3);margin-top:4px;word-break:break-all;}
@@ -876,34 +879,41 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   <div class="name-modal profile-modal">
     <div class="profile-step active" id="profileStepAuth">
       <h3>Código de acesso</h3>
-      <p class="profile-intro">Digite o <strong>código pessoal</strong> que o admin enviou no Slack (cadastro na lista do pack). Só precisa fazer isso <strong>uma vez</strong> neste navegador.</p>
+      <div id="authAdminSetup" class="auth-admin-box">
+        <div class="auth-admin-title"><i class="ti ti-shield"></i> Admin do pack</div>
+        <p class="profile-intro" style="margin-bottom:10px">Primeiro acesso? Configure o token e entre <strong>sem código</strong>.</p>
+        <div id="authAdminTokenStep">
+          <button class="btn" type="button" style="width:100%;justify-content:center" onclick="openConfigFromAuth()"><i class="ti ti-settings"></i> 1. Configurar token (Técnico)</button>
+        </div>
+        <div id="authAdminEnterStep" style="display:none;margin-top:10px">
+          <div id="authBootstrapInner" style="display:none">
+            <p class="profile-intro" style="margin-bottom:8px">Pack vazio — crie o primeiro admin:</p>
+            <div class="profile-field">
+              <label for="bootstrapNameInput">Seu nome</label>
+              <input type="text" id="bootstrapNameInput" placeholder="Ex: Alan Clovis" maxlength="40">
+            </div>
+            <button class="btn primary profile-save" type="button" onclick="claimBootstrapAdmin()"><i class="ti ti-arrow-right"></i> 2. Criar admin inicial</button>
+          </div>
+          <div id="authRecoverInner" style="display:none">
+            <p class="profile-intro" style="margin-bottom:8px">Token OK — informe seu nome:</p>
+            <div class="profile-field">
+              <label for="adminRecoverNameInput">Seu nome</label>
+              <input type="text" id="adminRecoverNameInput" placeholder="Ex: Alan Clovis" maxlength="40">
+            </div>
+            <button class="btn primary profile-save" type="button" onclick="claimAdminWithToken()"><i class="ti ti-shield"></i> 2. Entrar como admin</button>
+          </div>
+        </div>
+      </div>
+      <hr class="auth-admin-divider">
+      <p class="auth-member-label">Membro ou visitante</p>
+      <p class="profile-intro">Digite o <strong>código pessoal</strong> enviado no Slack (cadastro na lista do pack).</p>
       <div class="profile-field invite-code-field">
         <label for="inviteCodeInput">Seu código</label>
         <input type="text" id="inviteCodeInput" placeholder="ABC-7K3M" autocomplete="off" maxlength="12">
       </div>
-      <p class="invite-code-hint">Formato: três letras, hífen, quatro caracteres (ex.: LUC-8K3M). Código visitante do pack também funciona aqui.</p>
-      <button class="btn primary profile-save" onclick="submitInviteCode()"><i class="ti ti-key"></i> Entrar</button>
+      <p class="invite-code-hint">Formato: três letras, hífen, quatro caracteres (ex.: LUC-8K3M). Código visitante do pack também funciona.</p>
+      <button class="btn primary profile-save" onclick="submitInviteCode()"><i class="ti ti-key"></i> Entrar com código</button>
       <p class="auth-status" id="authStatusMsg" style="display:none"></p>
-      <div id="authNoToken" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <p class="profile-intro"><strong>Admin:</strong> configure o token do pack antes de criar seu acesso.</p>
-        <button class="btn" type="button" style="width:100%;justify-content:center" onclick="openConfigFromAuth()"><i class="ti ti-settings"></i> Abrir Configuração → Técnico</button>
-      </div>
-      <div id="authBootstrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <p class="profile-intro">Nenhuma pessoa cadastrada ainda. Com o token do pack configurado, crie o primeiro admin:</p>
-        <div class="profile-field">
-          <label for="bootstrapNameInput">Seu nome</label>
-          <input type="text" id="bootstrapNameInput" placeholder="Ex: Alan Clovis" maxlength="40">
-        </div>
-        <button class="btn primary profile-save" onclick="claimBootstrapAdmin()"><i class="ti ti-arrow-right"></i> Criar admin inicial</button>
-      </div>
-      <div id="authAdminRecover" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <p class="profile-intro"><strong>Admin com token?</strong> Informe seu nome para gerar ou recuperar seu código de acesso.</p>
-        <div class="profile-field">
-          <label for="adminRecoverNameInput">Seu nome</label>
-          <input type="text" id="adminRecoverNameInput" placeholder="Ex: Alan Clovis" maxlength="40">
-        </div>
-        <button class="btn primary profile-save" onclick="claimAdminWithToken()"><i class="ti ti-shield"></i> Entrar como admin</button>
-      </div>
     </div>
     <div class="profile-step" id="profileStepVisitor">
       <h3>Acesso visitante</h3>
@@ -1649,17 +1659,24 @@ function openConfigFromAuth(){
   setTimeout(openConfig,150);
 }
 function initInviteAuth(){
-  const bootstrap=document.getElementById('authBootstrap');
-  const adminRecover=document.getElementById('authAdminRecover');
-  const noToken=document.getElementById('authNoToken');
+  const box=document.getElementById('authAdminSetup');
+  const tokenStep=document.getElementById('authAdminTokenStep');
+  const enterStep=document.getElementById('authAdminEnterStep');
+  const bootstrapInner=document.getElementById('authBootstrapInner');
+  const recoverInner=document.getElementById('authRecoverInner');
   const hasToken=!!getToken();
-  if(noToken) noToken.style.display=hasToken?'none':'block';
-  if(bootstrap) bootstrap.style.display=(hasToken&&!hasActiveAccessRoster())?'block':'none';
-  if(adminRecover) adminRecover.style.display=(hasToken&&hasActiveAccessRoster()&&!hasClaimedIdentity())?'block':'none';
+  if(box) box.style.display=hasClaimedIdentity()?'none':'block';
+  if(tokenStep) tokenStep.style.display=hasToken?'none':'block';
+  if(enterStep) enterStep.style.display=hasToken?'block':'none';
+  if(bootstrapInner) bootstrapInner.style.display=hasToken&&!hasActiveAccessRoster()?'block':'none';
+  if(recoverInner) recoverInner.style.display=hasToken&&hasActiveAccessRoster()?'block':'none';
   const inp=document.getElementById('inviteCodeInput');
   if(!inp) return;
   const fromUrl=new URLSearchParams(location.search).get('code');
   if(fromUrl&&!inp.value) inp.value=fromUrl;
+}
+function refreshAuthAdminPanel(){
+  if(document.getElementById('nameBackdrop')?.classList.contains('active')) initInviteAuth();
 }
 async function claimAdminWithToken(){
   if(!getToken()){ openConfigFromAuth(); return; }
@@ -2241,10 +2258,12 @@ async function loadFromGist(){
     document.getElementById('lastSaved').textContent=ts?`Atualizado: ${ts}`:'';
     hideStatus();
     maybeShowOnboarding();
+    refreshAuthAdminPanel();
   }catch(e){
     showStatus('error','Erro ao carregar Gist: '+e.message+'. Usando dados locais.');
     loadLocal();setTimeout(hideStatus,4000);
     maybeShowOnboarding();
+    refreshAuthAdminPanel();
   }
 }
 async function saveToGist(){
