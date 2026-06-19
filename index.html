@@ -249,6 +249,7 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .access-role-pill.admin{background:#ede9fe;color:#5b21b6;}
 .access-role-pill.editor{background:#dbeafe;color:#1e40af;}
 .access-role-pill.member{background:#dcfce7;color:#14532d;}
+.access-role-pill.visitor{background:var(--bg3);color:var(--text2);}
 .access-role-pill.pending{background:#fef3c7;color:#92400e;}
 .access-role-pill.revoked{background:var(--bg3);color:var(--text3);}
 .access-users-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
@@ -875,12 +876,12 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   <div class="name-modal profile-modal">
     <div class="profile-step active" id="profileStepAuth">
       <h3>Código de acesso</h3>
-      <p class="profile-intro">Digite o código que o admin enviou no Slack. Você só precisa fazer isso <strong>uma vez</strong> neste navegador.</p>
+      <p class="profile-intro">Digite o <strong>código pessoal</strong> que o admin enviou no Slack (cadastro na lista do pack). Só precisa fazer isso <strong>uma vez</strong> neste navegador.</p>
       <div class="profile-field invite-code-field">
         <label for="inviteCodeInput">Seu código</label>
         <input type="text" id="inviteCodeInput" placeholder="ABC-7K3M" autocomplete="off" maxlength="12">
       </div>
-      <p class="invite-code-hint">Formato: três letras, hífen, quatro caracteres (ex.: LUC-8K3M).</p>
+      <p class="invite-code-hint">Formato: três letras, hífen, quatro caracteres (ex.: LUC-8K3M). Código visitante do pack também funciona aqui.</p>
       <button class="btn primary profile-save" onclick="submitInviteCode()"><i class="ti ti-key"></i> Entrar</button>
       <p class="auth-status" id="authStatusMsg" style="display:none"></p>
       <div id="authBootstrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
@@ -891,6 +892,12 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         </div>
         <button class="btn primary profile-save" onclick="claimBootstrapAdmin()"><i class="ti ti-arrow-right"></i> Criar admin inicial</button>
       </div>
+    </div>
+    <div class="profile-step" id="profileStepVisitor">
+      <h3>Acesso visitante</h3>
+      <p class="profile-intro">Você pode navegar <strong>links</strong>, <strong>prioridades</strong> e <strong>férias</strong> em modo leitura. Perfil, token e registro de férias não estão disponíveis.</p>
+      <p class="profile-intro">Para acesso completo, peça ao admin para promover você a <strong>Membro</strong> em Configuração → Usuários.</p>
+      <button class="btn primary profile-save" onclick="closeName()"><i class="ti ti-check"></i> Entendi</button>
     </div>
     <div class="profile-step" id="profileStepToken">
       <h3>Token do pack</h3>
@@ -1037,7 +1044,8 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
           <h3>Configuração e acessos</h3>
           <p>Abra a <strong>engrenagem</strong>, no canto superior direito, para ver seu papel (Membro, Editor ou Admin) e, na aba <strong>Técnico</strong>, colar o Gist ID — qualquer membro pode configurar.</p>
           <div class="guide-illustration guide-step-list">
-            <div class="guide-step-item"><i class="ti ti-user-check" style="color:var(--green);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Membro</strong> — entra com código pessoal; perfil e férias próprias</span></div>
+            <div class="guide-step-item"><i class="ti ti-user-check" style="color:var(--green);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Membro</strong> — código pessoal; perfil e férias próprias</span></div>
+            <div class="guide-step-item"><i class="ti ti-eye" style="color:var(--text2);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Visitante</strong> — só leitura (links, prioridades, férias)</span></div>
             <div class="guide-step-item"><i class="ti ti-pencil" style="color:#0071e3;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Editor</strong> — edita links e prioridades (precisa do token GitHub)</span></div>
             <div class="guide-step-item"><i class="ti ti-shield" style="color:#7c3aed;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Admin</strong> — tudo + gerenciar papéis na aba Usuários</span></div>
           </div>
@@ -1111,7 +1119,15 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       </div>
     </div>
     <div class="config-panel" id="configPanelUsers">
-      <p class="access-hint">Cadastre cada pessoa com nome e papel. Um <strong>código de acesso</strong> é gerado automaticamente — envie no Slack. Opcionalmente defina o nível inicial.</p>
+      <p class="access-hint">Cadastre cada pessoa com nome e papel. Um <strong>código pessoal</strong> é gerado — envie no Slack. Visitantes cadastrados ou o código visitante do pack entram só em leitura.</p>
+      <div class="profiles-publish-box visitor-code-box" id="visitorCodeBox" style="display:none;margin-bottom:14px">
+        <p class="access-hint"><strong>Código visitante do pack</strong> — leitura geral, sem cadastro individual. Quem usar entra como visitante.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
+          <div style="flex:1;min-width:140px"><label style="font-size:11px;color:var(--text3)">Código visitante</label><input type="text" id="visitorCodeInput" placeholder="VIS-7K3M" autocomplete="off" style="width:100%;font-family:monospace"></div>
+          <button class="btn-sm" type="button" onclick="adminGenerateVisitorCode()"><i class="ti ti-refresh"></i> Gerar</button>
+          <button class="btn primary btn-sm" type="button" onclick="adminSaveVisitorCode()"><i class="ti ti-check"></i> Salvar no pack</button>
+        </div>
+      </div>
       <div class="profiles-publish-box" id="profilesPublishBox" style="display:none">
         <p class="access-hint">Cada membro publica o próprio perfil ao salvar (com o token do pack em Técnico). Use o botão abaixo só para recuperar perfis que existam <strong>neste navegador</strong> — não alcança outros computadores.</p>
         <p class="access-hint" id="profilesPublishSummary"></p>
@@ -1120,7 +1136,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <div id="accessUsersPanel"></div>
       <div class="access-add-row">
         <div><label style="font-size:11px;color:var(--text3)">Nome</label><input type="text" id="accessNewName" placeholder="Ex: Alan Clovis"></div>
-        <div><label style="font-size:11px;color:var(--text3)">Papel</label><select id="accessNewRole"><option value="member">Membro</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
+        <div><label style="font-size:11px;color:var(--text3)">Papel</label><select id="accessNewRole"><option value="member">Membro</option><option value="visitor">Visitante</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
         <div><label style="font-size:11px;color:var(--text3)">Nível (opc.)</label><select id="accessNewLevel"><option value="">—</option><option value="Assistant II">Assistant II</option><option value="Analyst I">Analyst I</option><option value="Analyst II">Analyst II</option><option value="Coordinator">Coordinator</option><option value="Associate Manager">Associate Manager</option></select></div>
         <button class="btn primary" onclick="adminAddAccessUser()"><i class="ti ti-plus"></i> Add</button>
       </div>
@@ -1516,7 +1532,22 @@ function confirmLogo(){if(logoCb&&logoSelected)logoCb(logoSelected);closeLogoMod
 function closeLogoModal(){document.getElementById('logoModal').classList.remove('active');logoCb=null;}
 
 // ── Config & access control ────────────────────────────────────────────────────
-const ACCESS_ROLE_LABELS={admin:'Admin',editor:'Editor',member:'Membro',pending:'Pendente'};
+const ACCESS_ROLE_LABELS={admin:'Admin',editor:'Editor',member:'Membro',visitor:'Visitante',pending:'Pendente'};
+const VISITOR_PACK_USER_ID='__visitor_pack__';
+
+function ensureAuthConfig(){
+  if(!data.authConfig) data.authConfig={};
+}
+function getPackVisitorCode(){
+  ensureAuthConfig();
+  return (data.authConfig.visitorCode||'').trim();
+}
+function isVisitor(){
+  return getUserRole()==='visitor';
+}
+function canBrowseHub(){
+  return hasClaimedIdentity()&&!!getUserName();
+}
 
 function getToken(){return localStorage.getItem('qhub_token')||'';}
 function getGistId(){return localStorage.getItem('qhub_gist_id')||DEFAULT_GIST_ID;}
@@ -1535,9 +1566,17 @@ function findUserByInviteCode(code){
   const norm=normalizeInviteCode(code);
   if(!norm) return null;
   const u=data.accessUsers.find(x=>x.status==='active'&&x.inviteCode&&normalizeInviteCode(x.inviteCode)===norm);
-  return u||null;
+  if(u) return u;
+  const vc=getPackVisitorCode();
+  if(vc&&normalizeInviteCode(vc)===norm){
+    return {id:VISITOR_PACK_USER_ID,name:'Visitante',role:'visitor',status:'active',isPackVisitor:true};
+  }
+  return null;
 }
 function getAccessUserById(id){
+  if(id===VISITOR_PACK_USER_ID){
+    return {id:VISITOR_PACK_USER_ID,name:'Visitante',role:'visitor',status:'active',isPackVisitor:true};
+  }
   ensureAccessUsers();
   return data.accessUsers.find(x=>x.id===id)||null;
 }
@@ -1568,7 +1607,7 @@ function claimWithInviteCode(rawCode){
   if(statusEl){ statusEl.style.display='none'; statusEl.textContent=''; }
   const u=findUserByInviteCode(rawCode);
   if(!u){
-    const msg='Código inválido. Confira com o admin do pack.';
+    const msg='Código inválido. Peça seu código pessoal ao admin — só funciona se você já estiver cadastrado no pack.';
     if(statusEl){ statusEl.textContent=msg; statusEl.style.display='block'; }
     else alert(msg);
     return false;
@@ -1576,7 +1615,7 @@ function claimWithInviteCode(rawCode){
   localStorage.setItem('qhub_user_id',u.id);
   localStorage.setItem('qhub_username',u.name);
   localStorage.setItem('qhub_claimed_name','1');
-  ensureRegisteredMember(u.name);
+  if(!u.isPackVisitor) ensureRegisteredMember(u.name);
   renderUserChip();
   renderAccessStatusBox();
   updateEditButtonVisibility();
@@ -1584,7 +1623,14 @@ function claimWithInviteCode(rawCode){
 }
 function submitInviteCode(){
   const raw=document.getElementById('inviteCodeInput')?.value||'';
-  if(claimWithInviteCode(raw)) refreshProfileModal();
+  if(!claimWithInviteCode(raw)) return;
+  if(isVisitor()){
+    closeName();
+    if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
+    else{ showStatus('success','Acesso visitante ativo — leitura apenas.'); setTimeout(hideStatus,3500); }
+    return;
+  }
+  refreshProfileModal();
 }
 function initInviteAuth(){
   const bootstrap=document.getElementById('authBootstrap');
@@ -1680,12 +1726,15 @@ function hasAdminInRoster(exceptName){
   return data.accessUsers.some(u=>u.status==='active'&&u.role==='admin'&&(!exceptName||!namesMatch(u.name,exceptName)));
 }
 function getUserRole(){
+  const uid=localStorage.getItem('qhub_user_id');
+  if(uid===VISITOR_PACK_USER_ID) return 'visitor';
   const name=getUserName();
   if(!name) return null;
   const rosterRole=getRosterRole(name);
   if(rosterRole===null) return null;
   if(!getToken()) return rosterRole;
   if(rosterRole==='admin') return 'admin';
+  if(rosterRole==='visitor') return 'visitor';
   if(!hasAdminInRoster(name)) return 'admin';
   return rosterRole;
 }
@@ -1694,6 +1743,7 @@ function roleForRegistration(name){
   const u=getAccessUserRecord(name);
   if(u?.role==='admin') return 'admin';
   if(u?.role==='editor') return 'editor';
+  if(u?.role==='visitor') return 'visitor';
   if(!hasAdminInRoster(name)) return 'admin';
   return 'member';
 }
@@ -1762,6 +1812,7 @@ function mergeProfileRecords(existing,incoming){
   return exAt>=inAt?{...incoming,...existing}:{...existing,...incoming};
 }
 function canSyncProfileToGist(){
+  if(isVisitor()) return false;
   return !!(getToken()&&getGistId()&&getUserName()&&canUseMemberFeatures());
 }
 function ensureRegisteredMemberInData(pack,name){
@@ -1890,11 +1941,33 @@ function canUseMemberFeatures(){
   const role=getUserRole();
   return role==='member'||role==='editor'||role==='admin';
 }
+function renderVisitorCodeSection(){
+  const box=document.getElementById('visitorCodeBox');
+  const inp=document.getElementById('visitorCodeInput');
+  if(!box) return;
+  box.style.display=canManageAccess()?'block':'none';
+  if(inp&&canManageAccess()) inp.value=getPackVisitorCode();
+}
+async function adminSaveVisitorCode(){
+  if(!canManageAccess()) return;
+  const code=document.getElementById('visitorCodeInput')?.value.trim();
+  if(!code){ alert('Informe ou gere um código visitante.'); return; }
+  ensureAuthConfig();
+  data.authConfig.visitorCode=code;
+  saveLocal();
+  await saveToGist();
+  alert('Código visitante salvo: '+code);
+}
+function adminGenerateVisitorCode(){
+  if(!canManageAccess()) return;
+  const inp=document.getElementById('visitorCodeInput');
+  if(inp) inp.value=generateInviteCode('Visitante').replace(/^[^-]+/,'VIS');
+}
 function switchConfigTab(tab){
   document.querySelectorAll('.config-tab').forEach(b=>b.classList.toggle('active',b.dataset.configTab===tab));
   document.querySelectorAll('.config-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('configPanel'+tab.charAt(0).toUpperCase()+tab.slice(1))?.classList.add('active');
-  if(tab==='users'){ renderProfilesPublishSection(); renderAccessUsersPanel(); }
+  if(tab==='users'){ renderProfilesPublishSection(); renderVisitorCodeSection(); renderAccessUsersPanel(); }
   if(tab==='access') renderAccessStatusBox();
 }
 function renderAccessStatusBox(){
@@ -1928,8 +2001,10 @@ function renderAccessStatusBox(){
     hint.textContent='Token ativo — você pode editar conteúdo do hub e salvar no Gist.';
   }else if(getToken()&&role==='member'){
     hint.textContent='Token ativo — ao salvar o perfil, foto e dados vão para o pack. Você não edita links nem prioridades.';
+  }else if(role==='visitor'){
+    hint.textContent='Acesso visitante — leitura do hub. Peça ao admin para promover a Membro para perfil e férias.';
   }else if(role==='member'){
-    hint.textContent='Perfil salvo só neste computador até configurar o token do pack na aba Técnico (peça ao admin).';
+    hint.textContent='Configure o token do pack na aba Técnico para publicar seu perfil (peça ao admin).';
   }else if(role==='admin'){
     hint.textContent='Acesso total. Gerencie papéis na aba Usuários e o token na aba Técnico.';
   }else{
@@ -1940,6 +2015,7 @@ function renderAccessUsersPanel(){
   const panel=document.getElementById('accessUsersPanel');
   if(!panel||!canManageAccess()) return;
   renderProfilesPublishSection();
+  renderVisitorCodeSection();
   ensureAccessUsers();
   let codesAdded=false;
   data.accessUsers.forEach(u=>{
@@ -1958,7 +2034,7 @@ function renderAccessUsersPanel(){
     users.map(u=>`<tr>
       <td>${escapeHtml(u.name)}</td>
       <td style="white-space:nowrap;font-family:monospace;font-size:12px">${escapeHtml(u.inviteCode||'—')} ${u.inviteCode?`<button class="btn-sm" onclick="copyInviteCode('${u.id}')" title="Copiar código"><i class="ti ti-copy"></i></button><button class="btn-sm" onclick="adminRegenerateInviteCode('${u.id}')" title="Novo código"><i class="ti ti-refresh"></i></button>`:''}</td>
-      <td>${`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
+      <td>${`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','visitor','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
       <td><span class="access-role-pill ${u.status==='active'?u.role:u.status}">${u.status==='active'?ACCESS_ROLE_LABELS[u.role]:u.status==='revoked'?'Revogado':u.status}</span></td>
       <td style="white-space:nowrap">${u.status!=='revoked'?`<button class="btn-sm" onclick="adminRevokeUser('${u.id}')" title="Revogar"><i class="ti ti-ban"></i></button>`:`<button class="btn-sm" onclick="adminRestoreUser('${u.id}')" title="Restaurar"><i class="ti ti-refresh"></i></button>`} <button class="btn-sm" style="color:#f87171" onclick="adminDeleteUser('${u.id}')" title="Remover"><i class="ti ti-trash"></i></button></td>
     </tr>`).join('')
@@ -3046,6 +3122,7 @@ function getUserName(){
   return u.name;
 }
 function canEditProfileFields(){
+  if(isVisitor()) return false;
   if(!hasClaimedIdentity()||!getUserName()||!getToken()) return false;
   const rec=getAccessUserRecord(getUserName());
   if(rec&&rec.status==='revoked') return false;
@@ -3055,7 +3132,7 @@ function canEditProfileFields(){
   return isAccessBootstrap();
 }
 function showProfileModalStep(step){
-  ['profileStepAuth','profileStepToken','profileStepEdit'].forEach(id=>{
+  ['profileStepAuth','profileStepToken','profileStepEdit','profileStepVisitor'].forEach(id=>{
     const key='profileStep'+step.charAt(0).toUpperCase()+step.slice(1);
     document.getElementById(id)?.classList.toggle('active',id===key);
   });
@@ -3081,6 +3158,7 @@ function updateProfileFieldsLock(){
 }
 function resolveProfileModalStep(){
   if(!hasClaimedIdentity()||!getUserName()) return 'auth';
+  if(isVisitor()) return 'visitor';
   if(!getToken()) return 'token';
   return 'edit';
 }
