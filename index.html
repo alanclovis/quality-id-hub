@@ -529,6 +529,7 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .ferias-edit-modal select,.ferias-edit-modal input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit;outline:none;}
 .ferias-edit-modal select:focus,.ferias-edit-modal input:focus{border-color:var(--green);}
 .ferias-edit-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;}
+.ferias-edit-notice{font-size:12px;color:var(--text3);margin:-4px 0 14px;line-height:1.45;padding:8px 10px;background:var(--bg3);border-radius:var(--rs);}
 
 /* ── Upcoming férias list ── */
 .upcoming-wrap{margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);}
@@ -930,7 +931,8 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <!-- Férias edit modal -->
 <div class="ferias-edit-backdrop" id="feriasEditBackdrop" onclick="if(event.target===this)closeFeriasEdit()">
   <div class="ferias-edit-modal">
-    <h3><i class="ti ti-beach" style="color:var(--green)"></i> Editar férias</h3>
+    <h3><i class="ti ti-beach" style="color:var(--green)"></i> <span id="feriasEditTitle">Editar férias</span></h3>
+    <p class="ferias-edit-notice" id="feriasEditNotice" style="display:none"></p>
     <input type="hidden" id="fEditId">
     <label>Nome</label>
     <input type="text" id="fEditNome" readonly style="opacity:.6;cursor:not-allowed">
@@ -2110,6 +2112,20 @@ function ensureProfilesData(){
 function normalizeNameKey(name){
   return (name||'').trim().toLowerCase();
 }
+function namesMatch(a,b){
+  if(!a||!b) return false;
+  const na=normalizeNameKey(a);
+  const nb=normalizeNameKey(b);
+  if(na===nb) return true;
+  if(na.startsWith(nb+' ')||nb.startsWith(na+' ')) return true;
+  return na.split(/\s+/)[0]===nb.split(/\s+/)[0];
+}
+function canEditFeriasRecord(f){
+  if(!f) return false;
+  if(getToken()) return true;
+  const me=getUserName();
+  return !!me&&namesMatch(f.nome,me);
+}
 function findProfile(name){
   if(!name) return null;
   ensureProfilesData();
@@ -2489,27 +2505,41 @@ const STATUS_LABEL = {
   roxo:    'Ausência programada',
 };
 
+function setFeriasEditModalMode(canEdit){
+  document.getElementById('fEditInicio').disabled=!canEdit;
+  document.getElementById('fEditFim').disabled=!canEdit;
+  document.getElementById('fEditStatus').disabled=!canEdit;
+  document.getElementById('feriasEditTitle').textContent=canEdit?'Editar férias':'Detalhes das férias';
+  const notice=document.getElementById('feriasEditNotice');
+  notice.style.display=canEdit?'none':'block';
+  notice.textContent='Visualização apenas. Só o titular ou quem tem token de edição pode alterar este registro.';
+  document.querySelector('#feriasEditBackdrop .btn.danger').style.display=canEdit?'':'none';
+  document.querySelector('#feriasEditBackdrop .btn.primary').style.display=canEdit?'':'none';
+}
 function openFeriasEdit(fId){
   const f = (data.ferias||[]).find(x=>x.id===fId);
   if(!f) return;
+  const canEdit=canEditFeriasRecord(f);
   document.getElementById('fEditId').value     = fId;
   document.getElementById('fEditNome').value   = f.nome;
   document.getElementById('fEditInicio').value = f.inicio;
   document.getElementById('fEditFim').value    = f.fim;
   document.getElementById('fEditStatus').value = f.status;
+  setFeriasEditModalMode(canEdit);
   document.getElementById('feriasEditBackdrop').classList.add('active');
 }
 function closeFeriasEdit(){
   document.getElementById('feriasEditBackdrop').classList.remove('active');
+  setFeriasEditModalMode(true);
 }
 function saveFeriasEdit(){
   const id     = document.getElementById('fEditId').value;
+  const f = (data.ferias||[]).find(x=>x.id===id);
+  if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para editar este registro.'); return; }
   const inicio = document.getElementById('fEditInicio').value;
   const fim    = document.getElementById('fEditFim').value;
   const status = document.getElementById('fEditStatus').value;
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
-  const f = (data.ferias||[]).find(x=>x.id===id);
-  if(!f) return;
   f.inicio = inicio; f.fim = fim; f.status = status;
   closeFeriasEdit();
   renderFerias();
@@ -2517,6 +2547,8 @@ function saveFeriasEdit(){
 }
 function deleteFeriasCurrent(){
   const id = document.getElementById('fEditId').value;
+  const f = (data.ferias||[]).find(x=>x.id===id);
+  if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para remover este registro.'); return; }
   if(!confirm('Remover este registro de férias?')) return;
   data.ferias = (data.ferias||[]).filter(x=>x.id!==id);
   closeFeriasEdit();
@@ -2554,9 +2586,11 @@ function renderUpcoming(){
     if(start>today){ const diff=Math.round((start-today)/86400000); timeLabel=diff===1?'Começa amanhã':'Em '+diff+' dias'; countdownClass+=' active'; }
     else if(end>=today){ timeLabel='Em andamento'; countdownClass+=' active'; }
     else { timeLabel='Encerrado'; countdownClass+=' done'; }
+    const canEdit=canEditFeriasRecord(f);
     const item=document.createElement('div');
     item.className='upcoming-item';
     item.dataset.status=f.status||'verde';
+    item.style.cursor='pointer';
     item.innerHTML=`
       <div class="upcoming-card-inner">
         <div class="upcoming-top">
@@ -2565,7 +2599,7 @@ function renderUpcoming(){
             <div class="upcoming-name">${escapeHtml(f.nome)}</div>
             <div class="upcoming-period"><i class="ti ti-calendar"></i> ${startFmt} → ${endFmt} <span class="upcoming-days">${days}d</span></div>
           </div>
-          <button class="btn-sm upcoming-edit-btn" onclick="openFeriasEdit('${f.id}');event.stopPropagation()"><i class="ti ti-pencil"></i></button>
+          ${canEdit?`<button class="btn-sm upcoming-edit-btn" onclick="openFeriasEdit('${f.id}');event.stopPropagation()"><i class="ti ti-pencil"></i></button>`:''}
         </div>
         <div class="upcoming-footer">
           <span class="status-pill sp-${f.status}">${STATUS_LABEL[f.status]||f.status}</span>
@@ -2614,10 +2648,18 @@ function feriasChangeMonth(delta){
 function openFeriasForm(){
   const form = document.getElementById('feriasForm');
   form.classList.add('active');
-  // pre-fill name from saved username
   const nameEl = document.getElementById('fNome');
-  if(!nameEl.value) nameEl.value = getUserName();
-  // pre-fill dates to current month
+  const me=getUserName();
+  if(!getToken()){
+    if(!me){ openNameModal(); form.classList.remove('active'); return; }
+    nameEl.value=me;
+    nameEl.readOnly=true;
+    nameEl.style.opacity='0.6';
+  }else{
+    if(!nameEl.value) nameEl.value=me;
+    nameEl.readOnly=false;
+    nameEl.style.opacity='';
+  }
   const y = feriasYear, m = String(feriasMonth+1).padStart(2,'0');
   document.getElementById('fInicio').value = y+'-'+m+'-01';
   document.getElementById('fFim').value    = y+'-'+m+'-15';
@@ -2633,6 +2675,14 @@ function saveFerias(){
   const status = document.getElementById('fStatus').value;
   if(!nome||!inicio||!fim){ alert('Preencha todos os campos.'); return; }
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
+  if(!getToken()){
+    const me=getUserName();
+    if(!me){ openNameModal(); return; }
+    if(!namesMatch(nome,me)){
+      alert('Sem token de edição, você só pode registrar férias no seu nome.');
+      return;
+    }
+  }
   if(!data.ferias) data.ferias = [];
   data.ferias.push({ id:'f'+Date.now(), nome, inicio, fim, status });
   closeFeriasForm();
@@ -2742,9 +2792,11 @@ function renderFerias(){
       bar.className = 'tl-bar fs-'+f.status;
       bar.style.left  = leftPct+'%';
       bar.style.width = widthPct+'%';
+      const canEditBar=canEditFeriasRecord(f);
       const label = (barEnd-barStart+1) > 3 ? nome.split(' ')[0]+' ('+days+'d)' : '';
       bar.textContent = label;
-      bar.title = nome+' · '+f.inicio+' até '+f.fim+' — clique para editar';
+      bar.title = nome+' · '+f.inicio+' até '+f.fim+(canEditBar?' — clique para editar':' — clique para ver');
+      bar.style.cursor='pointer';
       bar.addEventListener('click', ev=>{
         ev.stopPropagation();
         openFeriasEdit(f.id);
