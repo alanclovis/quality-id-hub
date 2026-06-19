@@ -1606,20 +1606,34 @@ function clearIdentitySession(){
   localStorage.removeItem('qhub_user_id');
   localStorage.removeItem('qhub_username');
   localStorage.removeItem('qhub_claimed_name');
+  localStorage.removeItem('qhub_saved_invite_code');
 }
 function validateStoredIdentity(){
   const uid=localStorage.getItem('qhub_user_id');
   if(!uid||localStorage.getItem('qhub_claimed_name')!=='1'){
     clearIdentitySession();
-    return;
+    return false;
+  }
+  if(uid===VISITOR_PACK_USER_ID){
+    localStorage.setItem('qhub_username','Visitante');
+    return true;
   }
   ensureAccessUsers();
+  if(!data.accessUsers?.length){
+    const cached=localStorage.getItem('qhub_username');
+    if(cached) return true;
+    return true;
+  }
   const u=getAccessUserById(uid);
   if(!u||u.status!=='active'){
+    const savedCode=localStorage.getItem('qhub_saved_invite_code');
+    if(savedCode&&restoreIdentityFromCode(savedCode)) return true;
     clearIdentitySession();
-    return;
+    return false;
   }
   localStorage.setItem('qhub_username',u.name);
+  if(u.inviteCode) localStorage.setItem('qhub_saved_invite_code',u.inviteCode);
+  return true;
 }
 function hasClaimedIdentity(){
   return localStorage.getItem('qhub_claimed_name')==='1'&&!!localStorage.getItem('qhub_user_id');
@@ -1637,6 +1651,7 @@ function claimWithInviteCode(rawCode){
   localStorage.setItem('qhub_user_id',u.id);
   localStorage.setItem('qhub_username',u.name);
   localStorage.setItem('qhub_claimed_name','1');
+  if(u.inviteCode) localStorage.setItem('qhub_saved_invite_code',u.inviteCode);
   if(!u.isPackVisitor) ensureRegisteredMember(u.name);
   renderUserChip();
   renderAccessStatusBox();
@@ -1709,6 +1724,7 @@ async function claimAdminWithToken(){
     localStorage.setItem('qhub_user_id',u.id);
     localStorage.setItem('qhub_username',u.name);
     localStorage.setItem('qhub_claimed_name','1');
+    localStorage.setItem('qhub_saved_invite_code',u.inviteCode);
     ensureRegisteredMember(u.name);
     saveLocal();
     if(canWriteGist()&&getGistId()) await saveToGist();
@@ -2194,6 +2210,7 @@ function saveConfig(){
   updateEditButtonVisibility();
   if(g)loadFromGist();
   else if(!hasClaimedIdentity()) setTimeout(openNameModal,200);
+  else refreshAuthAdminPanel();
   if(document.getElementById('nameBackdrop').classList.contains('active')){
     refreshProfileModal();
   }
@@ -2246,6 +2263,7 @@ async function loadFromGist(){
     renderFerias();
     setTimeout(renderUpcoming, 100);
     render();
+    renderUserChip();
     updateEditButtonVisibility();
     if(roleSynced){
       saveLocal();
@@ -2289,7 +2307,7 @@ async function saveToGist(){
 }
 function showStatus(type,msg){const bar=document.getElementById('statusBar');bar.className='status-bar '+type;document.getElementById('statusMsg').textContent=msg;}
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
-function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();render();}
+function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -3204,8 +3222,17 @@ function getUserName(){
   const uid=localStorage.getItem('qhub_user_id');
   if(!uid||localStorage.getItem('qhub_claimed_name')!=='1') return '';
   const u=getAccessUserById(uid);
-  if(!u||u.status!=='active') return '';
-  return u.name;
+  if(u&&u.status==='active') return u.name;
+  return localStorage.getItem('qhub_username')||'';
+}
+function restoreIdentityFromCode(code){
+  const u=findUserByInviteCode(code);
+  if(!u) return false;
+  localStorage.setItem('qhub_user_id',u.id);
+  localStorage.setItem('qhub_username',u.name);
+  localStorage.setItem('qhub_claimed_name','1');
+  localStorage.setItem('qhub_saved_invite_code',u.inviteCode||normalizeInviteCode(code));
+  return true;
 }
 function canEditProfileFields(){
   if(isVisitor()) return false;
@@ -4804,7 +4831,6 @@ function renderPriorities(){
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
-  validateStoredIdentity();
   initProfileForm();
   initTagFilterUI();
   const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
