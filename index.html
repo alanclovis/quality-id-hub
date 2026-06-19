@@ -169,23 +169,25 @@ body.light .sec-x .section-header{background:transparent;border:none;}
 /* ── Edit overlay ── */
 .edit-panel{display:none;background:var(--bg2);border:1px solid rgba(139,92,246,0.4);border-radius:var(--r);padding:14px;flex-direction:column;gap:8px;margin-top:6px;grid-column:1/-1;}
 .edit-panel.active{display:flex;}
-.edit-panel input,.edit-panel textarea{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-size:12px;font-family:inherit;outline:none;width:100%;}
+.edit-panel input:not([type="checkbox"]),.edit-panel textarea{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-size:12px;font-family:inherit;outline:none;width:100%;}
+.edit-panel input[type="checkbox"]{width:auto;padding:0;border:none;background:transparent;cursor:pointer;flex-shrink:0;}
 .edit-panel input:focus,.edit-panel textarea:focus{border-color:var(--purple);}
 .edit-panel textarea{resize:vertical;min-height:60px;}
 .edit-panel-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .edit-panel label{font-size:11px;color:var(--text3);margin-bottom:2px;display:block;}
 .edit-panel-group{display:flex;flex-direction:column;}
 .edit-panel-actions{display:flex;gap:8px;align-items:center;margin-top:4px;}
+.edit-panel-meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.edit-tag-options{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.edit-tag-option{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;margin-bottom:0;}
 .badge-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin-left:auto;}
-.badge-toggle input{accent-color:var(--purple);}
+.badge-toggle input{accent-color:var(--purple);width:auto;padding:0;border:none;background:transparent;cursor:pointer;}
 .card-edit-overlay input,.card-edit-overlay textarea{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:11px;font-family:inherit;outline:none;width:100%;}
 .card-edit-overlay input:focus,.card-edit-overlay textarea:focus{border-color:var(--purple);}
 .card-edit-overlay textarea{resize:vertical;min-height:48px;}
 .card-edit-actions{display:flex;gap:5px;margin-top:2px;}
 .logo-picker-btn{display:flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:5px 8px;font-size:11px;cursor:pointer;width:100%;}
 .logo-picker-btn:hover{border-color:var(--purple);color:var(--purple-l);}
-.badge-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer;}
-.badge-toggle input{accent-color:var(--purple);}
 
 /* ── Logo picker modal ── */
 .logo-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:400;align-items:center;justify-content:center;}
@@ -1761,14 +1763,14 @@ function buildEditPanel(link,sectionId){
     </div>
     <div class="edit-panel-group"><label>URL</label><input type="text" placeholder="https://..." value="${link.url==='#'?'':link.url}" id="eurl-${link.id}"></div>
     <div class="edit-panel-group"><label>Descrição longa (aparece no preview ao passar o mouse)</label><textarea id="enotes-${link.id}">${link.notes||''}</textarea></div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <div class="edit-panel-meta">
       <button class="logo-picker-btn" style="width:auto;flex:1" id="logobtn-${link.id}" onclick="pickLogo('${link.id}','${logoId}',event)"><i class="ti ti-photo"></i> Logotipo: ${logo.label}</button>
       <label class="badge-toggle"><input type="checkbox" id="enew-${link.id}"${link.isNew?' checked':''}> Marcar como novo</label>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
-        <label style="font-size:11px;color:var(--text3)">Tags:</label>
-        <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px"><input type="checkbox" id="etag-id-${link.id}" ${(link.tags||[]).includes('id')?'checked':''}> ID</label>
-        <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px"><input type="checkbox" id="etag-csat-${link.id}" ${(link.tags||[]).includes('csat')?'checked':''}> CSAT</label>
-        <label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:4px"><input type="checkbox" id="etag-vp-${link.id}" ${(link.tags||[]).includes('vp')?'checked':''}> VP</label>
+      <div class="edit-tag-options">
+        <span style="font-size:11px;color:var(--text3)">Tags:</span>
+        <label class="edit-tag-option"><input type="checkbox" id="etag-id-${link.id}" ${(link.tags||[]).includes('id')?'checked':''}> ID</label>
+        <label class="edit-tag-option"><input type="checkbox" id="etag-csat-${link.id}" ${(link.tags||[]).includes('csat')?'checked':''}> CSAT</label>
+        <label class="edit-tag-option"><input type="checkbox" id="etag-vp-${link.id}" ${(link.tags||[]).includes('vp')?'checked':''}> VP</label>
       </div>
     </div>
     <div class="edit-panel-actions">
