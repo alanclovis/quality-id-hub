@@ -884,13 +884,25 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <p class="invite-code-hint">Formato: três letras, hífen, quatro caracteres (ex.: LUC-8K3M). Código visitante do pack também funciona aqui.</p>
       <button class="btn primary profile-save" onclick="submitInviteCode()"><i class="ti ti-key"></i> Entrar</button>
       <p class="auth-status" id="authStatusMsg" style="display:none"></p>
-      <div id="authBootstrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
-        <p class="profile-intro">Nenhuma pessoa cadastrada ainda. Com o token do pack já configurado, crie o primeiro admin:</p>
+      <div id="authNoToken" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <p class="profile-intro"><strong>Admin:</strong> configure o token do pack antes de criar seu acesso.</p>
+        <button class="btn" type="button" style="width:100%;justify-content:center" onclick="openConfigFromAuth()"><i class="ti ti-settings"></i> Abrir Configuração → Técnico</button>
+      </div>
+      <div id="authBootstrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <p class="profile-intro">Nenhuma pessoa cadastrada ainda. Com o token do pack configurado, crie o primeiro admin:</p>
         <div class="profile-field">
           <label for="bootstrapNameInput">Seu nome</label>
           <input type="text" id="bootstrapNameInput" placeholder="Ex: Alan Clovis" maxlength="40">
         </div>
         <button class="btn primary profile-save" onclick="claimBootstrapAdmin()"><i class="ti ti-arrow-right"></i> Criar admin inicial</button>
+      </div>
+      <div id="authAdminRecover" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <p class="profile-intro"><strong>Admin com token?</strong> Informe seu nome para gerar ou recuperar seu código de acesso.</p>
+        <div class="profile-field">
+          <label for="adminRecoverNameInput">Seu nome</label>
+          <input type="text" id="adminRecoverNameInput" placeholder="Ex: Alan Clovis" maxlength="40">
+        </div>
+        <button class="btn primary profile-save" onclick="claimAdminWithToken()"><i class="ti ti-shield"></i> Entrar como admin</button>
       </div>
     </div>
     <div class="profile-step" id="profileStepVisitor">
@@ -1632,17 +1644,71 @@ function submitInviteCode(){
   }
   refreshProfileModal();
 }
+function openConfigFromAuth(){
+  closeName();
+  setTimeout(openConfig,150);
+}
 function initInviteAuth(){
   const bootstrap=document.getElementById('authBootstrap');
-  if(bootstrap) bootstrap.style.display=(!hasActiveAccessRoster()&&getToken())?'block':'none';
+  const adminRecover=document.getElementById('authAdminRecover');
+  const noToken=document.getElementById('authNoToken');
+  const hasToken=!!getToken();
+  if(noToken) noToken.style.display=hasToken?'none':'block';
+  if(bootstrap) bootstrap.style.display=(hasToken&&!hasActiveAccessRoster())?'block':'none';
+  if(adminRecover) adminRecover.style.display=(hasToken&&hasActiveAccessRoster()&&!hasClaimedIdentity())?'block':'none';
   const inp=document.getElementById('inviteCodeInput');
   if(!inp) return;
   const fromUrl=new URLSearchParams(location.search).get('code');
   if(fromUrl&&!inp.value) inp.value=fromUrl;
 }
+async function claimAdminWithToken(){
+  if(!getToken()){ openConfigFromAuth(); return; }
+  const name=document.getElementById('adminRecoverNameInput')?.value.trim();
+  if(!name){ alert('Informe seu nome.'); return; }
+  showStatus('loading','Validando token e liberando acesso...');
+  try{
+    const gistId=getGistId();
+    const res=await fetch(`https://api.github.com/gists/${gistId}`,{headers:{'Authorization':`token ${getToken()}`}});
+    if(!res.ok) throw new Error('Token inválido ou sem acesso ao Gist ('+res.status+')');
+    await loadFromGist();
+    ensureAccessUsers();
+    let u=data.accessUsers.find(x=>namesMatch(x.name,name)&&x.status==='active');
+    if(u){
+      if(hasAdminInRoster()&&!hasAdminInRoster(name)&&u.role!=='admin'){
+        throw new Error('Você está cadastrado como '+(ACCESS_ROLE_LABELS[u.role]||'membro')+'. Use seu código pessoal acima.');
+      }
+      if(!hasAdminInRoster()||u.role==='admin') u.role='admin';
+    }else{
+      if(hasAdminInRoster()&&!hasAdminInRoster(name)){
+        throw new Error('Nome não cadastrado no pack. Peça ao admin um código ou cadastro.');
+      }
+      u={
+        id:'u'+Date.now(),name,role:'admin',status:'active',inviteCode:generateInviteCode(name),
+        joinedAt:new Date().toISOString(),approvedAt:new Date().toISOString(),approvedBy:'Admin token'
+      };
+      data.accessUsers.push(u);
+    }
+    if(!u.inviteCode) u.inviteCode=generateInviteCode(name);
+    localStorage.setItem('qhub_user_id',u.id);
+    localStorage.setItem('qhub_username',u.name);
+    localStorage.setItem('qhub_claimed_name','1');
+    ensureRegisteredMember(u.name);
+    saveLocal();
+    if(canWriteGist()&&getGistId()) await saveToGist();
+    renderUserChip();
+    renderAccessStatusBox();
+    updateEditButtonVisibility();
+    hideStatus();
+    alert('Acesso de admin liberado.\n\nSeu código para outros dispositivos:\n'+u.inviteCode);
+    refreshProfileModal();
+  }catch(e){
+    hideStatus();
+    alert(e.message||'Não foi possível liberar acesso de admin.');
+  }
+}
 async function claimBootstrapAdmin(){
   if(hasActiveAccessRoster()) return;
-  if(!getToken()){ alert('Configure o token do pack em Configuração → Técnico primeiro.'); return; }
+  if(!getToken()){ openConfigFromAuth(); return; }
   const name=document.getElementById('bootstrapNameInput')?.value.trim();
   if(!name){ alert('Informe seu nome.'); return; }
   ensureAccessUsers();
@@ -2110,6 +2176,7 @@ function saveConfig(){
   closeConfig();
   updateEditButtonVisibility();
   if(g)loadFromGist();
+  else if(!hasClaimedIdentity()) setTimeout(openNameModal,200);
   if(document.getElementById('nameBackdrop').classList.contains('active')){
     refreshProfileModal();
   }
@@ -3283,6 +3350,9 @@ document.getElementById('inviteCodeInput')?.addEventListener('keydown',e=>{
 });
 document.getElementById('bootstrapNameInput')?.addEventListener('keydown',e=>{
   if(e.key==='Enter') claimBootstrapAdmin();
+});
+document.getElementById('adminRecoverNameInput')?.addEventListener('keydown',e=>{
+  if(e.key==='Enter') claimAdminWithToken();
 });
 document.getElementById('profileAvInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];
