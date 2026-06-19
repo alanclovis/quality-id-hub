@@ -1325,6 +1325,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <button class="btn icon-only" onclick="openGuide()" title="Guia de uso" aria-label="Guia de uso"><i class="ti ti-help"></i></button>
     <button class="btn icon-only" onclick="openStats()" title="Estatísticas de uso" aria-label="Estatísticas de uso" id="btnStats"><i class="ti ti-chart-bar"></i></button>
     <button class="btn primary" id="btnEditMode" onclick="toggleEditMode()" style="display:none"><i class="ti ti-pencil"></i> Editar</button>
+    <button class="btn icon-only" onclick="refreshPackData()" title="Atualizar dados do pack" aria-label="Atualizar dados do pack" id="btnRefreshPack" style="display:none"><i class="ti ti-refresh"></i></button>
     <button class="btn icon-only" onclick="openConfig()" title="Configuração" aria-label="Configuração"><i class="ti ti-settings"></i></button>
   </div>
 </div>
@@ -2067,7 +2068,7 @@ async function syncFeriasToGist(){
   const token=getToken(),gistId=getGistId();
   showStatus('loading','Publicando férias no pack...');
   try{
-    const res=await fetch(`https://api.github.com/gists/${gistId}`,{headers:{'Authorization':`token ${token}`}});
+    const res=await fetchGistApi(gistId,{auth:true});
     if(!res.ok) throw new Error('Gist indisponível ('+res.status+')');
     const json=await res.json();
     const file=json.files[GIST_FILENAME];
@@ -2094,9 +2095,11 @@ async function syncFeriasToGist(){
 }
 async function persistFeriasToPack(){
   saveLocal();
-  if(canWriteGist()&&getGistId()) return await saveToGist();
-  if(canSyncFeriasToGist()) return await syncFeriasToGist();
-  return false;
+  let ok=false;
+  if(canWriteGist()&&getGistId()) ok=await saveToGist();
+  else if(canSyncFeriasToGist()) ok=await syncFeriasToGist();
+  if(ok&&getGistId()) await refreshPackData({quiet:true});
+  return ok;
 }
 function ensureRegisteredMemberInData(pack,name){
   if(!name) return;
@@ -2145,7 +2148,7 @@ async function syncOwnProfileToGist(name,oldName){
   if(!profile) return false;
   showStatus('loading','Publicando perfil no pack...');
   try{
-    const res=await fetch(`https://api.github.com/gists/${gistId}`,{headers:{'Authorization':`token ${token}`}});
+    const res=await fetchGistApi(gistId,{auth:true});
     if(!res.ok) throw new Error('Gist indisponível ('+res.status+')');
     const json=await res.json();
     const file=json.files[GIST_FILENAME];
@@ -2449,6 +2452,8 @@ function updateEditButtonVisibility(){
   if(btn) btn.style.display=canEditContent()?'flex':'none';
   const priBtn=document.getElementById('btnPriEdit');
   if(priBtn) priBtn.style.display=canEditContent()&&!priEditMode?'inline-flex':'none';
+  const refreshBtn=document.getElementById('btnRefreshPack');
+  if(refreshBtn) refreshBtn.style.display=getGistId()?'flex':'none';
 }
 function openConfig(){
   document.getElementById('tokenInput').value=localStorage.getItem('qhub_token')||'';
@@ -2474,19 +2479,85 @@ function openConfig(){
 function closeConfig(){document.getElementById('configModal').classList.remove('active');}
 
 // ── Gist API ───────────────────────────────────────────────────────────────────
+async function fetchGistApi(gistId,{auth=false}={}){
+  const headers={};
+  const token=auth?getToken():null;
+  if(token) headers['Authorization']=`token ${token}`;
+  const url=`https://api.github.com/gists/${gistId}?_=${Date.now()}`;
+  return fetch(url,{headers,cache:'no-store'});
+}
 async function fetchRemotePackData(){
   const gistId=getGistId();
   if(!gistId) return null;
-  const token=getToken();
-  const headers=token?{'Authorization':`token ${token}`}:{};
   try{
-    const res=await fetch(`https://api.github.com/gists/${gistId}`,{headers});
+    const res=await fetchGistApi(gistId,{auth:!!getToken()});
     if(!res.ok) return null;
     const json=await res.json();
     const file=json.files[GIST_FILENAME];
     if(!file?.content) return null;
     return JSON.parse(file.content);
   }catch(e){ return null; }
+}
+function applyLoadedPackData(parsed,updatedAt){
+  data=parsed;
+  normalizeFeriasRecordsInData();
+  initKnownFeriasIds();
+  ensurePageOrder();
+  ensurePrioritiesData();
+  ensureProfilesData();
+  ensureAccessUsers();
+  migratePendingToActiveMembers();
+  syncMembersFromProfiles();
+  validateStoredIdentity();
+  if(getUserName()) ensureRegisteredMember(getUserName());
+  persistEmbeddedTokenForMember();
+  const roleSynced=syncTokenHolderRole();
+  applySidebarOrder();
+  renderFerias();
+  renderFeriasLegend();
+  renderUpcoming();
+  renderMural();
+  render();
+  renderUserChip();
+  updateEditButtonVisibility();
+  saveLocal();
+  if(document.getElementById('pagePrioridades')?.classList.contains('active')) renderPriorities();
+  const gistId=getGistId();
+  const link=document.getElementById('gistFooterLink');
+  if(link&&gistId){ link.href=`https://gist.github.com/${gistId}`; link.style.display='flex'; }
+  const lastSaved=document.getElementById('lastSaved');
+  if(lastSaved){
+    if(updatedAt) lastSaved.textContent='Atualizado: '+new Date(updatedAt).toLocaleString('pt-BR');
+    else lastSaved.textContent='Atualizado agora';
+  }
+  maybeShowOnboarding();
+  refreshAuthAdminPanel();
+  return roleSynced;
+}
+async function refreshPackData(opts={}){
+  const quiet=!!opts.quiet;
+  const gistId=getGistId();
+  if(!gistId){
+    if(!quiet) alert('Gist ID não configurado.');
+    return false;
+  }
+  if(!quiet) showStatus('loading','Atualizando dados do pack...');
+  try{
+    const res=await fetchGistApi(gistId,{auth:false});
+    if(!res.ok) throw new Error('Gist não encontrado');
+    const json=await res.json();
+    const file=json.files[GIST_FILENAME];
+    if(!file?.content) throw new Error('Arquivo não encontrado no Gist');
+    const parsed=JSON.parse(file.content);
+    if(!parsed?.sections?.length) throw new Error('Dados do pack inválidos');
+    const roleSynced=applyLoadedPackData(parsed,json.updated_at);
+    if(roleSynced&&canWriteGist()&&getGistId()) await saveToGist();
+    if(!quiet){ showStatus('success','Dados atualizados!'); setTimeout(hideStatus,2500); }
+    return true;
+  }catch(e){
+    if(!quiet){ showStatus('error','Erro ao atualizar: '+e.message); setTimeout(hideStatus,5000); }
+    return false;
+  }
 }
 function mergeFeriasById(remoteList,localList){
   const map=new Map();
@@ -2531,16 +2602,19 @@ async function mergeRemoteFeriasBeforeSave(){
   saveLocal();
 }
 let gistLoadPromise=null;
-async function loadFromGist(){
-  if(gistLoadPromise) return gistLoadPromise;
-  gistLoadPromise=loadFromGistInner().finally(()=>{ gistLoadPromise=null; });
+async function loadFromGist(opts){
+  const force=opts===true||!!opts?.force;
+  if(!force&&gistLoadPromise) return gistLoadPromise;
+  const run=loadFromGistInner();
+  if(force) return run;
+  gistLoadPromise=run.finally(()=>{ gistLoadPromise=null; });
   return gistLoadPromise;
 }
 async function loadFromGistInner(){
   const gistId=getGistId();
   showStatus('loading','Carregando do Gist...');
   try{
-    const res=await fetch(`https://api.github.com/gists/${gistId}`);
+    const res=await fetchGistApi(gistId,{auth:false});
     if(!res.ok)throw new Error('Gist não encontrado');
     const json=await res.json();
     const file=json.files[GIST_FILENAME];
@@ -2554,38 +2628,12 @@ async function loadFromGistInner(){
       hideStatus();
       return;
     }
-    data=parsed;
-    normalizeFeriasRecordsInData();
-    initKnownFeriasIds();
-    ensurePageOrder();
-    ensurePrioritiesData();
-    ensureProfilesData();
-    ensureAccessUsers();
-    migratePendingToActiveMembers();
-    syncMembersFromProfiles();
-    validateStoredIdentity();
-    if(getUserName()) ensureRegisteredMember(getUserName());
-    persistEmbeddedTokenForMember();
-    const roleSynced=syncTokenHolderRole();
-    applySidebarOrder();
-    renderFerias();
-    setTimeout(renderUpcoming, 100);
-    render();
-    renderUserChip();
-    updateEditButtonVisibility();
-    saveLocal();
+    const roleSynced=applyLoadedPackData(parsed,json.updated_at);
+    hideStatus();
     if(roleSynced){
       saveLocal();
       if(canWriteGist()&&getGistId()) await saveToGist();
     }
-    if(document.getElementById('pagePrioridades')?.classList.contains('active')) renderPriorities();
-    const link=document.getElementById('gistFooterLink');
-    link.href=`https://gist.github.com/${gistId}`;link.style.display='flex';
-    const ts=json.updated_at?new Date(json.updated_at).toLocaleString('pt-BR'):'';
-    document.getElementById('lastSaved').textContent=ts?`Atualizado: ${ts}`:'';
-    hideStatus();
-    maybeShowOnboarding();
-    refreshAuthAdminPanel();
   }catch(e){
     showStatus('error','Erro ao carregar Gist: '+e.message+'. Usando dados locais.');
     loadLocal();setTimeout(hideStatus,4000);
@@ -4190,6 +4238,7 @@ async function saveFeriasEdit(){
   applyFeriasStatusFields(f,tipo,'fEditTipo','fEditStatus');
   closeFeriasEdit();
   renderFerias();
+  renderUpcoming();
   await persistFeriasToPack();
 }
 async function deleteFeriasCurrent(){
@@ -4204,7 +4253,7 @@ async function deleteFeriasCurrent(){
   renderFerias();
   renderUpcoming();
   const ok=await persistFeriasToPack();
-  if(!ok) alert('Não foi possível publicar a remoção no pack. Tente de novo ou recarregue após salvar.');
+  if(!ok) alert('Não foi possível publicar a remoção no pack. Verifique o token e use o botão Atualizar.');
 }
 
 function renderUpcoming(){
@@ -5413,6 +5462,7 @@ window.addEventListener('DOMContentLoaded',()=>{
         <span class="ferias-month" id="feriasMonthLabel"></span>
         <button class="btn-sm" onclick="feriasChangeMonth(1)"><i class="ti ti-chevron-right"></i></button>
       </div>
+      <button class="btn-sm" onclick="refreshPackData()" title="Buscar dados mais recentes do pack"><i class="ti ti-refresh"></i> Atualizar</button>
       <button class="btn-sm purple" style="white-space:nowrap" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar período</button>
     </div>
   </div>
