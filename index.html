@@ -516,7 +516,13 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .pri-grid th{background:#ede9fe;color:#5b21b6;font-size:12px;font-weight:600;padding:10px 8px;text-align:center;}
 .pri-grid th.pri-corner{background:var(--bg3);color:var(--text3);width:88px;}
 .pri-grid td.pri-shift{background:var(--bg3);font-size:12px;font-weight:600;color:var(--text2);text-align:center;padding:10px 8px;width:88px;white-space:nowrap;}
-.pri-cell{padding:10px 8px;min-height:52px;font-size:11px;line-height:1.4;color:var(--text);text-align:center;background:#fff;}
+.pri-cell{padding:10px 8px;min-height:52px;font-size:11px;line-height:1.4;color:var(--text);text-align:center;background:#fff;position:relative;}
+.pri-cell-has-badge{padding-right:30px;}
+.pri-copy-badge{position:absolute;top:6px;right:5px;width:24px;height:24px;border:none;background:var(--bg3);border-radius:6px;color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;opacity:0;transition:opacity .15s,background .15s,color .15s;}
+.pri-cell-has-badge:hover .pri-copy-badge{opacity:1;}
+.pri-copy-badge:hover{background:#ede9fe;color:#7c3aed;}
+.pri-copy-badge.copied{background:#dcfce7;color:#059669;opacity:1;}
+.pri-copy-badge i{pointer-events:none;}
 .pri-cell-empty{color:var(--text3);opacity:0.5;}
 .pri-cell-editable{cursor:pointer;user-select:none;transition:background .12s,box-shadow .12s;}
 .pri-cell-editable:hover{background:#f5f3ff;}
@@ -978,7 +984,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <div class="guide-step" data-step="6">
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 7 de 7</div>
-          <h3>Header e atalhos</h3>
+          <h3>Atalhos no topo</h3>
           <p>Ferramentas rápidas no canto superior direito:</p>
           <div class="guide-illustration guide-step-list">
             <div class="guide-step-item"><i class="ti ti-zoom-in" style="color:var(--blue);font-size:16px;flex-shrink:0"></i><span><strong>Zoom</strong> — ajusta a página de 70% a 150%</span></div>
@@ -986,7 +992,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
             <div class="guide-step-item"><i class="ti ti-pencil" style="color:#0071e3;font-size:16px;flex-shrink:0"></i><span><strong>Editar</strong> — modo edição de links (editores/admins)</span></div>
             <div class="guide-step-item"><i class="ti ti-help" style="color:var(--text2);font-size:16px;flex-shrink:0"></i><span><strong>?</strong> — reabre este guia a qualquer momento</span></div>
           </div>
-          <div class="tip" style="margin-top:10px"><i class="ti ti-check"></i> Pronto! Explore o hub e, se tiver dúvida, volte aqui pelo botão <strong>?</strong>.</div>
+          <div class="tip" style="margin-top:10px"><i class="ti ti-check"></i><span>Pronto! Explore o hub e, se tiver dúvida, volte aqui pelo botão <strong>?</strong>.</span></div>
         </div>
       </div>
 
@@ -3825,6 +3831,29 @@ function formatQueueShort(name){
   if(!name) return '—';
   return name.replace(/^data-labeling-/,'').replace(/^hsp-id-/,'hsp·');
 }
+async function copyPriBadge(btn){
+  const text=btn?.dataset?.badge;
+  if(!text) return;
+  try{
+    await navigator.clipboard.writeText(text);
+    const icon=btn.querySelector('i');
+    btn.classList.add('copied');
+    btn.title='Copiado!';
+    if(icon) icon.className='ti ti-check';
+    setTimeout(()=>{
+      btn.classList.remove('copied');
+      btn.title='Copiar badge para o Toolio';
+      if(icon) icon.className='ti ti-copy';
+    },1500);
+  }catch(e){
+    alert('Não foi possível copiar. Tente selecionar o texto manualmente.');
+  }
+}
+function priCellViewHtml(val){
+  return `<span class="pri-queue-short">${escapeHtml(formatQueueShort(val))}</span>`
+    +`<span class="pri-queue-full">${escapeHtml(val)}</span>`
+    +`<button type="button" class="pri-copy-badge" data-badge="${escapeAttr(val)}" onclick="event.stopPropagation();copyPriBadge(this)" title="Copiar badge para o Toolio"><i class="ti ti-copy"></i></button>`;
+}
 function priChangeWeek(delta){
   const d=new Date(priWeekStart+'T12:00:00');
   d.setDate(d.getDate()+delta*7);
@@ -4115,12 +4144,10 @@ function renderPriorities(){
         } else html+='—';
         html+='</td>';
       } else {
-        const cls=val?'':' pri-cell-empty';
+        const cls=val?' pri-cell-has-badge':' pri-cell-empty';
         html+=`<td class="pri-cell${cls}" title="${escapeAttr(val)}">`;
-        if(val){
-          html+=`<span class="pri-queue-short">${escapeHtml(formatQueueShort(val))}</span>`;
-          html+=`<span class="pri-queue-full">${escapeHtml(val)}</span>`;
-        } else html+='—';
+        if(val) html+=priCellViewHtml(val);
+        else html+='—';
         html+='</td>';
       }
     });
