@@ -3964,7 +3964,10 @@ function formatFeriasRecordLabel(f){
 }
 function formatFeriasBarLabel(f,nome){
   const tipo=TIPO_LABEL_SHORT[getFeriasTipo(f)]||TIPO_LABEL[getFeriasTipo(f)];
-  return tipo+' '+nome.split(' ')[0];
+  const s=new Date(f.inicio+'T00:00:00');
+  const e=new Date(f.fim+'T00:00:00');
+  const days=Math.round((e-s)/86400000)+1;
+  return tipo+' '+nome.split(' ')[0]+' ('+days+'d)';
 }
 function renderFeriasLegend(){
   const el=document.getElementById('feriasLegend');
@@ -3986,7 +3989,7 @@ function renderFeriasLegend(){
   el.innerHTML=`
     <div class="ferias-legend-section">
       <div class="ferias-legend-head"><i class="ti ti-layout-grid"></i> Como ler a timeline</div>
-      <p class="ferias-legend-lead">Cada barra mostra <strong>tipo + nome</strong>, por exemplo: <span class="ferias-legend-example">Férias Alan</span></p>
+      <p class="ferias-legend-lead">Cada barra mostra <strong>tipo + nome + duração</strong>, por exemplo: <span class="ferias-legend-example">Férias Alan (15d)</span></p>
     </div>
     <div class="ferias-legend-section">
       <div class="ferias-legend-head"><i class="ti ti-list-details"></i> Tipos de ausência</div>
