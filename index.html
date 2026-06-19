@@ -500,6 +500,7 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .pri-week-nav{display:flex;align-items:center;gap:6px;background:var(--bg2);border-radius:var(--rs);padding:4px;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
 .pri-week-label{font-size:13px;font-weight:500;color:var(--text);min-width:140px;text-align:center;padding:0 4px;}
 .pri-meta{font-size:12px;color:var(--text3);margin-bottom:14px;}
+.pri-grid-toolbar{display:flex;justify-content:flex-end;margin-bottom:8px;}
 .pri-grid-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:1.5rem;}
 .pri-grid{width:100%;min-width:640px;border-collapse:collapse;}
 .pri-grid th,.pri-grid td{border:1px solid var(--border);padding:0;vertical-align:middle;}
@@ -3812,6 +3813,8 @@ function updatePriEditUI(){
   document.getElementById('btnPriEdit').style.display=canEditContent()&&!priEditMode?'inline-flex':'none';
   document.getElementById('btnPriSave').style.display=priEditMode?'inline-flex':'none';
   document.getElementById('btnPriCancel').style.display=priEditMode?'inline-flex':'none';
+  const gridToolbar=document.getElementById('priGridToolbar');
+  if(gridToolbar) gridToolbar.style.display=priEditMode?'flex':'none';
   document.getElementById('priInstructionsView').style.display=priEditMode?'none':'block';
   document.getElementById('priInstructionsEdit').style.display=priEditMode?'block':'none';
 }
@@ -3855,6 +3858,25 @@ function deletePriQueue(id){
   Object.keys(pri.slots).forEach(k=>{
     if(pri.slots[k]===removedName) pri.slots[k]='';
   });
+  renderPriorities();
+}
+function clearPriGrid(){
+  if(!priEditMode||!canEditContent()) return;
+  if(!confirm('Limpar todos os slots da grade desta semana?')) return;
+  collectPrioritiesFromUI();
+  const pri=ensurePrioritiesData();
+  PRI_DAYS.forEach(day=>{
+    PRI_SHIFTS.forEach(shift=>{
+      pri.slots[priSlotKey(day.key,shift.key)]='';
+    });
+  });
+  renderPriorities();
+}
+function clearPriQueueCounts(){
+  if(!priEditMode||!canEditContent()) return;
+  if(!confirm('Zerar a quantidade de casos de todas as filas?')) return;
+  collectPrioritiesFromUI();
+  ensurePrioritiesData().queues.forEach(q=>{ q.count=0; });
   renderPriorities();
 }
 async function savePriorities(){
@@ -3932,7 +3954,7 @@ function renderPriorities(){
       shtml+=`<span style="font-size:10px;color:var(--text3);white-space:nowrap">remover</span>`;
       shtml+=`</div>`;
     } else {
-      shtml+=`<strong>${q.count||0}</strong>`;
+      shtml+=`<strong>${qCount}</strong>`;
     }
     shtml+='</td></tr>';
   });
