@@ -3741,6 +3741,7 @@ function moveLink(linkId, fromSectionId, toSectionId, beforeLinkId){
 // ── Prioridades semanais ───────────────────────────────────────────────────────
 let priEditMode=false;
 let priWeekStart=null;
+let priEditDraft=null;
 
 function getMondayISO(d=new Date()){
   const date=new Date(d);
@@ -3782,29 +3783,56 @@ function priGoCurrentWeek(){
   if(priEditMode) cancelPrioritiesEdit();
   renderPriorities();
 }
-function priIsConfiguredWeek(){
+function priIsConfiguredWeek(weekStart=priWeekStart){
   ensurePrioritiesData();
-  return priWeekStart===data.priorities.weekStart;
+  return weekStart===data.priorities.weekStart;
+}
+function priEmptySlots(){
+  const slots={};
+  PRI_DAYS.forEach(day=>PRI_SHIFTS.forEach(shift=>{ slots[priSlotKey(day.key,shift.key)]=''; }));
+  return slots;
+}
+function priQueueCountsFromData(){
+  const counts={};
+  ensurePrioritiesData().queues.forEach(q=>{ counts[q.id]=q.count||0; });
+  return counts;
+}
+function priZeroQueueCounts(){
+  const counts={};
+  ensurePrioritiesData().queues.forEach(q=>{ counts[q.id]=0; });
+  return counts;
+}
+function priGetQueueCount(q){
+  if(priEditMode&&priEditDraft) return priEditDraft.counts[q.id]||0;
+  if(!priIsConfiguredWeek()) return 0;
+  return q.count||0;
 }
 function priGetSlot(day,shift){
+  const key=priSlotKey(day,shift);
+  if(priEditMode&&priEditDraft) return priEditDraft.slots[key]||'';
   if(!priIsConfiguredWeek()) return '';
-  return data.priorities.slots[priSlotKey(day,shift)]||'';
+  return data.priorities.slots[key]||'';
+}
+function startPriEditDraft(){
+  const configured=priIsConfiguredWeek();
+  priEditDraft={
+    weekStart:priWeekStart,
+    slots:configured?{...data.priorities.slots}:priEmptySlots(),
+    counts:configured?priQueueCountsFromData():priZeroQueueCounts(),
+  };
 }
 function togglePrioritiesEdit(){
   if(!canEditContent()){ openConfig(); return; }
   priEditMode=true;
   ensurePrioritiesData();
-  if(!priIsConfiguredWeek()){
-    data.priorities.weekStart=priWeekStart;
-    data.priorities.slots={};
-    data.priorities.queues.forEach(q=>{ q.count=0; });
-  }
+  startPriEditDraft();
   document.getElementById('priInstructionsEdit').value=data.priorities.instructions||'';
   updatePriEditUI();
   renderPriorities();
 }
 function cancelPrioritiesEdit(){
   priEditMode=false;
+  priEditDraft=null;
   priWeekStart=data.priorities.weekStart||getMondayISO();
   updatePriEditUI();
   renderPriorities();
@@ -3819,20 +3847,26 @@ function updatePriEditUI(){
   document.getElementById('priInstructionsEdit').style.display=priEditMode?'block':'none';
 }
 function collectPrioritiesFromUI(){
+  if(!priEditDraft) return;
   const pri=ensurePrioritiesData();
-  pri.weekStart=priWeekStart;
+  priEditDraft.weekStart=priWeekStart;
   pri.instructions=document.getElementById('priInstructionsEdit').value.trim()||pri.instructions;
   PRI_DAYS.forEach(day=>{
     PRI_SHIFTS.forEach(shift=>{
       const sel=document.getElementById('pri-cell-'+priSlotKey(day.key,shift.key));
-      if(sel) pri.slots[priSlotKey(day.key,shift.key)]=sel.value||'';
+      if(sel) priEditDraft.slots[priSlotKey(day.key,shift.key)]=sel.value||'';
     });
   });
   document.querySelectorAll('[data-pri-queue-id]').forEach(inp=>{
     const id=inp.dataset.priQueueId;
-    const q=pri.queues.find(x=>x.id===id);
-    if(q) q.count=parseInt(inp.value,10)||0;
+    if(id) priEditDraft.counts[id]=parseInt(inp.value,10)||0;
   });
+}
+function applyPriEditDraft(){
+  const pri=ensurePrioritiesData();
+  pri.weekStart=priEditDraft.weekStart;
+  pri.slots={...priEditDraft.slots};
+  pri.queues.forEach(q=>{ q.count=priEditDraft.counts[q.id]||0; });
 }
 function addPriQueue(){
   if(!priEditMode||!canEditContent()) return;
@@ -3843,6 +3877,8 @@ function addPriQueue(){
   const pri=ensurePrioritiesData();
   if(pri.queues.some(q=>q.name===name)){ alert('Esta fila já existe na lista.'); return; }
   pri.queues.push({id:'q'+Date.now(),name,count:0});
+  if(!priEditDraft.counts) priEditDraft.counts={};
+  priEditDraft.counts[pri.queues[pri.queues.length-1].id]=0;
   if(inp) inp.value='';
   renderPriorities();
 }
@@ -3855,35 +3891,34 @@ function deletePriQueue(id){
   if(!q) return;
   const removedName=q.name;
   pri.queues=pri.queues.filter(x=>x.id!==id);
-  Object.keys(pri.slots).forEach(k=>{
-    if(pri.slots[k]===removedName) pri.slots[k]='';
+  delete priEditDraft.counts[id];
+  Object.keys(priEditDraft.slots).forEach(k=>{
+    if(priEditDraft.slots[k]===removedName) priEditDraft.slots[k]='';
   });
   renderPriorities();
 }
 function clearPriGrid(){
-  if(!priEditMode||!canEditContent()) return;
+  if(!priEditMode||!canEditContent()||!priEditDraft) return;
   if(!confirm('Limpar todos os slots da grade desta semana?')) return;
   collectPrioritiesFromUI();
-  const pri=ensurePrioritiesData();
-  PRI_DAYS.forEach(day=>{
-    PRI_SHIFTS.forEach(shift=>{
-      pri.slots[priSlotKey(day.key,shift.key)]='';
-    });
-  });
+  priEditDraft.slots=priEmptySlots();
   renderPriorities();
 }
 function clearPriQueueCounts(){
-  if(!priEditMode||!canEditContent()) return;
+  if(!priEditMode||!canEditContent()||!priEditDraft) return;
   if(!confirm('Zerar a quantidade de casos de todas as filas?')) return;
   collectPrioritiesFromUI();
-  ensurePrioritiesData().queues.forEach(q=>{ q.count=0; });
+  priEditDraft.counts=priZeroQueueCounts();
   renderPriorities();
 }
 async function savePriorities(){
   if(!canEditContent()){ openConfig(); return; }
   collectPrioritiesFromUI();
+  applyPriEditDraft();
   data.priorities.updatedAt=new Date().toISOString();
   priEditMode=false;
+  priEditDraft=null;
+  priWeekStart=data.priorities.weekStart;
   updatePriEditUI();
   renderPriorities();
   await saveToGist();
@@ -3909,7 +3944,7 @@ function renderPriorities(){
     PRI_DAYS.forEach(day=>{
       const key=priSlotKey(day.key,shift.key);
       const val=priGetSlot(day.key,shift.key);
-      if(priEditMode&&configured){
+      if(priEditMode){
         html+=`<td class="pri-cell"><select class="pri-cell-select" id="pri-cell-${key}">`;
         html+=`<option value="">— vazio —</option>`;
         pri.queues.forEach(q=>{
@@ -3938,16 +3973,16 @@ function renderPriorities(){
   const sum=document.getElementById('priSummary');
   const queuesHint=document.getElementById('priQueuesHint');
   const queuesToolbar=document.getElementById('priQueuesToolbar');
-  const showQueueEdit=priEditMode&&configured;
+  const showQueueEdit=priEditMode;
   if(queuesHint) queuesHint.style.display=showQueueEdit?'block':'none';
   if(queuesToolbar) queuesToolbar.style.display=showQueueEdit?'flex':'none';
   let total=0;
   let shtml='<thead><tr><th>Fila</th><th style="text-align:right;width:140px">Casos</th></tr></thead><tbody>';
   pri.queues.forEach(q=>{
-    const qCount=configured?(q.count||0):0;
+    const qCount=priGetQueueCount(q);
     total+=qCount;
     shtml+=`<tr><td class="pri-queue-name">${escapeHtml(q.name)}</td><td style="text-align:right">`;
-    if(priEditMode&&configured){
+    if(priEditMode){
       shtml+=`<div class="pri-queue-actions">`;
       shtml+=`<input type="number" min="0" class="pri-count-input" data-pri-queue-id="${escapeAttr(q.id)}" value="${qCount}">`;
       shtml+=`<button type="button" class="btn-sm pri-queue-del" onclick="deletePriQueue('${escapeAttr(q.id)}')" title="Remover fila"><i class="ti ti-trash"></i></button>`;
@@ -4117,6 +4152,9 @@ window.addEventListener('DOMContentLoaded',()=>{
     </div>
   </div>
   <div class="pri-meta" id="priMeta"></div>
+  <div class="pri-grid-toolbar" id="priGridToolbar" style="display:none">
+    <button type="button" class="btn-sm" onclick="clearPriGrid()"><i class="ti ti-eraser"></i> Limpar grade</button>
+  </div>
   <div class="pri-grid-wrap">
     <table class="pri-grid" id="priGrid"></table>
   </div>
@@ -4131,6 +4169,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     <div class="pri-queues-toolbar" id="priQueuesToolbar" style="display:none">
       <input type="text" id="priNewQueueName" placeholder="Nome da fila (ex: data-labeling-hsp-id-nova)" onkeydown="if(event.key==='Enter')addPriQueue()">
       <button type="button" class="btn-sm purple" onclick="addPriQueue()"><i class="ti ti-plus"></i> Adicionar fila</button>
+      <button type="button" class="btn-sm" onclick="clearPriQueueCounts()"><i class="ti ti-trash"></i> Zerar contagens</button>
     </div>
     <table class="pri-summary-table" id="priSummary"></table>
   </div>
