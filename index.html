@@ -803,7 +803,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     </div>
     <p class="profile-av-hint">Foto comprimida e compartilhada com o pack via Gist (máx. ~80 KB).</p>
     <h3>Seu perfil</h3>
-    <p>Nome e foto aparecem em todo o hub — header, férias, mural e confirmações.</p>
+    <p>Nome e foto aparecem em todo o hub. Ao salvar, você entra automaticamente como <strong>membro</strong>.</p>
     <input type="text" id="nameInput" placeholder="Ex: Alan Clovis" maxlength="40">
     <button class="btn primary" style="width:100%;justify-content:center;padding:10px" onclick="saveProfile()"><i class="ti ti-check"></i> Salvar perfil</button>
   </div>
@@ -934,7 +934,6 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <div class="config-panel active" id="configPanelAccess">
       <div id="accessStatusBox"></div>
       <p class="access-hint" id="accessHint"></p>
-      <button class="btn primary" id="btnRequestAccess" style="width:100%;justify-content:center;display:none" onclick="requestAccess()"><i class="ti ti-user-plus"></i> Solicitar acesso ao pack</button>
     </div>
     <div class="config-panel" id="configPanelTech">
       <p class="access-hint">Token GitHub com permissão <code>gist</code> — necessário para salvar alterações no pack. Admins/editores recebem o token compartilhado pelo time.</p>
@@ -948,7 +947,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       </div>
     </div>
     <div class="config-panel" id="configPanelUsers">
-      <p class="access-hint">Gerencie quem pode editar o hub. Papéis: <strong>Admin</strong> (tudo + usuários), <strong>Editor</strong> (links e conteúdo), <strong>Membro</strong> (perfil e férias próprias).</p>
+      <p class="access-hint">Gerencie papéis do pack. Quem salva o perfil entra como <strong>Membro</strong>; promova para Editor ou Admin abaixo.</p>
       <div id="accessUsersPanel"></div>
       <div class="access-add-row">
         <div><label style="font-size:11px;color:var(--text3)">Nome</label><input type="text" id="accessNewName" placeholder="Ex: Alan Clovis"></div>
@@ -1354,23 +1353,66 @@ function getGistId(){return localStorage.getItem('qhub_gist_id')||DEFAULT_GIST_I
 function ensureAccessUsers(){
   if(!data.accessUsers) data.accessUsers=[];
 }
-function getAccessUserByName(name){
+function getAccessUserRecord(name){
   ensureAccessUsers();
   if(!name) return null;
-  return data.accessUsers.find(u=>u.status!=='revoked'&&namesMatch(u.name,name))||null;
+  return data.accessUsers.find(u=>namesMatch(u.name,name))||null;
+}
+function getAccessUserByName(name){
+  const u=getAccessUserRecord(name);
+  if(!u||u.status==='revoked') return null;
+  return u;
 }
 function getCurrentAccessUser(){
-  return getAccessUserByName(getUserName());
+  const name=getUserName();
+  if(!name) return null;
+  const record=getAccessUserRecord(name);
+  if(record) return record;
+  return {id:'local',name,role:'member',status:'active',autoRegistered:true};
 }
 function getUserRole(){
-  const u=getCurrentAccessUser();
-  if(!u) return null;
-  if(u.status==='pending') return 'pending';
-  return u.status==='active'?u.role:null;
+  const name=getUserName();
+  if(!name) return null;
+  const record=getAccessUserRecord(name);
+  if(record){
+    if(record.status==='revoked') return null;
+    if(record.status==='pending') return 'member';
+    return record.role;
+  }
+  return 'member';
+}
+function ensureRegisteredMember(name){
+  if(!name) return;
+  ensureAccessUsers();
+  const u=data.accessUsers.find(x=>namesMatch(x.name,name));
+  if(!u){
+    data.accessUsers.push({
+      id:'u'+Date.now(),name,role:'member',status:'active',
+      joinedAt:new Date().toISOString(),autoRegistered:true
+    });
+  }else if(u.status==='pending'){
+    u.status='active'; u.role=u.role||'member';
+    u.approvedAt=new Date().toISOString();
+  }
 }
 function hasActiveAccessRoster(){
   ensureAccessUsers();
-  return data.accessUsers.some(u=>u.status==='active'||u.status==='pending');
+  return data.accessUsers.some(u=>u.status==='active');
+}
+function migratePendingToActiveMembers(){
+  ensureAccessUsers();
+  data.accessUsers.forEach(u=>{
+    if(u.status==='pending'){
+      u.status='active';
+      u.role=u.role||'member';
+      u.approvedAt=u.approvedAt||new Date().toISOString();
+    }
+  });
+}
+function syncMembersFromProfiles(){
+  ensureAccessUsers();
+  ensureProfilesData();
+  Object.keys(data.profiles).forEach(name=>ensureRegisteredMember(name));
 }
 function isAccessBootstrap(){
   return !!getToken()&&!hasActiveAccessRoster();
@@ -1407,7 +1449,6 @@ function switchConfigTab(tab){
 function renderAccessStatusBox(){
   const box=document.getElementById('accessStatusBox');
   const hint=document.getElementById('accessHint');
-  const btn=document.getElementById('btnRequestAccess');
   const tabUsers=document.getElementById('configTabUsers');
   const tabTech=document.getElementById('configTabTech');
   if(!box) return;
@@ -1415,38 +1456,30 @@ function renderAccessStatusBox(){
   tabUsers.style.display=canManageAccess()?'inline-flex':'none';
   tabTech.style.display=(canEditContent()||isAccessBootstrap()||!hasActiveAccessRoster())?'inline-flex':'none';
   if(!name){
-    box.innerHTML='<div class="access-empty">Configure seu perfil (chip no header) para solicitar acesso.</div>';
+    box.innerHTML='<div class="access-empty">Configure seu perfil (chip no header) para entrar como membro.</div>';
     hint.textContent='';
-    btn.style.display='none';
     return;
   }
-  const u=getCurrentAccessUser();
+  const u=getAccessUserRecord(name);
   const role=getUserRole();
   const avHtml=createAvatarEl(name,40,'').outerHTML;
-  let roleLabel='Sem cadastro';
-  let roleClass='pending';
+  let roleLabel=ACCESS_ROLE_LABELS[role]||'Membro';
+  let roleClass=role||'member';
   if(isAccessBootstrap()&&getToken()){ roleLabel='Admin (bootstrap)'; roleClass='admin'; }
-  else if(u&&u.status==='pending'){ roleLabel='Pendente de aprovação'; roleClass='pending'; }
-  else if(role){ roleLabel=ACCESS_ROLE_LABELS[role]||role; roleClass=role; }
+  else if(u&&u.status==='revoked'){ roleLabel='Revogado'; roleClass='revoked'; }
   box.innerHTML=`<div class="access-status"><div class="access-status-av">${avHtml}</div><div class="access-status-info"><div class="access-status-name">${escapeHtml(name)}</div><div class="access-status-role">${roleLabel}</div></div><span class="access-role-pill ${roleClass}">${roleLabel}</span></div>`;
-  if(!u&&!hasActiveAccessRoster()){
-    hint.textContent='Nenhum controle de acesso configurado ainda. Quem tem token GitHub opera como admin até a lista ser criada.';
-    btn.style.display='none';
-  }else if(!u||u.status==='revoked'){
-    hint.textContent='Seu nome ainda não está liberado. Solicite acesso — um admin aprova pelo painel Usuários.';
-    btn.style.display='flex';
-  }else if(u.status==='pending'){
-    hint.textContent='Sua solicitação está pendente. Um admin vai aprovar em breve.';
-    btn.style.display='none';
+  if(u&&u.status==='revoked'){
+    hint.textContent='Seu acesso foi revogado. Fale com um admin do pack.';
+  }else if(!u&&!hasActiveAccessRoster()){
+    hint.textContent='Você entrou como membro. Quem tem token GitHub opera como admin até a lista de usuários ser criada.';
   }else if(role==='member'){
-    hint.textContent='Você pode editar perfil e férias próprias. Para editar links, peça papel de Editor a um admin.';
-    btn.style.display='none';
+    hint.textContent='Acesso de membro ativo — perfil e férias próprias. Um admin pode promover você a Editor ou Admin.';
   }else if(role==='editor'){
     hint.textContent='Você pode editar conteúdo do hub. Configure o token na aba Técnico para salvar no Gist.';
-    btn.style.display='none';
   }else if(role==='admin'){
-    hint.textContent='Acesso total. Gerencie usuários na aba Usuários e o token na aba Técnico.';
-    btn.style.display='none';
+    hint.textContent='Acesso total. Gerencie papéis na aba Usuários e o token na aba Técnico.';
+  }else{
+    hint.textContent='';
   }
 }
 function renderAccessUsersPanel(){
@@ -1454,64 +1487,34 @@ function renderAccessUsersPanel(){
   if(!panel||!canManageAccess()) return;
   ensureAccessUsers();
   const users=[...data.accessUsers].sort((a,b)=>{
-    const order={pending:0,active:1,revoked:2};
+    const order={active:0,revoked:1};
     return (order[a.status]??9)-(order[b.status]??9)||a.name.localeCompare(b.name);
   });
   if(!users.length){
-    panel.innerHTML='<div class="access-empty">Nenhum usuário cadastrado. Adicione abaixo ou aprove solicitações pendentes.</div>';
+    panel.innerHTML='<div class="access-empty">Nenhum usuário na lista. Quem salvar o perfil entra como membro; adicione ou promova abaixo.</div>';
     return;
   }
   panel.innerHTML=`<table class="access-users-table"><thead><tr><th>Nome</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>${
     users.map(u=>`<tr>
       <td>${escapeHtml(u.name)}</td>
-      <td>${u.status==='pending'?`<select onchange="adminSetUserRole('${u.id}',this.value)"><option value="pending" selected>Pendente</option><option value="member">Membro</option><option value="editor">Editor</option><option value="admin">Admin</option></select>`:`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
-      <td><span class="access-role-pill ${u.status==='active'?u.role:u.status}">${u.status==='active'?ACCESS_ROLE_LABELS[u.role]:u.status==='pending'?'Pendente':'Revogado'}</span></td>
+      <td>${`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
+      <td><span class="access-role-pill ${u.status==='active'?u.role:u.status}">${u.status==='active'?ACCESS_ROLE_LABELS[u.role]:u.status==='revoked'?'Revogado':u.status}</span></td>
       <td style="white-space:nowrap">${u.status!=='revoked'?`<button class="btn-sm" onclick="adminRevokeUser('${u.id}')" title="Revogar"><i class="ti ti-ban"></i></button>`:`<button class="btn-sm" onclick="adminRestoreUser('${u.id}')" title="Restaurar"><i class="ti ti-refresh"></i></button>`} <button class="btn-sm" style="color:#f87171" onclick="adminDeleteUser('${u.id}')" title="Remover"><i class="ti ti-trash"></i></button></td>
     </tr>`).join('')
   }</tbody></table>`;
 }
-async function requestAccess(){
-  const name=getUserName();
-  if(!name){ closeConfig(); openNameModal(); return; }
-  ensureAccessUsers();
-  const existing=getAccessUserByName(name);
-  if(existing&&(existing.status==='active'||existing.status==='pending')){
-    alert(existing.status==='pending'?'Solicitação já enviada. Aguarde aprovação.':'Você já tem acesso liberado.');
-    return;
-  }
-  if(canManageAccess()){
-    await adminAddAccessUser(name,'member','pending');
-    alert('Solicitação registrada. Aprove em Usuários quando quiser.');
-    return;
-  }
-  const msg=`Olá! Solicito acesso ao Quality ID Hub.\nNome: ${name}\nPapel desejado: Membro`;
-  try{ await navigator.clipboard.writeText(msg); }catch(e){}
-  if(canWriteGist()){
-    data.accessUsers.push({
-      id:'u'+Date.now(), name, role:'member', status:'pending',
-      requestedAt:new Date().toISOString(), requestedBy:name
-    });
-    await saveToGist();
-    alert('Solicitação registrada no Gist! Um admin aprova em Configuração → Usuários.');
-  }else{
-    alert('Pedido copiado! Cole no canal team-quality-csat-id. Um admin adiciona você em Configuração → Usuários.');
-  }
-  renderAccessStatusBox();
-}
-async function adminAddAccessUser(nameArg,roleArg,statusArg){
+async function adminAddAccessUser(nameArg,roleArg){
   if(!canManageAccess()) return;
   const name=(nameArg||document.getElementById('accessNewName').value||'').trim();
   const role=roleArg||document.getElementById('accessNewRole').value||'member';
-  const status=statusArg||'active';
   if(!name){ alert('Informe o nome.'); return; }
   ensureAccessUsers();
   let u=data.accessUsers.find(x=>namesMatch(x.name,name));
   if(u){
-    u.name=name; u.role=role; u.status=status;
-    if(status==='active'){ u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin'; }
+    u.name=name; u.role=role; u.status='active';
+    u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin';
   }else{
-    u={id:'u'+Date.now(),name,role,status,requestedAt:new Date().toISOString()};
-    if(status==='active'){ u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin'; }
+    u={id:'u'+Date.now(),name,role,status:'active',joinedAt:new Date().toISOString(),approvedAt:new Date().toISOString(),approvedBy:getUserName()||'Admin'};
     data.accessUsers.push(u);
   }
   document.getElementById('accessNewName').value='';
@@ -1524,8 +1527,10 @@ async function adminSetUserRole(id,role){
   if(!canManageAccess()) return;
   const u=data.accessUsers.find(x=>x.id===id);
   if(!u) return;
-  if(role==='pending'){ u.status='pending'; u.role='member'; }
-  else{ u.role=role; u.status='active'; u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin'; }
+  u.role=role;
+  u.status='active';
+  u.approvedAt=new Date().toISOString();
+  u.approvedBy=getUserName()||'Admin';
   renderAccessUsersPanel();
   renderAccessStatusBox();
   await saveToGist();
@@ -1598,6 +1603,9 @@ async function loadFromGist(){
     ensurePrioritiesData();
     ensureProfilesData();
     ensureAccessUsers();
+    migratePendingToActiveMembers();
+    syncMembersFromProfiles();
+    if(getUserName()) ensureRegisteredMember(getUserName());
     applySidebarOrder();
     renderFerias();
     setTimeout(renderUpcoming, 100);
@@ -1636,7 +1644,7 @@ async function saveToGist(){
 }
 function showStatus(type,msg){const bar=document.getElementById('statusBar');bar.className='status-bar '+type;document.getElementById('statusMsg').textContent=msg;}
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
-function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();ensureAccessUsers();applySidebarOrder();render();}
+function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();if(getUserName())ensureRegisteredMember(getUserName());applySidebarOrder();render();}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -2512,6 +2520,7 @@ async function saveProfile(){
   }
   pendingAvatar=undefined;
   document.getElementById('nameBackdrop').classList.remove('active');
+  ensureRegisteredMember(val);
   renderUserChip();
   renderMural();
   renderFerias();
