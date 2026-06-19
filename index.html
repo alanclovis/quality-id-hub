@@ -1213,7 +1213,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <label>Nome</label>
     <input type="text" id="fEditNome" readonly style="opacity:.6;cursor:not-allowed">
     <label>Tipo</label>
-    <select id="fEditTipo" onchange="onFeriasTipoChange('fEditTipo','fEditStatus')">
+    <select id="fEditTipo" onchange="onFeriasTipoChange('fEditTipo','fEditStatus','fEditStatusWrap')">
       <option value="ferias">Férias</option>
       <option value="atestado">Atestado médico</option>
       <option value="maternidade">Licença maternidade</option>
@@ -1221,9 +1221,10 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <option value="outro">Outra ausência</option>
     </select>
     <label>Data de início</label>
-    <input type="date" id="fEditInicio">
+    <input type="date" id="fEditInicio" onchange="syncFeriasDateMin('fEditInicio','fEditFim')">
     <label>Data de fim</label>
     <input type="date" id="fEditFim">
+    <div id="fEditStatusWrap">
     <label>Situação</label>
     <select id="fEditStatus">
       <option value="verde">Aprovado e agendado</option>
@@ -1232,6 +1233,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <option value="azul">Planejado (possível)</option>
       <option value="roxo">Programado / confirmado</option>
     </select>
+    </div>
     <div class="ferias-edit-actions">
       <button class="btn danger" onclick="deleteFeriasCurrent()"><i class="ti ti-trash"></i> Remover</button>
       <button class="btn" onclick="closeFeriasEdit()">Cancelar</button>
@@ -3917,11 +3919,32 @@ function feriasTipoOptionsHtml(selected){
 function feriasStatusOptionsHtml(selected){
   return Object.entries(STATUS_LABEL).map(([k,l])=>`<option value="${k}"${k===selected?' selected':''}>${l}</option>`).join('');
 }
-function onFeriasTipoChange(tipoId,statusId){
+function onFeriasTipoChange(tipoId,statusId,statusWrapId){
   const tipo=document.getElementById(tipoId)?.value;
   const st=document.getElementById(statusId);
+  const wrap=statusWrapId?document.getElementById(statusWrapId):null;
+  const isFerias=tipo==='ferias';
+  if(wrap) wrap.style.display=isFerias?'':'none';
   if(!st||!tipo) return;
-  if(tipo!=='ferias'&&st.value==='azul') st.value='roxo';
+  if(!isFerias) st.value='roxo';
+  else if(st.value==='roxo') st.value='verde';
+}
+function syncFeriasDateMin(inicioId,fimId){
+  const ini=document.getElementById(inicioId);
+  const fim=document.getElementById(fimId);
+  if(!ini||!fim) return;
+  const start=ini.value;
+  if(start){
+    fim.min=start;
+    if(fim.value&&fim.value<start) fim.value=start;
+  }else{
+    fim.removeAttribute('min');
+  }
+}
+function getFeriasStatusFromForm(tipoId,statusId){
+  const tipo=normalizeFeriasTipo(document.getElementById(tipoId)?.value);
+  if(tipo!=='ferias') return 'roxo';
+  return document.getElementById(statusId)?.value||'verde';
 }
 
 function setFeriasEditModalMode(canEdit){
@@ -3948,6 +3971,8 @@ function openFeriasEdit(fId){
   document.getElementById('fEditStatus').value = f.status||'verde';
   const tipoEl=document.getElementById('fEditTipo');
   if(tipoEl) tipoEl.value=getFeriasTipo(f);
+  onFeriasTipoChange('fEditTipo','fEditStatus','fEditStatusWrap');
+  syncFeriasDateMin('fEditInicio','fEditFim');
   setFeriasEditModalMode(canEdit);
   document.getElementById('feriasEditBackdrop').classList.add('active');
 }
@@ -3962,7 +3987,7 @@ async function saveFeriasEdit(){
   if(!ensurePackTokenOrRedirect()) return;
   const inicio = document.getElementById('fEditInicio').value;
   const fim    = document.getElementById('fEditFim').value;
-  const status = document.getElementById('fEditStatus').value;
+  const status = getFeriasStatusFromForm('fEditTipo','fEditStatus');
   const tipo   = normalizeFeriasTipo(document.getElementById('fEditTipo')?.value);
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
   f.inicio = inicio; f.fim = fim; f.status = status; f.tipo = tipo;
@@ -4094,9 +4119,11 @@ function openFeriasForm(){
   const tipoEl=document.getElementById('fTipo');
   if(tipoEl) tipoEl.value='ferias';
   document.getElementById('fStatus').value='verde';
+  onFeriasTipoChange('fTipo','fStatus','fStatusRow');
   const y = feriasYear, m = String(feriasMonth+1).padStart(2,'0');
   document.getElementById('fInicio').value = y+'-'+m+'-01';
   document.getElementById('fFim').value    = y+'-'+m+'-15';
+  syncFeriasDateMin('fInicio','fFim');
 }
 function closeFeriasForm(){
   document.getElementById('feriasForm').classList.remove('active');
@@ -4106,7 +4133,7 @@ async function saveFerias(){
   const nome   = document.getElementById('fNome').value.trim();
   const inicio = document.getElementById('fInicio').value;
   const fim    = document.getElementById('fFim').value;
-  const status = document.getElementById('fStatus').value;
+  const status = getFeriasStatusFromForm('fTipo','fStatus');
   const tipo   = normalizeFeriasTipo(document.getElementById('fTipo')?.value);
   if(!nome||!inicio||!fim){ alert('Preencha todos os campos.'); return; }
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
@@ -5193,7 +5220,7 @@ window.addEventListener('DOMContentLoaded',()=>{
       </div>
       <div>
         <label>Tipo</label>
-        <select id="fTipo" onchange="onFeriasTipoChange('fTipo','fStatus')">
+        <select id="fTipo" onchange="onFeriasTipoChange('fTipo','fStatus','fStatusRow')">
           <option value="ferias">Férias</option>
           <option value="atestado">Atestado médico</option>
           <option value="maternidade">Licença maternidade</option>
@@ -5205,14 +5232,14 @@ window.addEventListener('DOMContentLoaded',()=>{
     <div class="ferias-form-row">
       <div>
         <label>Data de início</label>
-        <input type="date" id="fInicio">
+        <input type="date" id="fInicio" onchange="syncFeriasDateMin('fInicio','fFim')">
       </div>
       <div>
         <label>Data de fim</label>
         <input type="date" id="fFim">
       </div>
     </div>
-    <div class="ferias-form-row">
+    <div class="ferias-form-row" id="fStatusRow">
       <div>
         <label>Situação</label>
         <select id="fStatus">
