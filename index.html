@@ -524,18 +524,34 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .ferias-edit-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;}
 
 /* ── Upcoming férias list ── */
-.upcoming-wrap{margin-top:1.5rem;}
-.upcoming-title{font-family:var(--font-display);font-size:26px;font-weight:600;letter-spacing:-.4px;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:10px;margin-top:2rem;}
-.upcoming-list{display:flex;flex-direction:column;gap:8px;}
-.upcoming-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 15px;display:flex;align-items:center;gap:14px;transition:border-color .15s;}
-.upcoming-item:hover{border-color:var(--border-h);}
-.upcoming-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;}
+.upcoming-wrap{margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);}
+.upcoming-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
+.upcoming-title{font-family:var(--font-display);font-size:20px;font-weight:600;letter-spacing:-.3px;color:var(--text);margin:0;display:flex;align-items:center;gap:8px;}
+.upcoming-title i{color:var(--purple-l);font-size:18px;}
+.upcoming-count-badge{font-size:11px;font-weight:500;color:var(--text3);background:var(--bg3);border:1px solid var(--border);padding:4px 10px;border-radius:20px;white-space:nowrap;}
+.upcoming-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.upcoming-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;position:relative;display:flex;flex-direction:column;}
+.upcoming-item:hover{border-color:var(--border-h);box-shadow:0 4px 14px rgba(0,0,0,0.07);transform:translateY(-1px);}
+.upcoming-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--purple);}
+.upcoming-item[data-status="verde"]::before{background:#22c55e;}
+.upcoming-item[data-status="laranja"]::before{background:#f59e0b;}
+.upcoming-item[data-status="amarelo"]::before{background:#eab308;}
+.upcoming-item[data-status="azul"]::before{background:#3b82f6;}
+.upcoming-item[data-status="roxo"]::before{background:#8b5cf6;}
+.upcoming-card-inner{padding:14px 14px 14px 18px;display:flex;flex-direction:column;gap:12px;}
+.upcoming-top{display:flex;align-items:center;gap:12px;min-width:0;}
+.upcoming-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0;}
 .upcoming-info{flex:1;min-width:0;}
-.upcoming-name{font-size:13px;font-weight:500;color:var(--text);}
-.upcoming-period{font-size:12px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:5px;}
-.upcoming-days{font-size:11px;color:var(--text3);}
+.upcoming-name{font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.2px;}
+.upcoming-period{font-size:12px;color:var(--text2);margin-top:4px;display:flex;align-items:center;gap:6px;line-height:1.35;}
+.upcoming-period i{color:var(--text3);font-size:13px;flex-shrink:0;}
+.upcoming-days{font-size:11px;font-weight:500;color:var(--text3);background:var(--bg3);padding:1px 7px;border-radius:10px;margin-left:2px;}
+.upcoming-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.upcoming-countdown{font-size:11px;font-weight:500;color:var(--text3);background:var(--bg);border:1px solid var(--border);padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.upcoming-countdown.active{color:#0369a1;background:#eff6ff;border-color:#bfdbfe;}
+.upcoming-countdown.done{color:var(--text3);opacity:.75;}
 .upcoming-status{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.status-pill{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+.status-pill{font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;white-space:nowrap;}
 /* dark mode */
 .sp-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
 .sp-laranja{background:rgba(251,191,36,0.2);color:#fde68a;}
@@ -548,9 +564,9 @@ body.light .sp-laranja{background:#fef3c7;color:#92400e;}
 body.light .sp-amarelo{background:#fef9c3;color:#854d0e;}
 body.light .sp-azul   {background:#dbeafe;color:#1e40af;}
 body.light .sp-roxo   {background:#ede9fe;color:#5b21b6;}
-.upcoming-edit-btn{opacity:0;transition:opacity .15s;flex-shrink:0;}
+.upcoming-edit-btn{opacity:0;transition:opacity .15s;flex-shrink:0;margin-left:auto;}
 .upcoming-item:hover .upcoming-edit-btn{opacity:1;}
-.upcoming-empty{text-align:center;padding:24px;color:var(--text3);font-size:13px;}
+.upcoming-empty{text-align:center;padding:28px 20px;color:var(--text3);font-size:13px;background:var(--bg2);border:1px dashed var(--border);border-radius:var(--r);grid-column:1/-1;}
 
 
 /* ── Link tags ── */
@@ -2359,8 +2375,9 @@ function renderUpcoming(){
     .filter(f=> new Date(f.fim+'T00:00:00') >= cutoff)
     .sort((a,b)=> new Date(a.inicio+'T00:00:00') - new Date(b.inicio+'T00:00:00'));
   if(count) count.textContent = sorted.length ? sorted.length+' registro'+(sorted.length>1?'s':'') : '';
+  if(count) count.style.display = sorted.length ? '' : 'none';
   if(!sorted.length){
-    list.innerHTML='<div class="upcoming-empty"><i class="ti ti-beach" style="font-size:22px;display:block;margin-bottom:8px;opacity:.3"></i>Nenhuma férias próxima registrada</div>';
+    list.innerHTML='<div class="upcoming-empty"><i class="ti ti-beach" style="font-size:24px;display:block;margin-bottom:10px;opacity:.35"></i>Nenhuma férias próxima registrada</div>';
     return;
   }
   list.innerHTML='';
@@ -2376,23 +2393,28 @@ function renderUpcoming(){
     const startFmt=sd+' '+MONTHS_S[parseInt(sm)-1];
     const endFmt=ed+' '+MONTHS_S[parseInt(em)-1];
     let timeLabel='';
-    if(start>today){ const diff=Math.round((start-today)/86400000); timeLabel=diff===1?'Começa amanhã':'Em '+diff+' dias'; }
-    else if(end>=today){ timeLabel='Em andamento'; }
-    else { timeLabel='Encerrado'; }
+    let countdownClass='upcoming-countdown';
+    if(start>today){ const diff=Math.round((start-today)/86400000); timeLabel=diff===1?'Começa amanhã':'Em '+diff+' dias'; countdownClass+=' active'; }
+    else if(end>=today){ timeLabel='Em andamento'; countdownClass+=' active'; }
+    else { timeLabel='Encerrado'; countdownClass+=' done'; }
     const item=document.createElement('div');
     item.className='upcoming-item';
-    item.style.cursor='pointer';
+    item.dataset.status=f.status||'verde';
     item.innerHTML=`
-      <div class="upcoming-av" style="background:${pc.bg};color:${pc.tx}">${initials}</div>
-      <div class="upcoming-info">
-        <div class="upcoming-name">${f.nome}</div>
-        <div class="upcoming-period"><i class="ti ti-calendar" style="font-size:12px"></i> ${startFmt} → ${endFmt} <span class="upcoming-days">· ${days}d</span></div>
+      <div class="upcoming-card-inner">
+        <div class="upcoming-top">
+          <div class="upcoming-av" style="background:${pc.bg};color:${pc.tx}">${initials}</div>
+          <div class="upcoming-info">
+            <div class="upcoming-name">${escapeHtml(f.nome)}</div>
+            <div class="upcoming-period"><i class="ti ti-calendar"></i> ${startFmt} → ${endFmt} <span class="upcoming-days">${days}d</span></div>
+          </div>
+          <button class="btn-sm upcoming-edit-btn" onclick="openFeriasEdit('${f.id}');event.stopPropagation()"><i class="ti ti-pencil"></i></button>
+        </div>
+        <div class="upcoming-footer">
+          <span class="status-pill sp-${f.status}">${STATUS_LABEL[f.status]||f.status}</span>
+          <span class="${countdownClass}">${timeLabel}</span>
+        </div>
       </div>
-      <div class="upcoming-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        <span class="status-pill sp-${f.status}">${STATUS_LABEL[f.status]||f.status}</span>
-        <span style="font-size:10px;color:var(--text3)">${timeLabel}</span>
-      </div>
-      <button class="btn-sm upcoming-edit-btn" onclick="openFeriasEdit('${f.id}');event.stopPropagation()"><i class="ti ti-pencil"></i></button>
     `;
     item.addEventListener('click',()=>openFeriasEdit(f.id));
     list.appendChild(item);
@@ -3356,10 +3378,12 @@ window.addEventListener('DOMContentLoaded',()=>{
 </div>
 </div>
 <div class="upcoming-wrap">
-  <div class="upcoming-title">
-    <i class="ti ti-calendar-event" style="font-size:14px"></i>
-    Próximas férias
-    <span id="upcomingCount" style="font-size:11px;font-weight:400;color:var(--text3)"></span>
+  <div class="upcoming-header">
+    <div class="upcoming-title">
+      <i class="ti ti-calendar-event"></i>
+      Próximas férias
+    </div>
+    <span class="upcoming-count-badge" id="upcomingCount"></span>
   </div>
   <div class="upcoming-list" id="upcomingList"></div>
 </div></div><!-- end layout -->
