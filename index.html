@@ -667,6 +667,7 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .upcoming-period i{color:var(--text3);font-size:13px;flex-shrink:0;}
 .upcoming-days{font-size:11px;font-weight:500;color:var(--text3);background:var(--bg3);padding:1px 7px;border-radius:10px;margin-left:2px;}
 .upcoming-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.upcoming-tipo{font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:2px 8px;border-radius:10px;white-space:nowrap;}
 .upcoming-countdown{font-size:11px;font-weight:500;color:var(--text3);background:var(--bg);border:1px solid var(--border);padding:3px 9px;border-radius:20px;white-space:nowrap;}
 .upcoming-countdown.active{color:#0369a1;background:#eff6ff;border-color:#bfdbfe;}
 .upcoming-countdown.done{color:var(--text3);opacity:.75;}
@@ -1013,7 +1014,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
           <div class="guide-illustration">
             <div class="guide-pill"><i class="ti ti-layout-grid"></i> Links</div>
             <div class="guide-pill"><i class="ti ti-calendar-week"></i> Prioridades</div>
-            <div class="guide-pill"><i class="ti ti-beach"></i> Férias</div>
+            <div class="guide-pill"><i class="ti ti-beach"></i> Férias e ausências</div>
             <div class="guide-pill"><i class="ti ti-user"></i> Perfil</div>
           </div>
           <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita: <strong>Visitante</strong> ou <strong>Membro do pack</strong> com código pessoal.</span></div>
@@ -1074,11 +1075,12 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <div class="guide-step" data-step="4">
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 5 de 7</div>
-          <h3>Férias do pack</h3>
-          <p>Na página <strong>Férias</strong>, registre seu período e acompanhe quem está fora do time.</p>
+          <h3>Férias e ausências</h3>
+          <p>Na página <strong>Férias e ausências</strong>, registre férias, atestados, licenças e outros afastamentos — e acompanhe quem está fora do time.</p>
           <div class="guide-illustration guide-step-list">
-            <div class="guide-step-item"><span class="num">1</span><span>Menu lateral → <strong>Férias</strong> → <strong>Registrar férias</strong></span></div>
-            <div class="guide-step-item"><span class="num">2</span><span>Clique em um item da lista para editar status</span></div>
+            <div class="guide-step-item"><span class="num">1</span><span>Menu lateral → <strong>Férias e ausências</strong> → <strong>Registrar período</strong></span></div>
+            <div class="guide-step-item"><span class="num">2</span><span>Escolha o tipo (férias, atestado, licença…) e a situação</span></div>
+            <div class="guide-step-item"><span class="num">3</span><span>Clique em um item da timeline para editar</span></div>
           </div>
         </div>
       </div>
@@ -1205,22 +1207,32 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <!-- Férias edit modal -->
 <div class="ferias-edit-backdrop" id="feriasEditBackdrop" onclick="if(event.target===this)closeFeriasEdit()">
   <div class="ferias-edit-modal">
-    <h3><i class="ti ti-beach" style="color:var(--green)"></i> <span id="feriasEditTitle">Editar férias</span></h3>
+    <h3><i class="ti ti-beach" style="color:var(--green)"></i> <span id="feriasEditTitle">Editar registro</span></h3>
     <p class="ferias-edit-notice" id="feriasEditNotice" style="display:none"></p>
     <input type="hidden" id="fEditId">
     <label>Nome</label>
     <input type="text" id="fEditNome" readonly style="opacity:.6;cursor:not-allowed">
+    <label>Tipo</label>
+    <select id="fEditTipo" onchange="onFeriasTipoChange('fEditTipo','fEditStatus')">
+      <option value="ferias">Férias</option>
+      <option value="atestado">Atestado médico</option>
+      <option value="maternidade">Licença maternidade</option>
+      <option value="paternidade">Licença paternidade</option>
+      <option value="licenca">Licença / afastamento</option>
+      <option value="luto">Licença nojo / luto</option>
+      <option value="outro">Outra ausência</option>
+    </select>
     <label>Data de início</label>
     <input type="date" id="fEditInicio">
     <label>Data de fim</label>
     <input type="date" id="fEditFim">
-    <label>Status</label>
+    <label>Situação</label>
     <select id="fEditStatus">
       <option value="verde">Aprovado e agendado</option>
-      <option value="laranja">Confirmado/Alinhado com gestor</option>
+      <option value="laranja">Confirmado c/ gestor</option>
       <option value="amarelo">Pendente de aprovação</option>
       <option value="azul">Planejado (possível)</option>
-      <option value="roxo">Ausência programada</option>
+      <option value="roxo">Programado / confirmado</option>
     </select>
     <div class="ferias-edit-actions">
       <button class="btn danger" onclick="deleteFeriasCurrent()"><i class="ti ti-trash"></i> Remover</button>
@@ -1245,7 +1257,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     </div>
     <div class="sb-item" id="sbFerias" data-page="ferias" onclick="showPage('ferias')">
       <i class="ti ti-beach"></i>
-      <span class="sb-label">Férias</span>
+      <span class="sb-label">Férias e ausências</span>
     </div>
     <div class="sb-item" id="sbPrioridades" data-page="prioridades" onclick="showPage('prioridades')">
       <i class="ti ti-calendar-week"></i>
@@ -3872,20 +3884,56 @@ function formatDate(ts){
 
 
 
-// ── Férias edit modal & upcoming list ─────────────────────────────────────────
+// ── Férias e ausências ─────────────────────────────────────────────────────────
 const STATUS_LABEL = {
   verde:   'Aprovado e agendado',
   laranja: 'Confirmado c/ gestor',
   amarelo: 'Pendente de aprovação',
   azul:    'Planejado (possível)',
-  roxo:    'Ausência programada',
+  roxo:    'Programado / confirmado',
 };
+const TIPO_LABEL = {
+  ferias:      'Férias',
+  atestado:    'Atestado médico',
+  maternidade: 'Licença maternidade',
+  paternidade: 'Licença paternidade',
+  licenca:     'Licença / afastamento',
+  luto:        'Licença nojo / luto',
+  outro:       'Outra ausência',
+};
+const TIPO_ORDER = ['ferias','atestado','maternidade','paternidade','licenca','luto','outro'];
+function normalizeFeriasTipo(tipo){
+  return tipo&&TIPO_LABEL[tipo]?tipo:'ferias';
+}
+function getFeriasTipo(f){
+  return normalizeFeriasTipo(f?.tipo);
+}
+function formatFeriasRecordLabel(f){
+  const tipo=getFeriasTipo(f);
+  const status=f?.status||'verde';
+  if(tipo==='ferias') return STATUS_LABEL[status]||status;
+  return TIPO_LABEL[tipo]+' · '+(STATUS_LABEL[status]||status);
+}
+function feriasTipoOptionsHtml(selected){
+  return TIPO_ORDER.map(t=>`<option value="${t}"${t===selected?' selected':''}>${TIPO_LABEL[t]}</option>`).join('');
+}
+function feriasStatusOptionsHtml(selected){
+  return Object.entries(STATUS_LABEL).map(([k,l])=>`<option value="${k}"${k===selected?' selected':''}>${l}</option>`).join('');
+}
+function onFeriasTipoChange(tipoId,statusId){
+  const tipo=document.getElementById(tipoId)?.value;
+  const st=document.getElementById(statusId);
+  if(!st||!tipo) return;
+  if(tipo!=='ferias'&&st.value==='azul') st.value='roxo';
+}
 
 function setFeriasEditModalMode(canEdit){
   document.getElementById('fEditInicio').disabled=!canEdit;
   document.getElementById('fEditFim').disabled=!canEdit;
   document.getElementById('fEditStatus').disabled=!canEdit;
-  document.getElementById('feriasEditTitle').textContent=canEdit?'Editar férias':'Detalhes das férias';
+  const tipoEl=document.getElementById('fEditTipo');
+  if(tipoEl) tipoEl.disabled=!canEdit;
+  document.getElementById('feriasEditTitle').textContent=canEdit?'Editar registro':'Detalhes do registro';
   const notice=document.getElementById('feriasEditNotice');
   notice.style.display=canEdit?'none':'block';
   notice.textContent='Visualização apenas. Só o titular ou quem tem token de edição pode alterar este registro.';
@@ -3900,7 +3948,9 @@ function openFeriasEdit(fId){
   document.getElementById('fEditNome').value   = f.nome;
   document.getElementById('fEditInicio').value = f.inicio;
   document.getElementById('fEditFim').value    = f.fim;
-  document.getElementById('fEditStatus').value = f.status;
+  document.getElementById('fEditStatus').value = f.status||'verde';
+  const tipoEl=document.getElementById('fEditTipo');
+  if(tipoEl) tipoEl.value=getFeriasTipo(f);
   setFeriasEditModalMode(canEdit);
   document.getElementById('feriasEditBackdrop').classList.add('active');
 }
@@ -3916,8 +3966,9 @@ async function saveFeriasEdit(){
   const inicio = document.getElementById('fEditInicio').value;
   const fim    = document.getElementById('fEditFim').value;
   const status = document.getElementById('fEditStatus').value;
+  const tipo   = normalizeFeriasTipo(document.getElementById('fEditTipo')?.value);
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
-  f.inicio = inicio; f.fim = fim; f.status = status;
+  f.inicio = inicio; f.fim = fim; f.status = status; f.tipo = tipo;
   closeFeriasEdit();
   renderFerias();
   await persistFeriasToPack();
@@ -3927,7 +3978,7 @@ async function deleteFeriasCurrent(){
   const f = (data.ferias||[]).find(x=>x.id===id);
   if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para remover este registro.'); return; }
   if(!ensurePackTokenOrRedirect()) return;
-  if(!confirm('Remover este registro de férias?')) return;
+  if(!confirm('Remover este registro?')) return;
   data.ferias = (data.ferias||[]).filter(x=>x.id!==id);
   closeFeriasEdit();
   renderFerias();
@@ -3946,7 +3997,7 @@ function renderUpcoming(){
   if(count) count.textContent = sorted.length ? sorted.length+' registro'+(sorted.length>1?'s':'') : '';
   if(count) count.style.display = sorted.length ? '' : 'none';
   if(!sorted.length){
-    list.innerHTML='<div class="upcoming-empty"><i class="ti ti-beach" style="font-size:24px;display:block;margin-bottom:10px;opacity:.35"></i>Nenhuma férias próxima registrada</div>';
+    list.innerHTML='<div class="upcoming-empty"><i class="ti ti-beach" style="font-size:24px;display:block;margin-bottom:10px;opacity:.35"></i>Nenhum registro próximo</div>';
     return;
   }
   list.innerHTML='';
@@ -3980,6 +4031,7 @@ function renderUpcoming(){
           ${canEdit?`<button class="btn-sm upcoming-edit-btn" onclick="openFeriasEdit('${f.id}');event.stopPropagation()"><i class="ti ti-pencil"></i></button>`:''}
         </div>
         <div class="upcoming-footer">
+          <span class="upcoming-tipo">${escapeHtml(TIPO_LABEL[getFeriasTipo(f)])}</span>
           <span class="status-pill sp-${f.status}">${STATUS_LABEL[f.status]||f.status}</span>
           <span class="${countdownClass}">${timeLabel}</span>
         </div>
@@ -4029,7 +4081,7 @@ function openFeriasForm(){
   const me=getUserName();
   if(!me){ openNameModal(); return; }
   if(!canUseMemberFeatures()&&!canWriteGist()){
-    alert('Seu acesso não permite registrar férias. Solicite liberação em Configuração.');
+    alert('Seu acesso não permite registrar férias ou ausências. Solicite liberação em Configuração.');
     return;
   }
   form.classList.add('active');
@@ -4042,6 +4094,9 @@ function openFeriasForm(){
     nameEl.readOnly=false;
     nameEl.style.opacity='';
   }
+  const tipoEl=document.getElementById('fTipo');
+  if(tipoEl) tipoEl.value='ferias';
+  document.getElementById('fStatus').value='verde';
   const y = feriasYear, m = String(feriasMonth+1).padStart(2,'0');
   document.getElementById('fInicio').value = y+'-'+m+'-01';
   document.getElementById('fFim').value    = y+'-'+m+'-15';
@@ -4055,10 +4110,11 @@ async function saveFerias(){
   const inicio = document.getElementById('fInicio').value;
   const fim    = document.getElementById('fFim').value;
   const status = document.getElementById('fStatus').value;
+  const tipo   = normalizeFeriasTipo(document.getElementById('fTipo')?.value);
   if(!nome||!inicio||!fim){ alert('Preencha todos os campos.'); return; }
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
   if(!canUseMemberFeatures()&&!canWriteGist()){
-    alert('Seu acesso não permite registrar férias. Solicite liberação em Configuração.');
+    alert('Seu acesso não permite registrar férias ou ausências. Solicite liberação em Configuração.');
     return;
   }
   if(!ensurePackTokenOrRedirect()) return;
@@ -4066,12 +4122,12 @@ async function saveFerias(){
     const me=getUserName();
     if(!me){ openNameModal(); return; }
     if(!namesMatch(nome,me)){
-      alert('Você só pode registrar férias no seu nome.');
+      alert('Você só pode registrar períodos no seu nome.');
       return;
     }
   }
   if(!data.ferias) data.ferias = [];
-  data.ferias.push({ id:'f'+Date.now(), nome, inicio, fim, status });
+  data.ferias.push({ id:'f'+Date.now(), nome, inicio, fim, status, tipo });
   closeFeriasForm();
   renderFerias();
   await persistFeriasToPack();
@@ -4105,16 +4161,16 @@ function renderFerias(){
     empty.className = 'tl-empty-state';
     if(!allFerias.length){
       empty.innerHTML = `<i class="ti ti-beach tl-empty-icon"></i>
-        <h4>Nenhuma férias registrada ainda</h4>
-        <p>Registre as férias do pack para visualizar a timeline e avisar o time.</p>
-        <button class="btn-sm purple" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar férias</button>`;
+        <h4>Nenhum registro ainda</h4>
+        <p>Registre férias, atestados e licenças para visualizar a timeline e avisar o time.</p>
+        <button class="btn-sm purple" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar período</button>`;
       card.appendChild(empty);
       return;
     }
     empty.innerHTML = `<i class="ti ti-calendar-off tl-empty-icon"></i>
-      <h4>Nenhuma férias em ${MESES[feriasMonth]} ${feriasYear}</h4>
+      <h4>Nenhum registro em ${MESES[feriasMonth]} ${feriasYear}</h4>
       <p>Use as setas para ver outros meses ou registre um novo período.</p>
-      <button class="btn-sm purple" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar férias</button>`;
+      <button class="btn-sm purple" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar período</button>`;
     card.appendChild(empty);
     return;
   }
@@ -4182,7 +4238,7 @@ function renderFerias(){
       const canEditBar=canEditFeriasRecord(f);
       const label = (barEnd-barStart+1) > 3 ? nome.split(' ')[0]+' ('+days+'d)' : '';
       bar.textContent = label;
-      bar.title = nome+' · '+f.inicio+' até '+f.fim+(canEditBar?' — clique para editar':' — clique para ver');
+      bar.title = nome+' · '+TIPO_LABEL[getFeriasTipo(f)]+' · '+f.inicio+' até '+f.fim+' · '+(STATUS_LABEL[f.status]||f.status)+(canEditBar?' — clique para editar':' — clique para ver');
       bar.style.cursor='pointer';
       bar.addEventListener('click', ev=>{
         ev.stopPropagation();
@@ -5120,7 +5176,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   <div class="ferias-header">
     <div class="ferias-title">
       <i class="ti ti-beach" style="font-size:15px"></i>
-      Férias do pack
+      Férias e ausências
       <span id="feriasBadge" style="font-size:11px;font-weight:400;color:var(--text3)"></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
@@ -5129,7 +5185,7 @@ window.addEventListener('DOMContentLoaded',()=>{
         <span class="ferias-month" id="feriasMonthLabel"></span>
         <button class="btn-sm" onclick="feriasChangeMonth(1)"><i class="ti ti-chevron-right"></i></button>
       </div>
-      <button class="btn-sm purple" style="white-space:nowrap" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar férias</button>
+      <button class="btn-sm purple" style="white-space:nowrap" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar período</button>
     </div>
   </div>
   <div class="ferias-form" id="feriasForm">
@@ -5139,13 +5195,15 @@ window.addEventListener('DOMContentLoaded',()=>{
         <input type="text" id="fNome" placeholder="Ex: Alan Clovis">
       </div>
       <div>
-        <label>Status</label>
-        <select id="fStatus">
-          <option value="verde">Aprovado e agendado</option>
-          <option value="laranja">Confirmado/Alinhado com gestor</option>
-          <option value="amarelo">Pendente de aprovação</option>
-          <option value="azul">Planejado (possível)</option>
-          <option value="roxo">Ausência programada</option>
+        <label>Tipo</label>
+        <select id="fTipo" onchange="onFeriasTipoChange('fTipo','fStatus')">
+          <option value="ferias">Férias</option>
+          <option value="atestado">Atestado médico</option>
+          <option value="maternidade">Licença maternidade</option>
+          <option value="paternidade">Licença paternidade</option>
+          <option value="licenca">Licença / afastamento</option>
+          <option value="luto">Licença nojo / luto</option>
+          <option value="outro">Outra ausência</option>
         </select>
       </div>
     </div>
@@ -5159,6 +5217,18 @@ window.addEventListener('DOMContentLoaded',()=>{
         <input type="date" id="fFim">
       </div>
     </div>
+    <div class="ferias-form-row">
+      <div>
+        <label>Situação</label>
+        <select id="fStatus">
+          <option value="verde">Aprovado e agendado</option>
+          <option value="laranja">Confirmado c/ gestor</option>
+          <option value="amarelo">Pendente de aprovação</option>
+          <option value="azul">Planejado (possível)</option>
+          <option value="roxo">Programado / confirmado</option>
+        </select>
+      </div>
+    </div>
     <div style="display:flex;gap:8px">
       <button class="btn-sm purple" onclick="saveFerias()"><i class="ti ti-check"></i> Salvar</button>
       <button class="btn-sm" onclick="closeFeriasForm()"><i class="ti ti-x"></i> Cancelar</button>
@@ -5168,10 +5238,22 @@ window.addEventListener('DOMContentLoaded',()=>{
   <div class="tl-card" id="feriasCard" style="min-width:600px;"></div>
 </div>
 
-<!-- Férias legend card -->
+<!-- Legenda -->
 <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-top:14px;">
+  <div style="font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:10px;">
+    <i class="ti ti-list-details" style="color:var(--purple-l);font-size:15px"></i> Tipos de registro
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
+    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Férias</span>
+    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Atestado médico</span>
+    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença maternidade</span>
+    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença paternidade</span>
+    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença / afastamento</span>
+    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Licença nojo / luto</span>
+    <span style="font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:4px 10px;border-radius:10px;">Outra ausência</span>
+  </div>
   <div style="font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:10px;">
-    <i class="ti ti-info-circle" style="color:var(--purple-l);font-size:15px"></i> Legenda de status
+    <i class="ti ti-info-circle" style="color:var(--purple-l);font-size:15px"></i> Situação (cores na timeline)
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
     <div style="display:flex;align-items:flex-start;gap:9px;">
@@ -5188,11 +5270,11 @@ window.addEventListener('DOMContentLoaded',()=>{
     </div>
     <div style="display:flex;align-items:flex-start;gap:9px;">
       <div style="width:12px;height:12px;border-radius:3px;background:#dbeafe;flex-shrink:0;margin-top:3px;"></div>
-      <div><div style="font-size:12px;font-weight:500;color:var(--text);">Planejado (possível)</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Tenho interesse em férias nesse período.</div></div>
+      <div><div style="font-size:12px;font-weight:500;color:var(--text);">Planejado (possível)</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Interesse em férias nesse período (só para férias).</div></div>
     </div>
     <div style="display:flex;align-items:flex-start;gap:9px;">
       <div style="width:12px;height:12px;border-radius:3px;background:#ede9fe;flex-shrink:0;margin-top:3px;"></div>
-      <div><div style="font-size:12px;font-weight:500;color:var(--text);">Ausência programada</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Licenças e afastamentos com mais de 2 dias.</div></div>
+      <div><div style="font-size:12px;font-weight:500;color:var(--text);">Programado / confirmado</div><div style="font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;">Atestados, licenças e afastamentos confirmados ou já registrados.</div></div>
     </div>
   </div>
 </div>
@@ -5201,7 +5283,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   <div class="upcoming-header">
     <div class="upcoming-title">
       <i class="ti ti-calendar-event"></i>
-      Próximas férias
+      Próximos registros
     </div>
     <span class="upcoming-count-badge" id="upcomingCount"></span>
   </div>
