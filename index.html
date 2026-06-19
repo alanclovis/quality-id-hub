@@ -521,6 +521,13 @@ body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
 .pri-summary-table tr:last-child td{border-bottom:none;}
 .pri-summary-total{font-weight:700;background:#ede9fe;color:#5b21b6;}
 .pri-count-input{width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;text-align:right;background:var(--bg);}
+.pri-queue-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;}
+.pri-queue-del{color:#ef4444;padding:4px 7px;}
+.pri-add-queue-row td{background:var(--bg);padding:12px;}
+.pri-add-queue{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.pri-add-queue input{flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:var(--bg2);}
+.pri-add-queue input:focus{border-color:#7c3aed;outline:none;box-shadow:0 0 0 3px rgba(124,58,237,0.12);}
+.pri-queues-hint{font-size:11px;color:var(--text3);margin:-4px 0 10px;line-height:1.45;}
 .pri-edit-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
 .pri-queue-name{font-size:12px;color:var(--text);word-break:break-all;}
 .pri-queue-short{display:block;font-weight:500;}
@@ -3822,6 +3829,32 @@ function collectPrioritiesFromUI(){
     if(q) q.count=parseInt(inp.value,10)||0;
   });
 }
+function addPriQueue(){
+  if(!priEditMode||!canEditContent()) return;
+  collectPrioritiesFromUI();
+  const inp=document.getElementById('priNewQueueName');
+  const name=(inp?.value||'').trim();
+  if(!name){ alert('Informe o nome da fila.'); return; }
+  const pri=ensurePrioritiesData();
+  if(pri.queues.some(q=>q.name===name)){ alert('Esta fila já existe na lista.'); return; }
+  pri.queues.push({id:'q'+Date.now(),name,count:0});
+  if(inp) inp.value='';
+  renderPriorities();
+}
+function deletePriQueue(id){
+  if(!priEditMode||!canEditContent()) return;
+  if(!confirm('Remover esta fila? Slots da grade que a usam ficarão vazios.')) return;
+  collectPrioritiesFromUI();
+  const pri=ensurePrioritiesData();
+  const q=pri.queues.find(x=>x.id===id);
+  if(!q) return;
+  const removedName=q.name;
+  pri.queues=pri.queues.filter(x=>x.id!==id);
+  Object.keys(pri.slots).forEach(k=>{
+    if(pri.slots[k]===removedName) pri.slots[k]='';
+  });
+  renderPriorities();
+}
 async function savePriorities(){
   if(!canEditContent()){ openConfig(); return; }
   collectPrioritiesFromUI();
@@ -4060,6 +4093,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   </div>
   <div class="pri-card">
     <h4><i class="ti ti-chart-bar" style="color:#7c3aed"></i> Quantidade de casos por fila</h4>
+    <p class="pri-queues-hint" id="priQueuesHint" style="display:none">Adicione ou remova filas disponíveis na grade. Ao apagar, slots que usavam a fila ficam vazios.</p>
     <table class="pri-summary-table" id="priSummary"></table>
   </div>
 </div>
