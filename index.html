@@ -1371,28 +1371,65 @@ function getCurrentAccessUser(){
   if(record) return record;
   return {id:'local',name,role:'member',status:'active',autoRegistered:true};
 }
-function getUserRole(){
-  const name=getUserName();
-  if(!name) return null;
+function getRosterRole(name){
   const record=getAccessUserRecord(name);
   if(record){
     if(record.status==='revoked') return null;
     if(record.status==='pending') return 'member';
-    return record.role;
+    return record.role||'member';
   }
   return 'member';
+}
+function hasAdminInRoster(exceptName){
+  ensureAccessUsers();
+  return data.accessUsers.some(u=>u.status==='active'&&u.role==='admin'&&(!exceptName||!namesMatch(u.name,exceptName)));
+}
+function getUserRole(){
+  const name=getUserName();
+  if(!name) return null;
+  const rosterRole=getRosterRole(name);
+  if(rosterRole===null) return null;
+  if(!getToken()) return rosterRole;
+  if(rosterRole==='admin') return 'admin';
+  if(!hasAdminInRoster(name)) return 'admin';
+  return 'editor';
+}
+function roleForRegistration(name){
+  if(!namesMatch(name,getUserName())||!getToken()) return 'member';
+  const u=getAccessUserRecord(name);
+  if(u&&u.role==='admin') return 'admin';
+  if(!hasAdminInRoster(name)) return 'admin';
+  return 'editor';
+}
+function syncTokenHolderRole(){
+  const name=getUserName();
+  if(!name||!getToken()) return false;
+  ensureAccessUsers();
+  const desired=roleForRegistration(name);
+  let u=getAccessUserRecord(name);
+  if(!u){
+    data.accessUsers.push({
+      id:'u'+Date.now(),name,role:desired,status:'active',
+      joinedAt:new Date().toISOString(),autoRegistered:true,tokenHolder:true
+    });
+    return true;
+  }
+  if(u.status==='revoked') return false;
+  if(u.role!==desired){ u.role=desired; u.tokenHolder=true; return true; }
+  return false;
 }
 function ensureRegisteredMember(name){
   if(!name) return;
   ensureAccessUsers();
   const u=data.accessUsers.find(x=>namesMatch(x.name,name));
+  const role=roleForRegistration(name);
   if(!u){
     data.accessUsers.push({
-      id:'u'+Date.now(),name,role:'member',status:'active',
+      id:'u'+Date.now(),name,role,status:'active',
       joinedAt:new Date().toISOString(),autoRegistered:true
     });
   }else if(u.status==='pending'){
-    u.status='active'; u.role=u.role||'member';
+    u.status='active'; u.role=u.role||role;
     u.approvedAt=new Date().toISOString();
   }
 }
@@ -1416,16 +1453,13 @@ function syncMembersFromProfiles(){
   Object.keys(data.profiles).forEach(name=>ensureRegisteredMember(name));
 }
 function isAccessBootstrap(){
-  return !!getToken()&&!hasActiveAccessRoster();
+  return !!getToken()&&!hasAdminInRoster();
 }
 function isAppAdmin(){
-  if(!getToken()) return false;
-  if(isAccessBootstrap()) return true;
   return getUserRole()==='admin';
 }
 function canWriteGist(){
   if(!getToken()) return false;
-  if(isAccessBootstrap()) return true;
   const role=getUserRole();
   return role==='admin'||role==='editor';
 }
@@ -1455,7 +1489,7 @@ function renderAccessStatusBox(){
   if(!box) return;
   const name=getUserName();
   tabUsers.style.display=canManageAccess()?'inline-flex':'none';
-  tabTech.style.display=(canEditContent()||isAccessBootstrap()||!hasActiveAccessRoster())?'inline-flex':'none';
+  tabTech.style.display=(canEditContent()||getToken())?'inline-flex':'none';
   if(!name){
     box.innerHTML='<div class="access-empty">Configure seu perfil (chip no header) para entrar como membro.</div>';
     hint.textContent='';
@@ -1466,17 +1500,17 @@ function renderAccessStatusBox(){
   const avHtml=createAvatarEl(name,40,'').outerHTML;
   let roleLabel=ACCESS_ROLE_LABELS[role]||'Membro';
   let roleClass=role||'member';
-  if(isAccessBootstrap()&&getToken()){ roleLabel='Admin (bootstrap)'; roleClass='admin'; }
+  if(isAccessBootstrap()){ roleLabel='Admin'; roleClass='admin'; }
   else if(u&&u.status==='revoked'){ roleLabel='Revogado'; roleClass='revoked'; }
   box.innerHTML=`<div class="access-status"><div class="access-status-av">${avHtml}</div><div class="access-status-info"><div class="access-status-name">${escapeHtml(name)}</div><div class="access-status-role">${roleLabel}</div></div><span class="access-role-pill ${roleClass}">${roleLabel}</span></div>`;
   if(u&&u.status==='revoked'){
     hint.textContent='Seu acesso foi revogado. Fale com um admin do pack.';
-  }else if(!u&&!hasActiveAccessRoster()){
-    hint.textContent='Você entrou como membro. Quem tem token GitHub opera como admin até a lista de usuários ser criada.';
+  }else if(getToken()&&!hasAdminInRoster(name)){
+    hint.textContent='Token GitHub detectado — você opera como Admin até outro admin ser definido na aba Usuários.';
+  }else if(getToken()&&role==='editor'){
+    hint.textContent='Token ativo — você pode editar conteúdo do hub e salvar no Gist.';
   }else if(role==='member'){
     hint.textContent='Acesso de membro ativo — perfil e férias próprias. Um admin pode promover você a Editor ou Admin.';
-  }else if(role==='editor'){
-    hint.textContent='Você pode editar conteúdo do hub. Configure o token na aba Técnico para salvar no Gist.';
   }else if(role==='admin'){
     hint.textContent='Acesso total. Gerencie papéis na aba Usuários e o token na aba Técnico.';
   }else{
@@ -1561,6 +1595,7 @@ function saveConfig(){
   const g=document.getElementById('gistIdInput').value.trim();
   if(t)localStorage.setItem('qhub_token',t);
   if(g)localStorage.setItem('qhub_gist_id',g);
+  syncTokenHolderRole();
   closeConfig();
   updateEditButtonVisibility();
   if(g)loadFromGist();
@@ -1607,10 +1642,16 @@ async function loadFromGist(){
     migratePendingToActiveMembers();
     syncMembersFromProfiles();
     if(getUserName()) ensureRegisteredMember(getUserName());
+    const roleSynced=syncTokenHolderRole();
     applySidebarOrder();
     renderFerias();
     setTimeout(renderUpcoming, 100);
     render();
+    updateEditButtonVisibility();
+    if(roleSynced){
+      saveLocal();
+      if(canWriteGist()&&getGistId()) await saveToGist();
+    }
     if(document.getElementById('pagePrioridades')?.classList.contains('active')) renderPriorities();
     const link=document.getElementById('gistFooterLink');
     link.href=`https://gist.github.com/${gistId}`;link.style.display='flex';
@@ -1645,7 +1686,7 @@ async function saveToGist(){
 }
 function showStatus(type,msg){const bar=document.getElementById('statusBar');bar.className='status-bar '+type;document.getElementById('statusMsg').textContent=msg;}
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
-function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();if(getUserName())ensureRegisteredMember(getUserName());applySidebarOrder();render();}
+function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();render();}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -2522,6 +2563,7 @@ async function saveProfile(){
   pendingAvatar=undefined;
   document.getElementById('nameBackdrop').classList.remove('active');
   ensureRegisteredMember(val);
+  syncTokenHolderRole();
   renderUserChip();
   renderMural();
   renderFerias();
