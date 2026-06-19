@@ -898,7 +898,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <div class="user-chip" id="userChip" onclick="openNameModal()" title="Editar nome" style="display:none"><div class="user-avatar" id="userAvatarEl"></div><span id="userNameEl"></span></div>
     <button class="btn" onclick="openGuide()" title="Guia de uso"><i class="ti ti-help"></i></button>
     <button class="btn" onclick="openStats()" title="Estatísticas de uso" id="btnStats"><i class="ti ti-chart-bar"></i></button>
-    <button class="btn primary" id="btnEditMode" onclick="toggleEditMode()"><i class="ti ti-pencil"></i> Editar</button>
+    <button class="btn primary" id="btnEditMode" onclick="toggleEditMode()" style="display:none"><i class="ti ti-pencil"></i> Editar</button>
 
     <button class="btn" onclick="openConfig()"><i class="ti ti-settings"></i></button>
   </div>
@@ -1155,7 +1155,13 @@ function saveConfig(){
   const g=document.getElementById('gistIdInput').value.trim();
   if(t)localStorage.setItem('qhub_token',t);
   if(g)localStorage.setItem('qhub_gist_id',g);
-  closeConfig();if(g)loadFromGist();
+  closeConfig();
+  updateEditButtonVisibility();
+  if(g)loadFromGist();
+}
+function updateEditButtonVisibility(){
+  const btn=document.getElementById('btnEditMode');
+  if(btn) btn.style.display=getToken()?'flex':'none';
 }
 function openConfig(){document.getElementById('tokenInput').value=getToken();document.getElementById('gistIdInput').value=getGistId();document.getElementById('configModal').classList.add('active');}
 function closeConfig(){document.getElementById('configModal').classList.remove('active');}
@@ -1400,7 +1406,7 @@ function hidePreview(){
 
 // ── Edit mode ──────────────────────────────────────────────────────────────────
 function toggleEditMode(){
-  if(!getToken()&&!editMode){const go=confirm('Sem token, edições ficam só no seu browser. Configurar agora?');if(go){openConfig();return;}}
+  if(!getToken()) return;
   editMode=!editMode;
   document.getElementById('editModeTag').classList.toggle('active',editMode);
   document.getElementById('btnSave').style.display=editMode?'flex':'none';
@@ -2714,6 +2720,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   initTagFilterUI();
   const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
   if(savedZoom!==100)applyZoom(savedZoom);
+  updateEditButtonVisibility();
   initSidebar();
   const savedPage = localStorage.getItem('qhub_page');
   if(savedPage && savedPage !== 'links') showPage(savedPage);
