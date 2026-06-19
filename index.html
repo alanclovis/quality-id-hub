@@ -1321,27 +1321,28 @@ const PRI_SHIFTS=[
   {key:'tarde',label:'Tarde'},
 ];
 const DEFAULT_PRIORITIES={
-  weekStart:null,
-  instructions:`① Se a fila "reversed" estiver vazia, siga para a fila de "decision" interna.\n② Planejem a semana com base em quantos slots precisam para os projetos e mantenham organizado no dimensionamento de cada pessoa.\n③ Provavelmente sempre haverá casos nas filas, mas lembrem dos intervalos normais.`,
+  weekStart:'2026-06-15',
+  instructions:`- A fila de reversed tem poucos casos, então se zerarem podem seguir para a de decision interna.\n- Planejem a semana pensando em quantos slots vcs precisam para projeto e deixem organizado no dimensionado de cada um.\n- No começo, talvez sempre teremos casos nas filas para fazermos (como já conversamos sobre). A expectativa é que vocês tenham sim suas pausas normais, como sempre foi. Façam essa divisão como preferirem.`,
   slots:{
     'seg-manha':'data-labeling-hsp-id-fraudadoresearquivados',
-    'seg-tarde':'data-labeling-hsp-id-catchandrelease',
-    'ter-manha':'data-labeling-hsp-id-pending',
-    'ter-tarde':'data-labeling-id-amostra-decision',
-    'qua-manha':'data-labeling-hsp-id-fraudadoresearquivados',
+    'seg-tarde':'data-labeling-hsp-id-fraudadoresearquivados',
+    'ter-manha':'data-labeling-hsp-id-fraudadoresearquivados',
+    'ter-tarde':'data-labeling-hsp-id-fraudadoresearquivados',
+    'qua-manha':'data-labeling-hsp-id-catchandrelease',
     'qua-tarde':'data-labeling-hsp-id-catchandrelease',
-    'qui-manha':'data-labeling-id-amostra-decision',
-    'qui-tarde':'data-labeling-hsp-id-pending',
-    'sex-manha':'data-labeling-hsp-id-fraudadoresearquivados',
+    'qui-manha':'data-labeling-id-catch-and-release',
+    'qui-tarde':'data-labeling-id-catch-and-release',
+    'sex-manha':'data-labeling-id-amostra-decision',
     'sex-tarde':'data-labeling-id-amostra-decision',
   },
   queues:[
-    {id:'q1',name:'data-labeling-hsp-id-fraudadoresearquivados',count:93},
-    {id:'q2',name:'data-labeling-hsp-id-catchandrelease',count:376},
-    {id:'q3',name:'data-labeling-hsp-id-pending',count:213},
-    {id:'q4',name:'data-labeling-id-amostra-decision',count:27},
-    {id:'q5',name:'data-labeling-id-fraudadoresrevertidos',count:41},
+    {id:'q1',name:'data-labeling-hsp-id-catchandrelease',count:93},
+    {id:'q2',name:'data-labeling-hsp-id-fraudadoresearquivados',count:376},
+    {id:'q3',name:'data-labeling-id-amostra-decision',count:213},
+    {id:'q4',name:'data-labeling-id-deep-dive-reversed-cases',count:27},
+    {id:'q5',name:'data-labeling-id-catch-and-release',count:41},
   ],
+  updatedAt:'2026-06-18T00:00:00.000Z',
 };
 
 // ── Logo helpers ───────────────────────────────────────────────────────────────
