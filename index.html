@@ -1016,7 +1016,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
             <div class="guide-pill"><i class="ti ti-beach"></i> Férias</div>
             <div class="guide-pill"><i class="ti ti-user"></i> Perfil</div>
           </div>
-          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita: <strong>Visitante</strong> (sem código) ou <strong>Membro do pack</strong> → código pessoal → token.</span></div>
+          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita: <strong>Visitante</strong> ou <strong>Membro do pack</strong> com código pessoal.</span></div>
         </div>
       </div>
 
@@ -1025,11 +1025,11 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 2 de 7</div>
           <h3>Seu perfil no pack</h3>
-          <p>Membros entram com o código do Slack e em seguida <strong>precisam configurar o token</strong> (passo obrigatório) antes de usar perfil e férias.</p>
+          <p>Membros entram com o <strong>código do Slack</strong>. Se o admin embutiu o token no hub, não precisa configurar token — só completa o perfil.</p>
           <div class="guide-illustration" style="flex-direction:column;gap:8px;align-items:stretch">
             <div class="guide-step-list">
               <div class="guide-step-item"><span class="num">1</span><span><strong>Visitante</strong> — um clique, sem código</span></div>
-              <div class="guide-step-item"><span class="num">2</span><span><strong>Membro</strong> — código pessoal → token (obrigatório)</span></div>
+              <div class="guide-step-item"><span class="num">2</span><span><strong>Membro</strong> — código pessoal → perfil</span></div>
               <div class="guide-step-item"><span class="num">3</span><span>Complete foto, nível e área de atuação</span></div>
             </div>
           </div>
@@ -1154,7 +1154,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <p class="access-hint" id="accessHint"></p>
     </div>
     <div class="config-panel" id="configPanelTech">
-      <p class="access-hint">Token GitHub com permissão <code>gist</code> (fornecido pelo admin do pack) para publicar seu perfil e, se você for editor, salvar links e prioridades. O Gist ID já vem preenchido — cada membro usa o mesmo pack.</p>
+      <p class="access-hint" id="techConfigHint">Token GitHub com permissão <code>gist</code> para publicar perfil, férias e (se editor) links. O Gist ID já vem preenchido.</p>
       <label>GitHub Token</label>
       <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
       <label style="margin-top:10px">Gist ID</label>
@@ -1439,6 +1439,9 @@ let data={notice:{title:'',text:''},sections:[]};
 let editMode=false;
 const GIST_FILENAME='quality-hub-data.json';
 const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
+// Token compartilhado do pack (opcional). Se preenchido, membros entram só com o código pessoal.
+// Use um PAT só com escopo gist neste Gist. Repositório público = token visível no código-fonte.
+const DEFAULT_PACK_TOKEN='';
 let logoCb=null,logoSelected=null;
 let tooltipTimeout=null;
 
@@ -1586,7 +1589,22 @@ function canBrowseHub(){
   return hasClaimedIdentity()&&!!getUserName();
 }
 
-function getToken(){return localStorage.getItem('qhub_token')||'';}
+function getEmbeddedPackToken(){
+  return (DEFAULT_PACK_TOKEN||'').trim();
+}
+function hasEmbeddedPackToken(){
+  return !!getEmbeddedPackToken();
+}
+function persistEmbeddedTokenForMember(){
+  if(isVisitor()||!hasClaimedIdentity()) return;
+  const emb=getEmbeddedPackToken();
+  if(emb&&!localStorage.getItem('qhub_token')) localStorage.setItem('qhub_token',emb);
+}
+function getToken(){
+  const stored=localStorage.getItem('qhub_token');
+  if(stored) return stored;
+  return getEmbeddedPackToken();
+}
 function getGistId(){return localStorage.getItem('qhub_gist_id')||DEFAULT_GIST_ID;}
 function normalizeInviteCode(code){
   return (code||'').trim().toUpperCase().replace(/\s+/g,'');
@@ -1742,8 +1760,10 @@ async function submitInviteCode(){
     return;
   }
   document.getElementById('nameBackdrop').classList.add('active');
-  if(getToken()) refreshProfileModal();
-  else{
+  persistEmbeddedTokenForMember();
+  syncTokenHolderRole();
+  refreshProfileModal();
+  if(!getToken()){
     showProfileModalStep('token');
     setTimeout(()=>document.getElementById('onboardTokenInput')?.focus(),100);
   }
@@ -2351,8 +2371,14 @@ function updateEditButtonVisibility(){
   if(priBtn) priBtn.style.display=canEditContent()&&!priEditMode?'inline-flex':'none';
 }
 function openConfig(){
-  document.getElementById('tokenInput').value=getToken();
+  document.getElementById('tokenInput').value=localStorage.getItem('qhub_token')||'';
   document.getElementById('gistIdInput').value=getGistId();
+  const techHint=document.getElementById('techConfigHint');
+  if(techHint){
+    techHint.textContent=hasEmbeddedPackToken()
+      ? 'Token do pack já embutido no hub — membros entram só com o código pessoal. Abaixo você pode sobrescrever o token neste navegador.'
+      : 'Token GitHub com permissão gist para publicar perfil, férias e (se editor) links. O Gist ID já vem preenchido.';
+  }
   switchConfigTab('access');
   renderAccessStatusBox();
   document.getElementById('configModal').classList.add('active');
@@ -2424,6 +2450,7 @@ async function loadFromGistInner(){
     syncMembersFromProfiles();
     validateStoredIdentity();
     if(getUserName()) ensureRegisteredMember(getUserName());
+    persistEmbeddedTokenForMember();
     const roleSynced=syncTokenHolderRole();
     applySidebarOrder();
     renderFerias();
