@@ -414,6 +414,11 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .profile-locked-notice i{flex-shrink:0;margin-top:2px;}
 .profile-form-locked .profile-av-actions,.profile-form-locked .profile-pills,.profile-form-locked .profile-save{pointer-events:none;opacity:.45;}
 .profile-form-locked .profile-av-hint{opacity:.6;}
+.google-signin-wrap{display:flex;justify-content:center;min-height:44px;margin:1rem 0;}
+.google-signin-wrap>div{width:100%;display:flex;justify-content:center;}
+.auth-status{text-align:center;font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5;}
+.auth-error{text-align:center;font-size:13px;color:var(--amber);padding:12px;line-height:1.5;}
+.auth-email-display{font-size:12px;color:var(--text3);margin-top:4px;word-break:break-all;}
 
 /* ── Mural ── */
 .mural-wrap{margin-bottom:1.75rem;}
@@ -803,6 +808,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 .fav-btn.popping{animation:favPop 300ms cubic-bezier(0.34,1.56,0.64,1);}
 
 @media(max-width:600px){
+  .access-add-row{grid-template-columns:1fr;}
   .layout{padding:1rem 1rem 3rem;}
   .header{display:flex;flex-direction:column;align-items:stretch;gap:20px;padding:20px;}
   .header-left{width:100%;}
@@ -813,6 +819,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   .section-nav-bar{padding:8px 0 10px;}
 }
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -866,19 +873,11 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <!-- Name modal -->
 <div class="name-backdrop" id="nameBackdrop">
   <div class="name-modal profile-modal">
-    <div class="profile-step" id="profileStepRoster">
-      <h3>Quem é você?</h3>
-      <p class="profile-intro">Selecione seu nome na lista do pack. Se não aparecer, peça ao admin para cadastrar você em <strong>Configuração → Usuários</strong>.</p>
-      <div class="roster-list" id="rosterPickerList"></div>
-      <div class="roster-empty" id="rosterEmpty" style="display:none"></div>
-      <div id="rosterBootstrap" style="display:none">
-        <p class="profile-intro">Nenhum usuário cadastrado ainda. Como admin inicial, informe seu nome e configure o token do pack.</p>
-        <div class="profile-field">
-          <label for="bootstrapNameInput">Seu nome</label>
-          <input type="text" id="bootstrapNameInput" placeholder="Ex: Alan Clovis" maxlength="40">
-        </div>
-        <button class="btn primary profile-save" onclick="claimBootstrapAdmin()"><i class="ti ti-arrow-right"></i> Continuar</button>
-      </div>
+    <div class="profile-step" id="profileStepAuth">
+      <h3>Entrar com Google</h3>
+      <p class="profile-intro">Use seu e-mail corporativo <strong>@nubank.com.br</strong>. O admin precisa cadastrar seu e-mail em <strong>Configuração → Usuários</strong> antes do primeiro acesso.</p>
+      <div class="google-signin-wrap" id="googleSignInBtn"></div>
+      <p class="auth-status" id="authStatusMsg" style="display:none"></p>
     </div>
     <div class="profile-step" id="profileStepToken">
       <h3>Token do pack</h3>
@@ -904,7 +903,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <h3>Seu perfil</h3>
       <div class="profile-locked-notice" id="profileLockedNotice" style="display:none">
         <i class="ti ti-lock"></i>
-        <span>Configure o token do pack para editar foto, nível e área.</span>
+        <span>Entre com Google e configure o token do pack para editar foto, nível e área.</span>
       </div>
       <button class="btn-sm" id="profileGoTokenBtn" type="button" style="width:100%;justify-content:center;margin-bottom:14px;display:none" onclick="showProfileModalStep('token')"><i class="ti ti-key"></i> Configurar token</button>
       <p class="profile-intro" id="profileEditIntro">Confira seus dados. Eles aparecem no hub para o restante do pack.</p>
@@ -951,7 +950,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
             <div class="guide-pill"><i class="ti ti-beach"></i> Férias</div>
             <div class="guide-pill"><i class="ti ti-user"></i> Perfil</div>
           </div>
-          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita, escolha <strong>seu nome na lista</strong> do pack (cadastrado pelo admin), configure o <strong>token</strong> e só então complete seu perfil.</span></div>
+          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita, entre com seu <strong>Google @nubank.com.br</strong> (cadastrado pelo admin), configure o <strong>token</strong> e só então complete seu perfil.</span></div>
         </div>
       </div>
 
@@ -960,15 +959,15 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 2 de 7</div>
           <h3>Seu perfil no pack</h3>
-          <p>O admin cadastra cada pessoa em <strong>Configuração → Usuários</strong>. Na primeira vez, você <strong>escolhe seu nome na lista</strong>, informa o <strong>token do pack</strong> e só depois edita foto, nível e área.</p>
+          <p>O admin cadastra cada pessoa com e-mail corporativo em <strong>Configuração → Usuários</strong>. Na primeira vez, você <strong>entra com Google</strong>, informa o <strong>token do pack</strong> e só depois edita foto, nível e área.</p>
           <div class="guide-illustration" style="flex-direction:column;gap:8px;align-items:stretch">
             <div class="guide-step-list">
-              <div class="guide-step-item"><span class="num">1</span><span>Selecione seu nome na lista do pack</span></div>
+              <div class="guide-step-item"><span class="num">1</span><span>Entre com seu Google @nubank.com.br</span></div>
               <div class="guide-step-item"><span class="num">2</span><span>Informe o token fornecido pelo admin</span></div>
               <div class="guide-step-item"><span class="num">3</span><span>Complete foto, nível e área de atuação</span></div>
             </div>
           </div>
-          <p class="guide-caption">Clique no <strong>seu nome</strong> no canto superior direito para abrir o perfil a qualquer momento.</p>
+          <p class="guide-caption">Abra seu perfil pelo botão com seu nome no canto superior direito a qualquer momento.</p>
         </div>
       </div>
 
@@ -1093,13 +1092,18 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
       <label style="margin-top:10px">Gist ID</label>
       <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
+      <div id="googleClientIdField" style="display:none;margin-top:10px">
+        <label>Google Client ID</label>
+        <input type="text" id="googleClientIdInput" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
+        <p class="access-hint" style="margin-top:6px">OAuth interno do Workspace Nubank — restrito a @nubank.com.br. Salvo no pack (Gist) para todos os membros.</p>
+      </div>
       <div class="modal-actions" style="margin-top:14px">
         <button class="btn" onclick="closeConfig()">Fechar</button>
-        <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar token</button>
+        <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar</button>
       </div>
     </div>
     <div class="config-panel" id="configPanelUsers">
-      <p class="access-hint">Cadastre cada pessoa do pack com nome e papel. Opcionalmente defina o nível inicial — foto e área a pessoa completa após informar o token.</p>
+      <p class="access-hint">Cadastre cada pessoa do pack com nome, e-mail corporativo @nubank.com.br e papel. Opcionalmente defina o nível inicial — foto e área a pessoa completa após informar o token.</p>
       <div class="profiles-publish-box" id="profilesPublishBox" style="display:none">
         <p class="access-hint">Cada membro publica o próprio perfil ao salvar (com o token do pack em Técnico). Use o botão abaixo só para recuperar perfis que existam <strong>neste navegador</strong> — não alcança outros computadores.</p>
         <p class="access-hint" id="profilesPublishSummary"></p>
@@ -1108,6 +1112,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <div id="accessUsersPanel"></div>
       <div class="access-add-row">
         <div><label style="font-size:11px;color:var(--text3)">Nome</label><input type="text" id="accessNewName" placeholder="Ex: Alan Clovis"></div>
+        <div><label style="font-size:11px;color:var(--text3)">E-mail</label><input type="email" id="accessNewEmail" placeholder="nome@nubank.com.br" autocomplete="off"></div>
         <div><label style="font-size:11px;color:var(--text3)">Papel</label><select id="accessNewRole"><option value="member">Membro</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
         <div><label style="font-size:11px;color:var(--text3)">Nível (opc.)</label><select id="accessNewLevel"><option value="">—</option><option value="Assistant II">Assistant II</option><option value="Analyst I">Analyst I</option><option value="Analyst II">Analyst II</option><option value="Coordinator">Coordinator</option><option value="Associate Manager">Associate Manager</option></select></div>
         <button class="btn primary" onclick="adminAddAccessUser()"><i class="ti ti-plus"></i> Add</button>
@@ -1373,6 +1378,8 @@ let data={notice:{title:'',text:''},sections:[]};
 let editMode=false;
 const GIST_FILENAME='quality-hub-data.json';
 const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
+const DEFAULT_GOOGLE_CLIENT_ID='';
+const NUBANK_EMAIL_DOMAIN='nubank.com.br';
 let logoCb=null,logoSelected=null;
 let tooltipTimeout=null;
 
@@ -1508,6 +1515,135 @@ const ACCESS_ROLE_LABELS={admin:'Admin',editor:'Editor',member:'Membro',pending:
 
 function getToken(){return localStorage.getItem('qhub_token')||'';}
 function getGistId(){return localStorage.getItem('qhub_gist_id')||DEFAULT_GIST_ID;}
+function ensureAuthConfig(){
+  if(!data.authConfig) data.authConfig={};
+}
+function getGoogleClientId(){
+  ensureAuthConfig();
+  return (data.authConfig.googleClientId||DEFAULT_GOOGLE_CLIENT_ID||'').trim();
+}
+function isValidNubankEmail(email){
+  if(!email||typeof email!=='string') return false;
+  const norm=email.trim().toLowerCase();
+  return norm.endsWith('@'+NUBANK_EMAIL_DOMAIN)&&norm.indexOf('@')>0;
+}
+function getGoogleSessionEmail(){
+  return (localStorage.getItem('qhub_google_email')||'').trim().toLowerCase();
+}
+function getGoogleSessionExp(){
+  return parseInt(localStorage.getItem('qhub_google_exp')||'0',10);
+}
+function setGoogleSession(email,exp){
+  localStorage.setItem('qhub_google_email',email.trim().toLowerCase());
+  localStorage.setItem('qhub_google_exp',String(exp));
+}
+function clearGoogleSession(){
+  localStorage.removeItem('qhub_google_email');
+  localStorage.removeItem('qhub_google_exp');
+  localStorage.removeItem('qhub_username');
+  localStorage.removeItem('qhub_claimed_name');
+}
+function isGoogleSessionValid(){
+  const email=getGoogleSessionEmail();
+  const exp=getGoogleSessionExp();
+  if(!email||!exp) return false;
+  return Date.now()/1000<exp-60;
+}
+function checkGoogleSessionExpiry(){
+  if(getGoogleSessionEmail()&&!isGoogleSessionValid()) clearGoogleSession();
+}
+function getAccessUserByEmail(email){
+  ensureAccessUsers();
+  if(!email) return null;
+  const norm=email.trim().toLowerCase();
+  const u=data.accessUsers.find(x=>x.email&&x.email.trim().toLowerCase()===norm);
+  if(!u||u.status==='revoked') return null;
+  return u;
+}
+async function verifyGoogleIdToken(idToken){
+  const res=await fetch('https://oauth2.googleapis.com/tokeninfo?id_token='+encodeURIComponent(idToken));
+  if(!res.ok) throw new Error('Token Google inválido');
+  return res.json();
+}
+async function handleGoogleCredential(response){
+  const statusEl=document.getElementById('authStatusMsg');
+  if(statusEl){ statusEl.style.display='none'; statusEl.textContent=''; }
+  try{
+    const info=await verifyGoogleIdToken(response.credential);
+    if(!isValidNubankEmail(info.email)){
+      throw new Error('Use seu e-mail corporativo @nubank.com.br.');
+    }
+    if(info.hd&&info.hd!==NUBANK_EMAIL_DOMAIN){
+      throw new Error('Conta fora do domínio Nubank.');
+    }
+    const exp=parseInt(info.exp,10);
+    if(!exp||Date.now()/1000>=exp) throw new Error('Sessão Google expirada.');
+    setGoogleSession(info.email,exp);
+    let user=getAccessUserByEmail(info.email);
+    if(!user){
+      if(hasActiveAccessRoster()){
+        clearGoogleSession();
+        alert('E-mail não cadastrado no pack. Peça ao admin para adicionar você em Configuração → Usuários.');
+        return;
+      }
+      const name=(info.name||info.email.split('@')[0]||'Admin').trim();
+      user={
+        id:'u'+Date.now(),name,email:info.email.trim().toLowerCase(),role:'admin',status:'active',
+        joinedAt:new Date().toISOString(),approvedAt:new Date().toISOString(),approvedBy:'Google bootstrap'
+      };
+      data.accessUsers.push(user);
+      saveLocal();
+      if(canWriteGist()&&getGistId()) await saveToGist();
+    }
+    ensureRegisteredMember(user.name);
+    renderUserChip();
+    renderAccessStatusBox();
+    updateEditButtonVisibility();
+    refreshProfileModal();
+  }catch(e){
+    clearGoogleSession();
+    const msg=e.message||'Não foi possível entrar com Google.';
+    if(statusEl){ statusEl.textContent=msg; statusEl.style.display='block'; }
+    else alert(msg);
+  }
+}
+function initGoogleSignIn(){
+  const container=document.getElementById('googleSignInBtn');
+  if(!container) return;
+  container.innerHTML='';
+  const clientId=getGoogleClientId();
+  if(!clientId){
+    container.innerHTML='<p class="auth-error">Google Client ID não configurado. Peça ao admin configurar em Configuração → Técnico.</p>';
+    return;
+  }
+  const tryInit=()=>{
+    if(!window.google?.accounts?.id){ setTimeout(tryInit,120); return; }
+    google.accounts.id.initialize({
+      client_id:clientId,
+      callback:handleGoogleCredential,
+      hosted_domain:NUBANK_EMAIL_DOMAIN,
+      auto_select:false,
+      cancel_on_tap_outside:true
+    });
+    google.accounts.id.renderButton(container,{
+      theme:'outline',
+      size:'large',
+      width:Math.min(360,container.offsetWidth||320),
+      text:'signin_with',
+      locale:'pt-BR'
+    });
+  };
+  tryInit();
+}
+function signOutGoogle(){
+  if(window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+  clearGoogleSession();
+  renderUserChip();
+  renderAccessStatusBox();
+  updateEditButtonVisibility();
+  closeConfig();
+  openNameModal();
+}
 function ensureAccessUsers(){
   if(!data.accessUsers) data.accessUsers=[];
 }
@@ -1769,11 +1905,12 @@ function renderAccessStatusBox(){
   tabUsers.style.display=canManageAccess()?'inline-flex':'none';
   tabTech.style.display='inline-flex';
   if(!name){
-    box.innerHTML='<div class="access-empty">Escolha seu nome na lista do pack para começar (botão no topo da página).</div>';
+    box.innerHTML='<div class="access-empty">Entre com seu Google @nubank.com.br para começar (botão no topo da página).</div>';
     hint.textContent='';
     return;
   }
   const u=getAccessUserRecord(name);
+  const authEmail=getGoogleSessionEmail();
   const role=getUserRole();
   const avHtml=createAvatarEl(name,40,'').outerHTML;
   let roleLabel=ACCESS_ROLE_LABELS[role]||'Membro';
@@ -1781,7 +1918,8 @@ function renderAccessStatusBox(){
   if(isAccessBootstrap()){ roleLabel='Admin'; roleClass='admin'; }
   else if(u&&u.status==='revoked'){ roleLabel='Revogado'; roleClass='revoked'; }
   const profileMeta=formatProfileSummary(findProfile(name));
-  box.innerHTML=`<div class="access-status"><div class="access-status-av">${avHtml}</div><div class="access-status-info"><div class="access-status-name">${escapeHtml(name)}</div>${profileMeta?`<div class="access-status-meta">${escapeHtml(profileMeta)}</div>`:''}<div class="access-status-role">${roleLabel}</div></div><span class="access-role-pill ${roleClass}">${roleLabel}</span></div>`;
+  const emailLine=authEmail?`<div class="auth-email-display">${escapeHtml(authEmail)}</div>`:'';
+  box.innerHTML=`<div class="access-status"><div class="access-status-av">${avHtml}</div><div class="access-status-info"><div class="access-status-name">${escapeHtml(name)}</div>${emailLine}${profileMeta?`<div class="access-status-meta">${escapeHtml(profileMeta)}</div>`:''}<div class="access-status-role">${roleLabel}</div></div><span class="access-role-pill ${roleClass}">${roleLabel}</span></div>${isGoogleSessionValid()?`<div style="margin-top:12px"><button class="btn danger" type="button" onclick="signOutGoogle()" style="width:100%;justify-content:center"><i class="ti ti-logout"></i> Sair do Google</button></div>`:''}`;
   if(u&&u.status==='revoked'){
     hint.textContent='Seu acesso foi revogado. Fale com um admin do pack.';
   }else if(getToken()&&!hasAdminInRoster(name)){
@@ -1808,31 +1946,36 @@ function renderAccessUsersPanel(){
     return (order[a.status]??9)-(order[b.status]??9)||a.name.localeCompare(b.name);
   });
   if(!users.length){
-    panel.innerHTML='<div class="access-empty">Nenhum usuário cadastrado. Adicione cada pessoa do pack abaixo — elas escolhem o nome na primeira visita.</div>';
+    panel.innerHTML='<div class="access-empty">Nenhum usuário cadastrado. Adicione cada pessoa com e-mail @nubank.com.br — elas entram com Google na primeira visita.</div>';
     return;
   }
-  panel.innerHTML=`<table class="access-users-table"><thead><tr><th>Nome</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>${
+  panel.innerHTML=`<table class="access-users-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>${
     users.map(u=>`<tr>
       <td>${escapeHtml(u.name)}</td>
+      <td>${escapeHtml(u.email||'—')}</td>
       <td>${`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
       <td><span class="access-role-pill ${u.status==='active'?u.role:u.status}">${u.status==='active'?ACCESS_ROLE_LABELS[u.role]:u.status==='revoked'?'Revogado':u.status}</span></td>
       <td style="white-space:nowrap">${u.status!=='revoked'?`<button class="btn-sm" onclick="adminRevokeUser('${u.id}')" title="Revogar"><i class="ti ti-ban"></i></button>`:`<button class="btn-sm" onclick="adminRestoreUser('${u.id}')" title="Restaurar"><i class="ti ti-refresh"></i></button>`} <button class="btn-sm" style="color:#f87171" onclick="adminDeleteUser('${u.id}')" title="Remover"><i class="ti ti-trash"></i></button></td>
     </tr>`).join('')
   }</tbody></table>`;
 }
-async function adminAddAccessUser(nameArg,roleArg){
+async function adminAddAccessUser(nameArg,roleArg,emailArg){
   if(!canManageAccess()) return;
   const name=(nameArg||document.getElementById('accessNewName').value||'').trim();
+  const email=(emailArg||document.getElementById('accessNewEmail')?.value||'').trim().toLowerCase();
   const role=roleArg||document.getElementById('accessNewRole').value||'member';
   const level=document.getElementById('accessNewLevel')?.value||'';
   if(!name){ alert('Informe o nome.'); return; }
+  if(!isValidNubankEmail(email)){ alert('Informe um e-mail corporativo @nubank.com.br válido.'); return; }
   ensureAccessUsers();
-  let u=data.accessUsers.find(x=>namesMatch(x.name,name));
+  const emailTaken=data.accessUsers.find(x=>x.email&&x.email.toLowerCase()===email&&!namesMatch(x.name,name));
+  if(emailTaken){ alert('Este e-mail já está cadastrado para outra pessoa.'); return; }
+  let u=data.accessUsers.find(x=>namesMatch(x.name,name)||(x.email&&x.email.toLowerCase()===email));
   if(u){
-    u.name=name; u.role=role; u.status='active';
+    u.name=name; u.email=email; u.role=role; u.status='active';
     u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin';
   }else{
-    u={id:'u'+Date.now(),name,role,status:'active',joinedAt:new Date().toISOString(),approvedAt:new Date().toISOString(),approvedBy:getUserName()||'Admin'};
+    u={id:'u'+Date.now(),name,email,role,status:'active',joinedAt:new Date().toISOString(),approvedAt:new Date().toISOString(),approvedBy:getUserName()||'Admin'};
     data.accessUsers.push(u);
   }
   if(level){
@@ -1841,6 +1984,7 @@ async function adminAddAccessUser(nameArg,roleArg){
     saveLocal();
   }
   document.getElementById('accessNewName').value='';
+  if(document.getElementById('accessNewEmail')) document.getElementById('accessNewEmail').value='';
   if(document.getElementById('accessNewLevel')) document.getElementById('accessNewLevel').value='';
   renderAccessUsersPanel();
   renderAccessStatusBox();
@@ -1882,8 +2026,15 @@ async function adminDeleteUser(id){
 function saveConfig(){
   const t=document.getElementById('tokenInput').value.trim();
   const g=document.getElementById('gistIdInput').value.trim();
+  const googleClientId=document.getElementById('googleClientIdInput')?.value.trim()||'';
   if(t)localStorage.setItem('qhub_token',t);
   if(g)localStorage.setItem('qhub_gist_id',g);
+  if(canManageAccess()&&googleClientId){
+    ensureAuthConfig();
+    data.authConfig.googleClientId=googleClientId;
+    saveLocal();
+    if(canWriteGist()&&getGistId()) saveToGist();
+  }
   syncTokenHolderRole();
   closeConfig();
   updateEditButtonVisibility();
@@ -1901,6 +2052,10 @@ function updateEditButtonVisibility(){
 function openConfig(){
   document.getElementById('tokenInput').value=getToken();
   document.getElementById('gistIdInput').value=getGistId();
+  const googleField=document.getElementById('googleClientIdField');
+  const googleInput=document.getElementById('googleClientIdInput');
+  if(googleField) googleField.style.display=canManageAccess()?'block':'none';
+  if(googleInput) googleInput.value=getGoogleClientId();
   switchConfigTab('access');
   renderAccessStatusBox();
   document.getElementById('configModal').classList.add('active');
@@ -1921,6 +2076,7 @@ async function loadFromGist(){
     if(!parsed?.sections?.length){
       data=JSON.parse(JSON.stringify(DEFAULT_DATA));
       ensurePageOrder();
+      ensureAuthConfig();
       applySidebarOrder();
       render();
       hideStatus();
@@ -1928,11 +2084,13 @@ async function loadFromGist(){
     }
     data=parsed;
     ensurePageOrder();
+    ensureAuthConfig();
     ensurePrioritiesData();
     ensureProfilesData();
     ensureAccessUsers();
     migratePendingToActiveMembers();
     syncMembersFromProfiles();
+    checkGoogleSessionExpiry();
     if(getUserName()) ensureRegisteredMember(getUserName());
     const roleSynced=syncTokenHolderRole();
     applySidebarOrder();
@@ -1980,7 +2138,7 @@ async function saveToGist(){
 }
 function showStatus(type,msg){const bar=document.getElementById('statusBar');bar.className='status-bar '+type;document.getElementById('statusMsg').textContent=msg;}
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
-function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();render();}
+function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));ensurePageOrder();ensureAuthConfig();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();checkGoogleSessionExpiry();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();render();}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -2891,71 +3049,26 @@ function clearPendingAvatar(){
   pendingAvatar='';
   updateProfilePreview(getUserName());
 }
-function getUserName(){ return localStorage.getItem('qhub_username')||''; }
-function hasClaimedIdentity(){ return localStorage.getItem('qhub_claimed_name')==='1'; }
+function getUserName(){
+  if(!isGoogleSessionValid()) return '';
+  const user=getAccessUserByEmail(getGoogleSessionEmail());
+  return user?.name||'';
+}
 function canEditProfileFields(){
-  const name=getUserName();
-  if(!name||!getToken()) return false;
-  const rec=getAccessUserRecord(name);
+  if(!isGoogleSessionValid()||!getUserName()||!getToken()) return false;
+  const rec=getAccessUserRecord(getUserName());
   if(rec&&rec.status==='revoked') return false;
   if(rec&&rec.status==='active') return true;
   if(!hasActiveAccessRoster()&&getToken()) return true;
-  if(Object.keys(data.profiles||{}).some(k=>namesMatch(k,name))) return true;
+  if(Object.keys(data.profiles||{}).some(k=>namesMatch(k,getUserName()))) return true;
   return isAccessBootstrap();
 }
-function getOnboardingRoster(){
-  ensureAccessUsers();
-  ensureProfilesData();
-  const names=new Map();
-  data.accessUsers.filter(u=>u.status==='active').forEach(u=>{
-    names.set(normalizeNameKey(u.name),u.name);
-  });
-  Object.keys(data.profiles).forEach(name=>{
-    const rec=getAccessUserRecord(name);
-    if(rec&&rec.status==='revoked') return;
-    const nk=normalizeNameKey(name);
-    if(!names.has(nk)) names.set(nk,name);
-  });
-  return [...names.values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-}
-function renderRosterPicker(){
-  const list=document.getElementById('rosterPickerList');
-  const empty=document.getElementById('rosterEmpty');
-  const bootstrap=document.getElementById('rosterBootstrap');
-  if(!list) return;
-  const roster=getOnboardingRoster();
-  if(!roster.length&&!getToken()){
-    list.innerHTML='';
-    list.style.display='none';
-    empty.style.display='block';
-    empty.textContent='Nenhuma pessoa cadastrada no pack ainda. Peça ao admin para adicionar você em Configuração → Usuários.';
-    bootstrap.style.display='none';
-    return;
-  }
-  if(!roster.length&&getToken()){
-    list.innerHTML='';
-    list.style.display='none';
-    empty.style.display='none';
-    bootstrap.style.display='block';
-    return;
-  }
-  list.style.display='flex';
-  empty.style.display='none';
-  bootstrap.style.display='none';
-  list.innerHTML=roster.map(name=>{
-    const u=getAccessUserRecord(name);
-    const role=u?.role||'member';
-    const roleLabel=ACCESS_ROLE_LABELS[role]||'Membro';
-    const meta=formatProfileSummary(findProfile(name));
-    const av=createAvatarEl(name,36,'').outerHTML;
-    return `<button type="button" class="roster-item" onclick="selectRosterName(${JSON.stringify(name)})">${av}<span class="roster-item-name">${escapeHtml(name)}</span><span class="roster-item-meta">${escapeHtml(meta||roleLabel)}</span></button>`;
-  }).join('');
-}
 function showProfileModalStep(step){
-  ['profileStepRoster','profileStepToken','profileStepEdit'].forEach(id=>{
-    document.getElementById(id)?.classList.toggle('active',id==='profileStep'+step.charAt(0).toUpperCase()+step.slice(1));
+  ['profileStepAuth','profileStepToken','profileStepEdit'].forEach(id=>{
+    const key='profileStep'+step.charAt(0).toUpperCase()+step.slice(1);
+    document.getElementById(id)?.classList.toggle('active',id===key);
   });
-  if(step==='roster') renderRosterPicker();
+  if(step==='auth') initGoogleSignIn();
   if(step==='token'){
     const inp=document.getElementById('onboardTokenInput');
     if(inp) inp.value=getToken();
@@ -2976,7 +3089,7 @@ function updateProfileFieldsLock(){
   if(goToken) goToken.style.display=locked?'inline-flex':'none';
 }
 function resolveProfileModalStep(){
-  if(!getUserName()) return 'roster';
+  if(!isGoogleSessionValid()||!getUserName()) return 'auth';
   if(!getToken()) return 'token';
   return 'edit';
 }
@@ -2991,60 +3104,10 @@ function refreshProfileModal(){
     updateProfilePreview(name);
   }
 }
-function claimIdentity(name){
-  if(!name) return false;
-  const rec=getAccessUserRecord(name);
-  if(rec&&rec.status==='revoked'){
-    alert('Seu acesso foi revogado. Fale com um admin do pack.');
-    return false;
-  }
-  if(hasActiveAccessRoster()){
-    const active=getAccessUserByName(name);
-    const inProfiles=!!findProfile(name)||Object.keys(data.profiles||{}).some(k=>namesMatch(k,name));
-    if(!active&&!inProfiles){
-      alert('Nome não encontrado na lista do pack. Peça ao admin para cadastrar você.');
-      return false;
-    }
-  }
-  localStorage.setItem('qhub_username',name);
-  localStorage.setItem('qhub_claimed_name','1');
-  document.getElementById('nameInput').value=name;
-  renderUserChip();
-  renderAccessStatusBox();
-  return true;
-}
-function selectRosterName(name){
-  if(!claimIdentity(name)) return;
-  ensureRegisteredMember(name);
-  saveLocal();
-  showProfileModalStep(getToken()?'edit':'token');
-  if(getToken()){
-    document.getElementById('profileNameDisplay').textContent=name;
-    loadProfileFormValues(name);
-    updateProfilePreview(name);
-  }
-}
-function claimBootstrapAdmin(){
-  const name=document.getElementById('bootstrapNameInput')?.value.trim();
-  if(!name){ alert('Informe seu nome.'); return; }
-  if(!getToken()){
-    if(!claimIdentity(name)) return;
-    showProfileModalStep('token');
-    return;
-  }
-  if(!claimIdentity(name)) return;
-  ensureRegisteredMember(name);
-  syncTokenHolderRole();
-  saveLocal();
-  document.getElementById('profileNameDisplay').textContent=name;
-  loadProfileFormValues(name);
-  updateProfilePreview(name);
-  showProfileModalStep('edit');
-}
 async function saveOnboardToken(){
   const t=document.getElementById('onboardTokenInput')?.value.trim();
   if(!t){ alert('Informe o token do pack.'); return; }
-  if(!getUserName()){ alert('Selecione seu nome antes de configurar o token.'); showProfileModalStep('roster'); return; }
+  if(!isGoogleSessionValid()||!getUserName()){ alert('Entre com Google antes de configurar o token.'); showProfileModalStep('auth'); return; }
   localStorage.setItem('qhub_token',t);
   syncTokenHolderRole();
   ensureRegisteredMember(getUserName());
@@ -3068,7 +3131,7 @@ async function saveOnboardToken(){
   }
 }
 function maybeShowOnboarding(){
-  if(!getUserName()){
+  if(!isGoogleSessionValid()||!getUserName()){
     setTimeout(()=>openNameModal(),300);
   }else if(!localStorage.getItem('qhub_guide_seen')){
     setTimeout(openGuide,600);
@@ -3124,14 +3187,16 @@ function openNameModal(){
   pendingAvatar=undefined;
   refreshProfileModal();
   document.getElementById('nameBackdrop').classList.add('active');
-  if(resolveProfileModalStep()==='token'){
+  const step=resolveProfileModalStep();
+  if(step==='auth') initGoogleSignIn();
+  else if(step==='token'){
     setTimeout(()=>document.getElementById('onboardTokenInput')?.focus(),100);
   }
 }
 function renderUserChip(){
   const name=getUserName();
   const chip=document.getElementById('userChip');
-  if(!name){ chip.style.display='none'; return; }
+  if(!name||!isGoogleSessionValid()){ chip.style.display='none'; return; }
   chip.style.display='flex';
   mountAvatar('userAvatarEl',name,22,'user-avatar');
   document.getElementById('userNameEl').textContent=name.split(' ')[0];
@@ -3143,9 +3208,6 @@ document.getElementById('nameInput').addEventListener('keydown',e=>{
 });
 document.getElementById('onboardTokenInput')?.addEventListener('keydown',e=>{
   if(e.key==='Enter') saveOnboardToken();
-});
-document.getElementById('bootstrapNameInput')?.addEventListener('keydown',e=>{
-  if(e.key==='Enter') claimBootstrapAdmin();
 });
 document.getElementById('profileAvInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];
@@ -4578,6 +4640,7 @@ function renderPriorities(){
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
+  checkGoogleSessionExpiry();
   initProfileForm();
   initTagFilterUI();
   const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
