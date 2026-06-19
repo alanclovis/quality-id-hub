@@ -142,17 +142,25 @@ body.light .sec-x .section-header{background:transparent;border:none;}
 .ext-icon{color:var(--text3);font-size:11px;flex-shrink:0;opacity:0.4;}
 
 /* ── Preview tooltip ── */
-.preview-tooltip{position:fixed;z-index:299;background:var(--bg2);border:1px solid var(--border-h);border-radius:var(--r);padding:14px 16px;width:260px;pointer-events:none;opacity:0;transition:opacity .2s;box-shadow:0 8px 32px rgba(0,0,0,0.28);}
-.preview-tooltip.visible{opacity:1;}
-.pt-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.preview-tooltip{position:fixed;z-index:299;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;width:268px;pointer-events:none;opacity:0;transition:opacity .18s ease,transform .18s ease;box-shadow:0 4px 20px rgba(0,0,0,0.1);transform:translateY(4px);}
+.preview-tooltip.visible{opacity:1;transform:translateY(0);}
+.pt-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.pt-header-text{flex:1;min-width:0;}
+.pt-name-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .pt-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.pt-name{font-size:14px;font-weight:600;}
-.pt-section{font-size:11px;color:var(--text3);margin-top:2px;}
-.pt-divider{height:1px;background:var(--border);margin-bottom:10px;}
-.pt-notes{font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:10px;}
+.pt-name{font-size:14px;font-weight:600;line-height:1.25;}
+.pt-desc{font-size:12px;color:var(--text3);margin-top:2px;line-height:1.35;}
+.pt-section{font-size:11px;color:var(--text3);margin-top:3px;opacity:0.85;}
+.pt-tags{display:none;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.pt-badge-new{display:none;font-size:9px;font-weight:700;background:rgba(139,92,246,0.15);color:#7c3aed;padding:1px 6px;border-radius:20px;text-transform:uppercase;letter-spacing:0.05em;align-items:center;}
+.pt-divider{height:1px;background:var(--border);margin-bottom:8px;}
+.pt-notes{font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:8px;}
 .pt-url{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;overflow:hidden;}
 .pt-url span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.pt-open{margin-top:10px;display:flex;align-items:center;gap:5px;font-size:12px;color:var(--purple-l);font-weight:500;}
+.pt-open{margin-top:8px;display:flex;align-items:center;gap:5px;font-size:12px;color:#0071e3;font-weight:500;}
+.detail-sheet .pt-tags{margin-bottom:10px;}
+.detail-sheet .pt-divider{margin:10px 0;}
+.detail-sheet .pt-notes{margin-bottom:10px;}
 
 /* ── Edit overlay ── */
 .edit-panel{display:none;background:var(--bg2);border:1px solid rgba(139,92,246,0.4);border-radius:var(--r);padding:14px;flex-direction:column;gap:8px;margin-top:6px;grid-column:1/-1;}
@@ -642,9 +650,17 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <div class="preview-tooltip" id="previewTooltip">
   <div class="pt-header">
     <div class="pt-icon icon-gray" id="ptIcon"></div>
-    <div><div class="pt-name" id="ptName"></div><div class="pt-section" id="ptSection"></div></div>
+    <div class="pt-header-text">
+      <div class="pt-name-row">
+        <div class="pt-name" id="ptName"></div>
+        <span class="pt-badge-new" id="ptNewBadge">novo</span>
+      </div>
+      <div class="pt-desc" id="ptDesc"></div>
+      <div class="pt-section" id="ptSection"></div>
+    </div>
   </div>
-  <div class="pt-divider"></div>
+  <div class="pt-tags" id="ptTags"></div>
+  <div class="pt-divider" id="ptDivider"></div>
   <div class="pt-notes" id="ptNotes"></div>
   <div class="pt-url"><i class="ti ti-link" style="flex-shrink:0;font-size:12px"></i><span id="ptUrl"></span></div>
   <div class="pt-open"><i class="ti ti-external-link"></i> Clique para abrir</div>
@@ -656,10 +672,19 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <div class="detail-sheet-handle"></div>
     <div class="detail-sheet-header">
       <div class="pt-icon icon-gray" id="dsIcon"></div>
-      <div><div class="pt-name" id="dsName"></div><div class="pt-section" id="dsSection"></div></div>
+      <div class="pt-header-text">
+        <div class="pt-name-row">
+          <div class="pt-name" id="dsName"></div>
+          <span class="pt-badge-new" id="dsNewBadge">novo</span>
+        </div>
+        <div class="pt-desc" id="dsDesc"></div>
+        <div class="pt-section" id="dsSection"></div>
+      </div>
     </div>
+    <div class="pt-tags" id="dsTags"></div>
+    <div class="pt-divider" id="dsDivider"></div>
     <div class="pt-notes" id="dsNotes"></div>
-    <div class="pt-url" style="margin-top:10px"><i class="ti ti-link" style="flex-shrink:0;font-size:12px"></i><span id="dsUrl"></span></div>
+    <div class="pt-url"><i class="ti ti-link" style="flex-shrink:0;font-size:12px"></i><span id="dsUrl"></span></div>
     <div class="detail-sheet-actions">
       <button class="btn" onclick="closeDetailSheet()">Fechar</button>
       <button class="btn primary" id="dsOpenBtn"><i class="ti ti-external-link"></i> Abrir link</button>
@@ -1366,6 +1391,100 @@ function openLink(url,linkId){
 }
 
 // ── Preview tooltip ────────────────────────────────────────────────────────────
+function formatPreviewUrl(url){
+  if(!url||url==='#') return {text:'URL não configurada',title:''};
+  try{
+    const u=new URL(url);
+    const host=u.hostname.replace(/^www\./,'');
+    let path=u.pathname+u.search;
+    if(path.length>1&&path!=='/'){
+      path=path.length>28?path.slice(0,25)+'…':path;
+      return {text:host+path,title:url};
+    }
+    return {text:host,title:url};
+  }catch(e){
+    return {text:url.length>40?url.slice(0,37)+'…':url,title:url};
+  }
+}
+function getPreviewNotes(link){
+  const notes=(link.notes||'').trim();
+  const desc=(link.desc||'').trim();
+  if(!notes||notes===desc) return '';
+  return notes;
+}
+function renderPreviewTags(el,tags){
+  if(!el) return;
+  const list=tags||[];
+  if(!list.length){el.innerHTML='';el.style.display='none';return;}
+  el.style.display='flex';
+  el.innerHTML=list.map(t=>tagDot(t)).join('');
+}
+function populateLinkDetail(prefix,link,sectionName){
+  const logo=findLogo(link.logo||'link');
+  const icon=document.getElementById(prefix+'Icon');
+  if(icon){
+    icon.className='pt-icon '+logo.color;
+    icon.innerHTML=`<i class="ti ${logo.icon}" style="font-size:18px"></i>`;
+  }
+  const nameEl=document.getElementById(prefix+'Name');
+  if(nameEl) nameEl.textContent=link.name;
+  const descEl=document.getElementById(prefix+'Desc');
+  if(descEl){
+    const desc=(link.desc||'').trim();
+    descEl.textContent=desc;
+    descEl.style.display=desc?'block':'none';
+  }
+  const sectionEl=document.getElementById(prefix+'Section');
+  if(sectionEl) sectionEl.textContent=sectionName;
+  renderPreviewTags(document.getElementById(prefix+'Tags'),link.tags);
+  const badge=document.getElementById(prefix+'NewBadge');
+  if(badge) badge.style.display=link.isNew?'inline-flex':'none';
+  const notesText=getPreviewNotes(link);
+  const notesEl=document.getElementById(prefix+'Notes');
+  const dividerEl=document.getElementById(prefix+'Divider');
+  if(notesEl){
+    notesEl.textContent=notesText;
+    notesEl.style.display=notesText?'block':'none';
+  }
+  if(dividerEl) dividerEl.style.display=notesText?'block':'none';
+  const urlInfo=formatPreviewUrl(link.url);
+  const urlEl=document.getElementById(prefix+'Url');
+  if(urlEl){
+    urlEl.textContent=urlInfo.text;
+    urlEl.title=urlInfo.title||'';
+  }
+  return urlInfo;
+}
+function positionPreviewTooltip(tip,cardEl){
+  tip.style.visibility='hidden';
+  tip.style.opacity='0';
+  tip.classList.add('visible');
+  const tipW=tip.offsetWidth;
+  const tipH=tip.offsetHeight;
+  tip.classList.remove('visible');
+  tip.style.visibility='';
+  tip.style.opacity='';
+  const rect=cardEl.getBoundingClientRect();
+  const gap=10;
+  let left=rect.left+(rect.width-tipW)/2;
+  let top=rect.top-tipH-gap;
+  if(top<8) top=rect.bottom+gap;
+  if(top+tipH>window.innerHeight-8){
+    const above=rect.top-tipH-gap;
+    if(above>=8) top=above;
+    else{
+      left=rect.right+gap;
+      top=Math.max(8,Math.min(rect.top,window.innerHeight-tipH-8));
+      if(left+tipW>window.innerWidth-8) left=rect.left-tipW-gap;
+    }
+  }
+  if(left+tipW>window.innerWidth-8) left=window.innerWidth-tipW-8;
+  if(left<8) left=8;
+  if(top+tipH>window.innerHeight-8) top=window.innerHeight-tipH-8;
+  if(top<8) top=8;
+  tip.style.left=left+'px';
+  tip.style.top=top+'px';
+}
 function showPreview(link,sectionName,cardEl){
   if(editMode) return;
   clearTimeout(tooltipTimeout);
@@ -1373,24 +1492,10 @@ function showPreview(link,sectionName,cardEl){
     const anyModal=document.querySelector('.guide-backdrop.active,.modal-backdrop.active,.logo-modal-backdrop.active,.stats-modal-backdrop.active,.name-backdrop.active');
     if(anyModal) return;
     const tip=document.getElementById('previewTooltip');
-    const logo=findLogo(link.logo||'link');
-    document.getElementById('ptIcon').className=`pt-icon ${logo.color}`;
-    document.getElementById('ptIcon').innerHTML=`<i class="ti ${logo.icon}" style="font-size:18px"></i>`;
-    document.getElementById('ptName').textContent=link.name;
-    document.getElementById('ptSection').textContent=sectionName;
-    document.getElementById('ptNotes').textContent=link.notes||link.desc||'Clique para abrir este link.';
-    document.getElementById('ptUrl').textContent=link.url==='#'?'URL não configurada':link.url;
+    populateLinkDetail('pt',link,sectionName);
     const openRow=tip.querySelector('.pt-open');
     openRow.style.display=link.url&&link.url!=='#'?'flex':'none';
-    const rect=cardEl.getBoundingClientRect();
-    const tipW=268, tipH=180;
-    let left=rect.right+12, top=rect.top;
-    if(left+tipW>window.innerWidth-8) left=rect.left-tipW-12;
-    if(left<8) left=8;
-    if(top+tipH>window.innerHeight-8) top=window.innerHeight-tipH-8;
-    if(top<8) top=8;
-    tip.style.left=left+'px';
-    tip.style.top=top+'px';
+    positionPreviewTooltip(tip,cardEl);
     tip.classList.add('visible');
   },350);
 }
@@ -2585,13 +2690,7 @@ function maybeShowFavHint(){
 
 function openDetailSheet(link, sectionName){
   detailSheetLink=link;
-  const logo=findLogo(link.logo||'link');
-  document.getElementById('dsIcon').className='pt-icon '+logo.color;
-  document.getElementById('dsIcon').innerHTML=`<i class="ti ${logo.icon}" style="font-size:18px"></i>`;
-  document.getElementById('dsName').textContent=link.name;
-  document.getElementById('dsSection').textContent=sectionName;
-  document.getElementById('dsNotes').textContent=link.notes||link.desc||'Sem descrição.';
-  document.getElementById('dsUrl').textContent=link.url==='#'?'URL não configurada':link.url;
+  populateLinkDetail('ds',link,sectionName);
   const openBtn=document.getElementById('dsOpenBtn');
   openBtn.style.display=link.url&&link.url!=='#'?'flex':'none';
   openBtn.onclick=()=>{ openLink(link.url,link.id); closeDetailSheet(); };
