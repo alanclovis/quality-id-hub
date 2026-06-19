@@ -74,6 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-text);min-hei
 
 /* ── Search & discover card ── */
 .discover-card{background:var(--bg2);border-radius:var(--r);padding:14px 16px 16px;margin-bottom:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.discover-card.search-active{position:relative;z-index:55;}
 .discover-divider{height:1px;background:var(--border);margin:12px 0 14px;}
 .search-wrap{position:relative;z-index:50;margin-bottom:0;}
 .search-field{position:relative;}
@@ -597,7 +598,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 
 
 /* ── Search overlay ── */
-.search-overlay{display:none;position:fixed;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:40;pointer-events:auto;}
+.search-overlay{display:none;position:fixed;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:40;pointer-events:none;}
 .search-overlay.active{display:block;}
 
 .fav-btn.active{opacity:1!important;}
@@ -951,7 +952,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   </div>
 </div>
 <div class="main-area" id="mainArea">
-<div class="search-overlay" id="searchOverlay" onclick="closeSearch()"></div>
+<div class="search-overlay" id="searchOverlay"></div>
 <div id="contentWrap"><div class="layout">
 <div class="status-bar" id="statusBar"><i class="ti ti-circle-check"></i><span id="statusMsg"></span></div>
 
@@ -1369,19 +1370,22 @@ function doSearch(q){
   const results=document.getElementById('searchResults');
   const kbd=document.getElementById('searchKbd');
   const overlay=document.getElementById('searchOverlay');
+  const discoverCard=document.querySelector('.discover-card');
   if(!q){
     results.classList.remove('active');
     kbd.style.display='';
     if(overlay) overlay.classList.remove('active');
+    if(discoverCard) discoverCard.classList.remove('search-active');
     render();
     return;
   }
   kbd.style.display='none';
+  if(discoverCard) discoverCard.classList.add('search-active');
   if(overlay){
-    const sw = document.getElementById('searchInput');
-    if(sw){
-      const rect = sw.getBoundingClientRect();
-      overlay.style.top = (rect.bottom + 6) + 'px';
+    const anchor=discoverCard||document.getElementById('searchInput');
+    if(anchor){
+      const rect=anchor.getBoundingClientRect();
+      overlay.style.top=(rect.bottom+6)+'px';
     }
     overlay.classList.add('active');
   }
@@ -1452,7 +1456,7 @@ document.addEventListener('keydown',e=>{
   }
 });
 document.addEventListener('click',e=>{
-  if(!e.target.closest('.search-wrap') && !e.target.closest('.search-overlay')){
+  if(!e.target.closest('.discover-card')){
     doSearch('');
   }
   hidePreview();
