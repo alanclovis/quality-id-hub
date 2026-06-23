@@ -5051,12 +5051,35 @@ function getMondayISO(d=new Date()){
 }
 function ensurePrioritiesData(){
   if(!data.priorities) data.priorities=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES));
-  if(!data.priorities.slots) data.priorities.slots={};
+  migratePrioritiesToWeeks(data.priorities);
+  normalizePrioritiesForSave(data.priorities);
   if(!data.priorities.queues?.length) data.priorities.queues=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES.queues));
   if(!data.priorities.instructions) data.priorities.instructions=DEFAULT_PRIORITIES.instructions;
-  if(!data.priorities.weekStart) data.priorities.weekStart=getMondayISO();
-  if(!priWeekStart) priWeekStart=data.priorities.weekStart;
+  if(priWeekStart===null) priWeekStart=getMondayISO();
   return data.priorities;
+}
+function migratePrioritiesToWeeks(pri){
+  if(pri.weeks) return;
+  pri.weeks={};
+  const weekKey=pri.weekStart||getMondayISO();
+  const counts={};
+  (pri.queues||[]).forEach(q=>{
+    if(q.count!=null) counts[q.id]=q.count;
+  });
+  pri.weeks[weekKey]={
+    slots:{...(pri.slots||{})},
+    counts,
+  };
+}
+function priGetWeekData(weekStart=priWeekStart){
+  ensurePrioritiesData();
+  return data.priorities.weeks?.[weekStart]||null;
+}
+function normalizePrioritiesForSave(pri){
+  migratePrioritiesToWeeks(pri);
+  delete pri.weekStart;
+  delete pri.slots;
+  (pri.queues||[]).forEach(q=>{ delete q.count; });
 }
 function formatPriWeekRange(weekStartISO){
   const start=new Date(weekStartISO+'T12:00:00');
@@ -5105,8 +5128,7 @@ function priGoCurrentWeek(){
   renderPriorities();
 }
 function priIsConfiguredWeek(weekStart=priWeekStart){
-  ensurePrioritiesData();
-  return weekStart===data.priorities.weekStart;
+  return !!priGetWeekData(weekStart);
 }
 function priEmptySlots(){
   const slots={};
@@ -5114,8 +5136,9 @@ function priEmptySlots(){
   return slots;
 }
 function priQueueCountsFromData(){
+  const wk=priGetWeekData(priWeekStart);
   const counts={};
-  ensurePrioritiesData().queues.forEach(q=>{ counts[q.id]=q.count||0; });
+  ensurePrioritiesData().queues.forEach(q=>{ counts[q.id]=wk?.counts?.[q.id]??0; });
   return counts;
 }
 function priZeroQueueCounts(){
@@ -5125,21 +5148,23 @@ function priZeroQueueCounts(){
 }
 function priGetQueueCount(q){
   if(priEditMode&&priEditDraft) return priEditDraft.counts[q.id]||0;
-  if(!priIsConfiguredWeek()) return 0;
-  return q.count||0;
+  const wk=priGetWeekData(priWeekStart);
+  if(!wk) return 0;
+  return wk.counts?.[q.id]??0;
 }
 function priGetSlot(day,shift){
   const key=priSlotKey(day,shift);
   if(priEditMode&&priEditDraft) return priEditDraft.slots[key]||'';
-  if(!priIsConfiguredWeek()) return '';
-  return data.priorities.slots[key]||'';
+  const wk=priGetWeekData(priWeekStart);
+  if(!wk) return '';
+  return wk.slots?.[key]||'';
 }
 function startPriEditDraft(){
-  const configured=priIsConfiguredWeek();
+  const wk=priGetWeekData(priWeekStart);
   priEditDraft={
     weekStart:priWeekStart,
-    slots:configured?{...data.priorities.slots}:priEmptySlots(),
-    counts:configured?priQueueCountsFromData():priZeroQueueCounts(),
+    slots:wk?{...wk.slots}:priEmptySlots(),
+    counts:wk?{...wk.counts}:priZeroQueueCounts(),
   };
 }
 function priAllSlotKeys(){
@@ -5258,7 +5283,6 @@ function cancelPrioritiesEdit(){
   priEditMode=false;
   priEditDraft=null;
   priResetSelection();
-  priWeekStart=data.priorities.weekStart||getMondayISO();
   updatePriEditUI();
   renderPriorities();
 }
@@ -5291,9 +5315,14 @@ function collectPrioritiesFromUI(){
 }
 function applyPriEditDraft(){
   const pri=ensurePrioritiesData();
-  pri.weekStart=priEditDraft.weekStart;
-  pri.slots={...priEditDraft.slots};
-  pri.queues.forEach(q=>{ q.count=priEditDraft.counts[q.id]||0; });
+  if(!pri.weeks) pri.weeks={};
+  const now=new Date().toISOString();
+  pri.weeks[priEditDraft.weekStart]={
+    slots:{...priEditDraft.slots},
+    counts:{...priEditDraft.counts},
+    updatedAt:now,
+  };
+  normalizePrioritiesForSave(pri);
 }
 function addPriQueue(){
   if(!priEditMode||!canEditContent()) return;
@@ -5303,7 +5332,7 @@ function addPriQueue(){
   if(!name){ alert('Informe o nome da fila.'); return; }
   const pri=ensurePrioritiesData();
   if(pri.queues.some(q=>q.name===name)){ alert('Esta fila já existe na lista.'); return; }
-  pri.queues.push({id:'q'+Date.now(),name,count:0});
+  pri.queues.push({id:'q'+Date.now(),name});
   if(!priEditDraft.counts) priEditDraft.counts={};
   priEditDraft.counts[pri.queues[pri.queues.length-1].id]=0;
   if(inp) inp.value='';
@@ -5346,7 +5375,6 @@ async function savePriorities(){
   priEditMode=false;
   priEditDraft=null;
   priResetSelection();
-  priWeekStart=data.priorities.weekStart;
   updatePriEditUI();
   renderPriorities();
   await saveToGist();
@@ -5356,8 +5384,10 @@ function renderPriorities(){
   document.getElementById('priWeekLabel').textContent=formatPriWeekRange(priWeekStart);
   const meta=document.getElementById('priMeta');
   const configured=priIsConfiguredWeek();
-  if(configured&&pri.updatedAt){
-    meta.textContent='Atualizado em '+new Date(pri.updatedAt).toLocaleString('pt-BR');
+  const wk=priGetWeekData(priWeekStart);
+  const weekUpdated=wk?.updatedAt||pri.updatedAt;
+  if(configured&&weekUpdated){
+    meta.textContent='Atualizado em '+new Date(weekUpdated).toLocaleString('pt-BR');
   } else if(!configured){
     meta.textContent='Esta semana ainda não foi configurada.'+(canEditContent()?' Clique em Editar semana para definir.':'');
   } else {
@@ -5397,7 +5427,7 @@ function renderPriorities(){
   if(bulkQueue) bulkQueue.innerHTML=priBuildQueueOptions('');
   updatePriSelectionUI();
   const viewEl=document.getElementById('priInstructionsView');
-  viewEl.textContent=pri.instructions||'';
+  if(viewEl) viewEl.textContent=pri.instructions||'';
   const sum=document.getElementById('priSummary');
   const queuesHint=document.getElementById('priQueuesHint');
   const queuesToolbar=document.getElementById('priQueuesToolbar');
