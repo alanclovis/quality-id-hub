@@ -1577,6 +1577,25 @@ const DEFAULT_PRIORITIES={
   ],
   updatedAt:'2026-06-18T00:00:00.000Z',
 };
+/** Backup semana 15–19 jun 2026 (restaurado se sumir do Gist) */
+const ARCHIVED_PRIORITY_WEEKS={
+  '2026-06-15':{
+    updatedAt:'2026-06-19T01:00:00.000Z',
+    slots:{
+      'seg-manha':'data-labeling-hsp-id-fraudadoresearquivados',
+      'seg-tarde':'data-labeling-hsp-id-fraudadoresearquivados',
+      'ter-manha':'data-labeling-hsp-id-fraudadoresearquivados',
+      'ter-tarde':'data-labeling-hsp-id-fraudadoresearquivados',
+      'qua-manha':'data-labeling-hsp-id-catchandrelease',
+      'qua-tarde':'data-labeling-hsp-id-catchandrelease',
+      'qui-manha':'data-labeling-id-catch-and-release',
+      'qui-tarde':'data-labeling-id-catch-and-release',
+      'sex-manha':'data-labeling-id-amostra-decision',
+      'sex-tarde':'data-labeling-id-amostra-decision',
+    },
+    counts:{q1:93,q2:376,q3:213,q4:27,q5:41},
+  },
+};
 
 // ── Logo helpers ───────────────────────────────────────────────────────────────
 function findLogo(id){
@@ -2630,7 +2649,14 @@ async function loadFromGistInner(){
     }
     const roleSynced=applyLoadedPackData(parsed,json.updated_at);
     hideStatus();
-    if(roleSynced){
+    if(priArchivedRestorePending){
+      priArchivedRestorePending=false;
+      if(canWriteGist()&&getGistId()){
+        showStatus('loading','Publicando semana 15–19 jun restaurada...');
+        await saveToGist();
+        showStatus('success','Semana 15–19 jun restaurada no pack.');setTimeout(hideStatus,4000);
+      }
+    }else if(roleSynced){
       saveLocal();
       if(canWriteGist()&&getGistId()) await saveToGist();
     }
@@ -5049,13 +5075,28 @@ function getMondayISO(d=new Date()){
   date.setHours(0,0,0,0);
   return date.toISOString().slice(0,10);
 }
+let priArchivedRestorePending=false;
+function seedArchivedPriorityWeeks(pri){
+  if(!pri.weeks) pri.weeks={};
+  let added=false;
+  Object.entries(ARCHIVED_PRIORITY_WEEKS).forEach(([wk,snap])=>{
+    if(!pri.weeks[wk]){
+      pri.weeks[wk]=JSON.parse(JSON.stringify(snap));
+      added=true;
+    }
+  });
+  if(added) priArchivedRestorePending=true;
+  return added;
+}
 function ensurePrioritiesData(){
   if(!data.priorities) data.priorities=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES));
   migratePrioritiesToWeeks(data.priorities);
+  const seeded=seedArchivedPriorityWeeks(data.priorities);
   normalizePrioritiesForSave(data.priorities);
   if(!data.priorities.queues?.length) data.priorities.queues=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES.queues));
   if(!data.priorities.instructions) data.priorities.instructions=DEFAULT_PRIORITIES.instructions;
   if(priWeekStart===null) priWeekStart=getMondayISO();
+  if(seeded) saveLocal();
   return data.priorities;
 }
 function migratePrioritiesToWeeks(pri){
