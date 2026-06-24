@@ -475,4 +475,20 @@
   background: #820ad1; animation: dimPulse 1s infinite;
 }
 body.dim-page-active .hub-build-footer.dim-footer-hidden { display: none; }
+
+.dim-fallback-footer {
+  text-align: center;
+  padding: 12px 16px 16px;
+  font-size: 12px;
+  color: var(--text3);
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+.dim-fallback-footer a {
+  color: #820ad1;
+  text-decoration: none;
+  font-weight: 500;
+}
+.dim-fallback-footer a:hover { text-decoration: underline; }
+
 @keyframes dimPulse { 0%,100%{opacity:.3} 50%{opacity:1} }
