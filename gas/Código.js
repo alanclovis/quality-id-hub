@@ -37,9 +37,10 @@ function include(filename) {
 }
 
 // --- LEITURA DE DADOS (BLINDADA) ---
-function getUserSchedule() {
+function getUserSchedule(payload) {
+  payload = payload || {};
   try {
-    const userEmail = Session.getActiveUser().getEmail().toLowerCase().trim();
+    const userEmail = _core_resolveUserEmail_(payload);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     if (!userEmail) {
@@ -60,9 +61,7 @@ function getUserSchedule() {
     if (data.length < 2) return { schedule: {}, userEmail: userEmail };
 
     const headers = data[0];
-    const colEmailIdx = 7; 
-    const colDataIdx = 3;  
-    const colSemanaIdx = 4; 
+    const cols = _core_mapSheetColumns_(headers);
 
     // 1. Carrega detalhes
     const detailsMap = {};
@@ -75,7 +74,7 @@ function getUserSchedule() {
         if (!row[4]) continue;
 
         const rowAnalyst = String(row[4]).toLowerCase().trim();
-        if (rowAnalyst.includes(userEmail) || userEmail.includes(rowAnalyst.split('@')[0])) {
+        if (_core_rowMatchesUser_(rowAnalyst, rowAnalyst, userEmail)) {
            const keyDate = _core_formatDateToISO(row[2]); 
            const keyTime = _core_normalizeTimeStr(row[3]); 
            const key = `${keyDate}_${keyTime}`; 
@@ -91,46 +90,48 @@ function getUserSchedule() {
     }
 
     const result = {};
+    const slotStart = cols.slotStart >= 0 ? cols.slotStart : SLOT_START_COL_INDEX;
     
     // 2. Processa grade
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      const rowEmail = row[colEmailIdx] ? String(row[colEmailIdx]).toLowerCase().trim() : "";
-      const rowAnalyst = row[6] ? String(row[6]).toLowerCase().trim() : "";
+      const rowEmail = cols.email >= 0 && row[cols.email] ? String(row[cols.email]).toLowerCase().trim() : "";
+      const rowAnalyst = cols.analista >= 0 && row[cols.analista] ? String(row[cols.analista]).toLowerCase().trim() : "";
       
-      if (_core_rowMatchesUser_(rowEmail, rowAnalyst, userEmail)) {
-          const dateVal = row[colDataIdx];
-          const dateIso = _core_formatDateToISO(dateVal);
-          
-          if (!dateIso) continue;
+      if (!_core_rowMatchesUser_(rowEmail, rowAnalyst, userEmail)) continue;
 
-          let weekNum = row[colSemanaIdx] ? String(row[colSemanaIdx]).trim() : _core_getWeekNumber(_core_parseDate(dateIso));
-          const dateObj = _core_parseDate(dateIso); 
-          
-          if (dateObj instanceof Date && !isNaN(dateObj)) {
-              const dayName = _core_dayNameFromRow_(row, dateObj);
+      const dayName = _core_dayNameFromRow_(row, null, cols.dia);
+      if (!_core_isWeekdayName_(dayName)) continue;
 
-              if (_core_isWeekdayName_(dayName)) {
-                 if (!result[weekNum]) result[weekNum] = {};
-                 if (!result[weekNum][dayName]) result[weekNum][dayName] = {};
+      let weekNum = cols.semana >= 0 ? _core_parseWeekNum_(row[cols.semana]) : '';
+      let dateIso = cols.data >= 0 ? _core_formatDateToISO(row[cols.data]) : '';
+      if (!dateIso) dateIso = _core_dateFromWeekAndDay_(weekNum, dayName);
+      if (!dateIso) continue;
 
-                 for (let h = SLOT_START_COL_INDEX; h < headers.length; h++) {
-                   const timeHeader = headers[h];
-                   if (timeHeader) {
-                     const normalizedTimeKey = _core_normalizeTimeStr(timeHeader);
-                     if (normalizedTimeKey) {
-                         const key = `${dateIso}_${normalizedTimeKey}`;
-                         const cellValue = row[h] ? String(row[h]) : "";
-                         
-                         result[weekNum][dayName][normalizedTimeKey] = { 
-                           task: cellValue, 
-                           details: detailsMap[key] || null
-                         };
-                     }
-                   }
-                 }
-              }
+      const dateObj = _core_parseDate(dateIso);
+      if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) continue;
+
+      if (!weekNum) weekNum = _core_getWeekNumber(dateObj);
+      weekNum = _core_parseWeekNum_(weekNum);
+      if (!weekNum) continue;
+
+      if (!result[weekNum]) result[weekNum] = {};
+      if (!result[weekNum][dayName]) result[weekNum][dayName] = {};
+
+      for (let h = slotStart; h < headers.length; h++) {
+        const timeHeader = headers[h];
+        if (timeHeader) {
+          const normalizedTimeKey = _core_normalizeTimeStr(timeHeader);
+          if (normalizedTimeKey) {
+              const key = `${dateIso}_${normalizedTimeKey}`;
+              const cellValue = row[h] ? String(row[h]) : "";
+              
+              result[weekNum][dayName][normalizedTimeKey] = { 
+                task: cellValue, 
+                details: detailsMap[key] || null
+              };
           }
+        }
       }
     }
 
@@ -144,7 +145,97 @@ function getUserSchedule() {
 function _core_resolveUserEmail_(payload) {
   const fromPayload = payload && payload.userEmail ? String(payload.userEmail).toLowerCase().trim() : '';
   const fromSession = Session.getActiveUser().getEmail().toLowerCase().trim();
-  return fromPayload || fromSession;
+  const fromEffective = Session.getEffectiveUser().getEmail().toLowerCase().trim();
+  return fromPayload || fromSession || fromEffective;
+}
+
+function _core_findCol_(header, names) {
+  const targets = names.map(function (n) { return String(n).trim().toUpperCase(); });
+  for (let i = 0; i < header.length; i++) {
+    const h = String(header[i] || '').trim().toUpperCase();
+    if (targets.indexOf(h) >= 0) return i;
+  }
+  return -1;
+}
+
+/** Detecta colunas pelo cabeçalho; fallback nos índices padrão da aba H1.2026 */
+function _core_mapSheetColumns_(header) {
+  let colDia = _core_findCol_(header, ['DIA SEMANA', 'DIA_SEMANA', 'DIA DA SEMANA', 'DIA']);
+  if (colDia < 0 && header.length > 2) colDia = 2;
+  let colData = _core_findCol_(header, ['DATA', 'DATE']);
+  if (colData < 0 && header.length > 3) colData = 3;
+  let colSemana = _core_findCol_(header, ['SEMANA', 'WEEK']);
+  if (colSemana < 0 && header.length > 4) colSemana = 4;
+  let colAnalista = _core_findCol_(header, ['ANALISTA', 'ANALYST']);
+  if (colAnalista < 0 && header.length > 6) colAnalista = 6;
+  let colEmail = _core_findCol_(header, ['E-MAIL', 'EMAIL', 'E_MAIL']);
+  if (colEmail < 0 && header.length > 7) colEmail = 7;
+
+  let slotStart = typeof SLOT_START_COL_INDEX !== 'undefined' ? SLOT_START_COL_INDEX : 8;
+  for (let j = slotStart; j < header.length; j++) {
+    if (_core_normalizeTimeStr(header[j])) break;
+  }
+
+  return {
+    dia: colDia,
+    data: colData,
+    semana: colSemana,
+    analista: colAnalista,
+    email: colEmail,
+    slotStart: slotStart
+  };
+}
+
+function _core_parseWeekNum_(val) {
+  if (val === '' || val == null) return '';
+  if (typeof val === 'number' && isFinite(val)) return String(Math.round(val));
+  const s = String(val).trim().replace(',', '.');
+  const m = s.match(/\d+/);
+  return m ? String(parseInt(m[0], 10)) : '';
+}
+
+function _core_dayKeyFromName_(dayName) {
+  const d = String(dayName || '').toLowerCase();
+  if (d.indexOf('segunda') >= 0 || d === 'seg') return 'seg';
+  if (d.indexOf('terça') >= 0 || d.indexOf('terca') >= 0 || d === 'ter') return 'ter';
+  if (d.indexOf('quarta') >= 0 || d === 'qua') return 'qua';
+  if (d.indexOf('quinta') >= 0 || d === 'qui') return 'qui';
+  if (d.indexOf('sexta') >= 0 || d === 'sex') return 'sex';
+  return '';
+}
+
+/** Calcula yyyy-mm-dd a partir da semana ISO da planilha + nome do dia (segunda…) */
+function _core_dateFromWeekAndDay_(weekNum, dayName) {
+  weekNum = _core_parseWeekNum_(weekNum);
+  const dayKey = _core_dayKeyFromName_(dayName);
+  if (!weekNum || !dayKey) return '';
+  const keyMap = { seg: 0, ter: 1, qua: 2, qui: 3, sex: 4 };
+  const idx = keyMap[dayKey];
+  if (idx == null) return '';
+
+  const simpleYear = 2026;
+  const d = new Date(simpleYear, 0, 1 + (Number(weekNum) - 1) * 7);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.getFullYear(), d.getMonth(), diff);
+  const current = new Date(monday);
+  current.setDate(monday.getDate() + idx);
+  const yyyy = current.getFullYear();
+  const mm = String(current.getMonth() + 1).padStart(2, '0');
+  const dd = String(current.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Busca semana no schedule normalizando chaves ("26", "26.0", etc.) */
+function _core_getScheduleWeek_(schedule, weekKey) {
+  if (!schedule) return {};
+  weekKey = _core_parseWeekNum_(weekKey);
+  if (schedule[weekKey]) return schedule[weekKey];
+  const keys = Object.keys(schedule);
+  for (let i = 0; i < keys.length; i++) {
+    if (_core_parseWeekNum_(keys[i]) === weekKey) return schedule[keys[i]];
+  }
+  return {};
 }
 
 function _core_normalizeUserKey_(s) {
@@ -168,9 +259,10 @@ function _core_rowMatchesUser_(rowEmail, rowAnalyst, userEmail) {
   return false;
 }
 
-/** Usa coluna DIA SEMANA (C) quando existir; senão deriva da data local */
-function _core_dayNameFromRow_(row, dateObj) {
-  const rawDia = row[2] != null ? String(row[2]).trim().toLowerCase() : '';
+/** Usa coluna DIA SEMANA quando existir; senão deriva da data local */
+function _core_dayNameFromRow_(row, dateObj, diaIdx) {
+  const idx = diaIdx != null && diaIdx >= 0 ? diaIdx : 2;
+  const rawDia = row[idx] != null ? String(row[idx]).trim().toLowerCase() : '';
   if (rawDia.indexOf('segunda') >= 0) return 'segunda';
   if (rawDia.indexOf('terça') >= 0 || rawDia.indexOf('terca') >= 0) return 'terça';
   if (rawDia.indexOf('quarta') >= 0) return 'quarta';

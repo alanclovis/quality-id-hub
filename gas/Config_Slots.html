@@ -15,8 +15,11 @@
   // === FUNÇÕES UTILITÁRIAS GLOBAIS ===
   
   function getCurrentWeekNumber() {
-    // AJUSTE: Como o DIM é 2026, iniciamos sempre na semana 1 para facilitar a visualização
-    return 1;
+    const date = new Date();
+    const t = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+    const ys = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return Math.ceil((((t - ys) / 86400000) + 1) / 7);
   }
 
   function normalizeTime(timeStr) {

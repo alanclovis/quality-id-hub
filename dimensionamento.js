@@ -128,6 +128,7 @@
   };
 
   const DIM_WEEK_CACHE_TTL = 21600000; // 6h
+  const DIM_WEEK_CACHE_VERSION = 2;
   const DIM_SESSION_TTL = 28800000; // 8h
 
   function dimLoadDictionaryFallback() {
@@ -333,7 +334,22 @@
     return '';
   }
 
-  function dimWeekCacheKey(week) {
+  function dimNormalizeWeekKey(week) {
+    if (week === '' || week == null) return '';
+    const m = String(week).trim().replace(',', '.').match(/\d+/);
+    return m ? String(parseInt(m[0], 10)) : '';
+  }
+
+  function dimLookupRawSchedule(rawSchedule, week) {
+    if (!rawSchedule) return null;
+    const weekKey = dimNormalizeWeekKey(week);
+    if (rawSchedule[weekKey]) return rawSchedule[weekKey];
+    const keys = Object.keys(rawSchedule);
+    for (let i = 0; i < keys.length; i++) {
+      if (dimNormalizeWeekKey(keys[i]) === weekKey) return rawSchedule[keys[i]];
+    }
+    return null;
+  }
     const email = dimGetCacheEmail();
     if (!email) return null;
     return 'qhub_dim_week_' + week + '_' + email.replace(/[^a-z0-9@._-]/gi, '_');
@@ -403,6 +419,7 @@
         if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (!parsed || !parsed.schedule) return null;
+        if (parsed.v !== DIM_WEEK_CACHE_VERSION) return null;
         if (parsed.ts && Date.now() - parsed.ts > DIM_WEEK_CACHE_TTL) return null;
         return parsed.schedule;
       } catch (e) {
@@ -438,7 +455,7 @@
     const key = dimWeekCacheKey(week);
     if (!key || !schedule) return;
     try {
-      localStorage.setItem(key, JSON.stringify({ schedule: schedule, ts: Date.now() }));
+      localStorage.setItem(key, JSON.stringify({ schedule: schedule, ts: Date.now(), v: DIM_WEEK_CACHE_VERSION }));
     } catch (e) { /* ignore */ }
   }
 
@@ -1161,13 +1178,12 @@
     const schedule = dimState.schedule;
     if (!schedule) return { records: [], pending: [], pendingCount: 0 };
 
-    const weekKey = String(week != null ? week : schedule.week || dimGetIsoWeek());
-    let weekData = null;
-    if (schedule.rawSchedule && schedule.rawSchedule[weekKey]) {
-      weekData = schedule.rawSchedule[weekKey];
-    } else if (schedule.days) {
+    const weekKey = dimNormalizeWeekKey(week != null ? week : schedule.week || dimGetIsoWeek());
+    let weekData = dimLookupRawSchedule(schedule.rawSchedule, weekKey);
+    if (!weekData && schedule.days) {
       weekData = dimWeekDataFromHubDays(schedule.days);
-    } else {
+    }
+    if (!weekData) {
       return { records: [], pending: [], pendingCount: 0 };
     }
 
@@ -1900,7 +1916,10 @@
     }
 
     try {
-      const schedule = await dimCall('getUserSchedule', { week: week });
+      const schedule = await dimCall('getUserSchedule', {
+        week: week,
+        userEmail: dimSaveUserEmail() || undefined
+      });
       if (loadId !== dimState.loadWeekSeq) return;
       dimApplySchedule(schedule);
       dimSaveWeekCache(week, schedule);

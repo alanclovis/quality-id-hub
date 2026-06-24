@@ -24,7 +24,7 @@ function hubHandleAction_(action, payload) {
     case 'getSessionInfo':
       return hubGetSessionInfo_();
     case 'getUserSchedule':
-      return hubGetUserSchedule_(payload && payload.week);
+      return hubGetUserSchedule_(payload || {});
     case 'saveBatchData':
       return hubSaveBatchData_(payload || {});
     case 'getPendingDetails':
@@ -81,19 +81,21 @@ function hubGetWeekDateMap_(weekKey, userEmail) {
   userEmail = String(userEmail || '').toLowerCase().trim();
   weekKey = String(weekKey);
   var lastRow = sheet.getLastRow();
-  var numRows = Math.max(1, lastRow - 1);
-  var rows = sheet.getRange(2, 1, numRows, 8).getDisplayValues();
+  if (lastRow < 2) return map;
+  var rows = sheet.getRange(2, 1, lastRow, 8).getDisplayValues();
 
   rows.forEach(function (row) {
     var email = String(row[7] || '').toLowerCase().trim();
     var analyst = String(row[6] || '').toLowerCase().trim();
     if (!_core_rowMatchesUser_(email, analyst, userEmail)) return;
-    var weekNum = row[4] != null ? String(row[4]).trim() : '';
-    if (weekNum !== weekKey) return;
+    var weekNum = _core_parseWeekNum_(row[4]);
+    if (weekNum !== _core_parseWeekNum_(weekKey)) return;
     var dateIso = _core_formatDateToISO(row[3]);
+    var dayName = _core_dayNameFromRow_(row, null, 2);
+    if (!dateIso) dateIso = _core_dateFromWeekAndDay_(weekNum, dayName);
     if (!dateIso) return;
     var d = _core_parseDate(dateIso);
-    var dayName = _core_dayNameFromRow_(row, d);
+    if (!dayName || !_core_isWeekdayName_(dayName)) dayName = _core_dayNameFromRow_(row, d, 2);
     if (_core_isWeekdayName_(dayName)) map[dayName] = dateIso;
   });
   return map;
@@ -121,12 +123,13 @@ function hubComputeDateForWeekDay_(weekNum, dayKey) {
 }
 
 /** Adapta { schedule, userEmail } do seu getUserSchedule() para o formato do Hub */
-function hubGetUserSchedule_(week) {
-  var raw = getUserSchedule();
+function hubGetUserSchedule_(payload) {
+  payload = payload || {};
+  var raw = getUserSchedule(payload);
   if (raw.error) throw new Error(raw.error);
 
-  var weekKey = String(week != null ? week : hubGetCurrentWeek_());
-  var weekData = (raw.schedule && raw.schedule[weekKey]) || {};
+  var weekKey = _core_parseWeekNum_(payload.week != null ? payload.week : hubGetCurrentWeek_());
+  var weekData = _core_getScheduleWeek_(raw.schedule, weekKey);
   var userEmail = raw.userEmail || Session.getActiveUser().getEmail().toLowerCase().trim();
   var dateByDayName = hubGetWeekDateMap_(weekKey, userEmail);
 
@@ -456,11 +459,11 @@ function hubBuildAdjustmentsFromWeekData_(weekKey, weekData, userEmail, detailTy
 }
 
 function hubGetAdjustments_(week) {
-  var raw = getUserSchedule();
+  var raw = getUserSchedule({ week: week });
   if (raw.error) throw new Error(raw.error);
 
-  var weekKey = String(week != null ? week : hubGetCurrentWeek_());
-  var weekData = (raw.schedule && raw.schedule[weekKey]) || {};
+  var weekKey = _core_parseWeekNum_(week != null ? week : hubGetCurrentWeek_());
+  var weekData = _core_getScheduleWeek_(raw.schedule, weekKey);
   var userEmail = raw.userEmail || Session.getActiveUser().getEmail().toLowerCase().trim();
   var config = hubGetConfig_();
   return hubBuildAdjustmentsFromWeekData_(
