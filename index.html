@@ -3633,7 +3633,10 @@ function syncDimensionamentoPageAccess(){
   const dimOk=updateDimensionamentoAccess();
   const becameAllowed=dimOk&&_dimAccessSnap!=='allowed';
   _dimAccessSnap=state;
-  if(dimOk&&becameAllowed&&typeof dimInit==='function') dimInit();
+  if(dimOk){
+    if(becameAllowed&&typeof dimInit==='function') dimInit();
+    else if(typeof dimEnsureLoaded==='function') dimEnsureLoaded();
+  }
   return dimOk;
 }
 
@@ -6054,6 +6057,6 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=26"></script>
+<script src="dimensionamento.js?v=27"></script>
 </body>
 </html>

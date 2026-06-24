@@ -114,7 +114,8 @@
     weekMenuBound: false,
     warming: false,
     warmupDone: false,
-    refreshingWeek: false
+    refreshingWeek: false,
+    initInProgress: false
   };
 
   const DIM_WEEK_CACHE_TTL = 21600000; // 6h
@@ -386,18 +387,34 @@
   }
 
   function dimReadWeekCache(week) {
-    const key = dimWeekCacheKey(week);
-    if (!key) return null;
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed || !parsed.schedule) return null;
-      if (parsed.ts && Date.now() - parsed.ts > DIM_WEEK_CACHE_TTL) return null;
-      return parsed.schedule;
-    } catch (e) {
-      return null;
+    function readKey(key) {
+      if (!key) return null;
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.schedule) return null;
+        if (parsed.ts && Date.now() - parsed.ts > DIM_WEEK_CACHE_TTL) return null;
+        return parsed.schedule;
+      } catch (e) {
+        return null;
+      }
     }
+
+    const hit = readKey(dimWeekCacheKey(week));
+    if (hit) return hit;
+
+    try {
+      const prefix = 'qhub_dim_week_' + week + '_';
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) {
+          const fallback = readKey(k);
+          if (fallback) return fallback;
+        }
+      }
+    } catch (e) { /* ignore */ }
+    return null;
   }
 
   function dimSaveWeekCache(week, schedule) {
@@ -464,9 +481,16 @@
   function dimExecBaseUrl() {
     const raw = dimGetBridgeUrl();
     if (!raw) return '';
-    return raw
-      .replace(/([?&])view=bridge(&|$)/g, function (m, p1, p2) { return p2 === '&' ? p1 : ''; })
-      .replace(/[?&]$/, '');
+    try {
+      const u = new URL(raw);
+      u.searchParams.delete('view');
+      u.searchParams.delete('hubReturn');
+      let out = u.toString();
+      if (out.endsWith('?')) out = out.slice(0, -1);
+      return out;
+    } catch (e) {
+      return String(raw).split('?')[0];
+    }
   }
 
   function dimJsonpApi(action, payload, timeoutMs) {
@@ -601,13 +625,37 @@
     const week = dimState.week || dimGetIsoWeek();
     const hadInstant = dimTryInstantWeek(week);
 
+    dimEnsureIframe();
+    dimUpdateStatus();
+
+    try {
+      await dimJsonpApi('getSessionInfo', {}, 12000).then(function (s) {
+        dimState.session = s;
+        dimSaveSession(s);
+        dimState.bridgeReady = true;
+        dimUpdateStatus();
+      });
+    } catch (e) { /* try popup next */ }
+
+    if (dimState.session) {
+      if (hadInstant || dimState.schedule) {
+        dimStartReloadTimer();
+        dimRefreshWeekInBackground(week);
+      } else {
+        try {
+          await dimLoadWeek(week);
+          dimStartReloadTimer();
+        } catch (err) {
+          if (!dimTryInstantWeek(week)) dimRenderError(String(err.message || err));
+        }
+      }
+      return;
+    }
+
     const w = dimOpenBridgePopup();
     if (!w) {
       if (hadInstant) {
         dimShowToast('Pop-up bloqueado — exibindo última versão. Permita pop-ups para sincronizar.', true);
-        dimEnsureSessionBackground(8000).then(function () {
-          if (dimState.session) dimRefreshWeekInBackground(week);
-        });
         return;
       }
       dimRenderError('Pop-up bloqueado. No Chrome: ícone à direita da barra de endereço → sempre permitir pop-ups neste site.');
@@ -620,7 +668,6 @@
         grid.innerHTML = '<div class="dim-empty-state"><span class="dim-saving-dot"></span><p>Conectando…<br>O popup vai redirecionar e fechar sozinho.</p></div>';
       }
     }
-    dimUpdateStatus();
     try {
       await dimWaitForBridgeReady(25000);
       if (hadInstant || dimState.schedule) {
@@ -631,7 +678,7 @@
         dimStartReloadTimer();
       }
     } catch (e) {
-      if (dimState.schedule) {
+      if (dimState.schedule || dimTryInstantWeek(week)) {
         dimShowToast('Sem conexão agora — exibindo última versão salva', true);
         dimStartReloadTimer();
         return;
@@ -776,19 +823,20 @@
       return Promise.reject(new Error('URL da ponte não configurada. Admin: Configuração → Técnico → URL Dimensionamento.'));
     }
     dimEnsureIframe();
-    const hopMs = Math.min(12000, timeoutMs);
+    const bridgeMs = Math.min(timeoutMs, 45000);
 
     function viaBridge() {
-      return dimWaitForBridgeTarget(6000).then(function (target) {
+      return dimWaitForBridgeTarget(8000).then(function (target) {
         if (!target) throw new Error('Bridge indisponível');
-        return dimCallViaPostMessage(action, payload, timeoutMs);
+        return dimCallViaPostMessage(action, payload, bridgeMs);
       });
     }
 
+    // JSONP is most reliable from GitHub Pages (no iframe/cookies dependency)
     return dimFirstResolved([
+      dimJsonpApi(action, payload, timeoutMs),
       viaBridge(),
-      dimJsonpApi(action, payload, hopMs),
-      dimFetchApi(action, payload, hopMs)
+      dimFetchApi(action, payload, Math.min(15000, timeoutMs))
     ]);
   }
 
@@ -917,7 +965,7 @@
   }
 
   async function dimRefreshPendingBadge() {
-    if (!dimState.session || !dimGetBridgeTarget()) return;
+    if (!dimState.schedule) return;
     try {
       const res = await dimCall('getPendingDetails', { week: dimState.week });
       dimUpdateAjustesBadge((res.pending || []).length);
@@ -1284,83 +1332,67 @@
 
   async function dimInit() {
     if (typeof hasOperationalProfile === 'function' && !hasOperationalProfile()) return;
-    dimBindGridSelection();
-    dimBindKeyboard();
-    dimBindWeekMenuClose();
-    dimUpdateSelectHint();
-    if (dimState.week == null) dimState.week = dimGetIsoWeek();
-    dimUpdateWeekLabel();
-    const url = dimGetBridgeUrl();
-    if (!url) {
-      dimRenderEmptySetup();
-      return;
-    }
-
-    dimEnsureIframe();
-    dimLoadSlotOptionsFallback();
-    const week = dimState.week;
-
-    dimRestoreSession();
-    const hadInstant = dimTryInstantWeek(week);
-    dimUpdateStatus();
-
-    if (!dimState.session) {
-      dimEnsureSessionBackground(hadInstant ? 10000 : 3500).then(function (s) {
-        if (s && dimState.schedule) dimRefreshWeekInBackground(week);
-      });
-    }
-
-    if (dimState.session) {
-      try {
-        if (hadInstant) {
-          dimStartReloadTimer();
-          dimRefreshPendingBadge();
-          dimMaybeShowOnboarding();
-          dimRefreshWeekInBackground(week);
-        } else {
-          await dimLoadWeek(week);
-          dimStartReloadTimer();
-          dimRefreshPendingBadge();
-          dimMaybeShowOnboarding();
-        }
-      } catch (e) {
-        if (dimState.schedule) {
-          dimShowToast('Não foi possível atualizar — exibindo última versão salva', true);
-          dimRefreshWeekInBackground(week);
-          dimStartReloadTimer();
-        } else {
-          dimState.session = null;
-          try { localStorage.removeItem('qhub_dim_session'); } catch (err) { /* ignore */ }
-          dimRenderConnectPrompt();
-        }
-      }
-      return;
-    }
-
-    if (hadInstant) {
-      dimStartReloadTimer();
-      dimMaybeShowOnboarding();
-      return;
-    }
+    if (dimState.initInProgress) return;
+    dimState.initInProgress = true;
 
     try {
-      await dimWaitForBridgeTarget(2500);
-    } catch (e) { /* ignore */ }
+      dimBindGridSelection();
+      dimBindKeyboard();
+      dimBindWeekMenuClose();
+      dimUpdateSelectHint();
+      if (dimState.week == null) dimState.week = dimGetIsoWeek();
+      dimUpdateWeekLabel();
+      const url = dimGetBridgeUrl();
+      if (!url) {
+        dimRenderEmptySetup();
+        return;
+      }
 
-    if (dimState.session) {
+      dimEnsureIframe();
+      dimLoadSlotOptionsFallback();
+      const week = dimState.week;
+
+      dimRestoreSession();
+      const hadInstant = dimTryInstantWeek(week);
+      dimUpdateStatus();
+
+      if (hadInstant) {
+        dimStartReloadTimer();
+        dimRefreshPendingBadge();
+        dimMaybeShowOnboarding();
+        dimRefreshWeekInBackground(week);
+        dimEnsureSessionBackground(8000).catch(function () { /* ignore */ });
+        return;
+      }
+
       try {
-        if (!dimTryInstantWeek(week)) await dimLoadWeek(week);
-        else dimRefreshWeekInBackground(week);
+        await dimLoadWeek(week);
         dimStartReloadTimer();
         dimRefreshPendingBadge();
         dimMaybeShowOnboarding();
       } catch (e) {
-        dimRenderConnectPrompt();
+        if (dimTryInstantWeek(week) || dimState.schedule) {
+          dimShowToast('Não foi possível atualizar — exibindo última versão salva', true);
+          dimStartReloadTimer();
+          dimRefreshWeekInBackground(week);
+        } else {
+          dimRenderConnectPrompt();
+        }
       }
+    } finally {
+      dimState.initInProgress = false;
+    }
+  }
+
+  function dimEnsureLoaded() {
+    if (!dimIsDimPageActive()) return;
+    if (dimState.initInProgress || dimState.loadingWeek) return;
+    const week = dimState.week || dimGetIsoWeek();
+    if (dimState.schedule && dimState.week === week) {
+      dimRenderAll();
       return;
     }
-
-    dimRenderConnectPrompt();
+    if (typeof dimInit === 'function') dimInit();
   }
 
   function dimScheduleWarmup() {
@@ -1370,9 +1402,8 @@
   }
 
   function dimWarmupFetchWeek() {
-    if (!dimState.session || dimState.warming) return;
+    if (dimState.warming || dimState.loadingWeek) return;
     if (dimState.warmupDone && dimState.schedule) return;
-    if (dimState.loadingWeek) return;
 
     dimState.warming = true;
     const week = dimState.week || dimGetIsoWeek();
@@ -1403,14 +1434,8 @@
 
     dimRestoreSession();
     dimTryInstantWeek(week, { render: false });
-
-    if (dimState.session) {
-      dimWarmupFetchWeek();
-    } else {
-      dimEnsureSessionBackground(8000).then(function (s) {
-        if (s) dimWarmupFetchWeek();
-      });
-    }
+    dimWarmupFetchWeek();
+    dimEnsureSessionBackground(8000).catch(function () { /* ignore */ });
   }
 
   function dimRenderConnectPrompt() {
@@ -2887,6 +2912,7 @@
 
   // Export globals
   global.dimInit = dimInit;
+  global.dimEnsureLoaded = dimEnsureLoaded;
   global.dimWarmup = dimWarmup;
   global.dimScheduleWarmup = dimScheduleWarmup;
   global.dimChangeWeek = dimChangeWeek;
