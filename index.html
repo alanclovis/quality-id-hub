@@ -629,7 +629,7 @@ body.light .fs-ausencia{background:#ede9fe;color:#5b21b6;}
 /* ── Sidebar ── */
 .app-shell{display:flex;min-height:100vh;}
 .sidebar{width:60px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:4px;flex-shrink:0;transition:width .2s;position:fixed;top:0;left:0;bottom:0;z-index:40;}
-.sidebar.open{width:180px;align-items:flex-start;}
+.sidebar.open{width:200px;align-items:flex-start;}
 .sb-logo{width:40px;height:40px;border-radius:10px;background:var(--purple-bg);border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;color:var(--purple-l);font-size:22px;flex-shrink:0;margin:0 10px 8px;}
 .sidebar.open .sb-logo{margin:0 10px 8px;}
 .sb-divider{width:40px;height:1px;background:var(--border);margin:6px 10px;}
@@ -653,8 +653,19 @@ body.light .fs-ausencia{background:#ede9fe;color:#5b21b6;}
 .sb-spacer{flex:1;}
 .sb-toggle{padding:10px 12px;cursor:pointer;color:var(--text3);display:flex;align-items:center;justify-content:center;width:calc(100% - 8px);margin:0 4px;border-radius:var(--rs);font-size:22px;}
 .sb-toggle:hover{color:var(--text);background:var(--bg3);}
+.sb-user{
+  display:none;align-items:center;gap:10px;width:calc(100% - 8px);margin:0 4px 6px;
+  padding:8px 10px;border-radius:var(--rs);cursor:pointer;transition:background .12s;
+  overflow:hidden;flex-shrink:0;border:none;background:transparent;font:inherit;text-align:left;
+}
+.sb-user:hover{background:var(--bg3);}
+.sidebar:not(.open) .sb-user{justify-content:center;padding:8px 0;width:40px;margin:0 10px 6px;}
+.sb-user-text{display:none;flex-direction:column;min-width:0;line-height:1.25;gap:1px;}
+.sidebar.open .sb-user-text{display:flex;}
+.sb-user-name{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:148px;}
+.sb-user-role{font-size:10px;font-weight:500;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .main-area{flex:1;margin-left:60px;transition:margin-left .2s;min-height:100vh;display:flex;flex-direction:column;}
-.main-area.shifted{margin-left:180px;}
+.main-area.shifted{margin-left:200px;}
 
 /* Page visibility */
 .page{display:none;}
@@ -1313,6 +1324,10 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   </div>
   <div class="sb-reorder-hint" id="sbReorderHint">Arraste para reordenar</div>
   <div class="sb-spacer"></div>
+  <button type="button" class="sb-user" id="sbUser" onclick="openNameModal()" title="Editar perfil" style="display:none">
+    <div class="sb-user-avatar profile-av" id="sbUserAvatar"></div>
+    <span class="sb-user-text"><span class="sb-user-name" id="sbUserName"></span><span class="sb-user-role" id="sbUserRole"></span></span>
+  </button>
   <div class="sb-toggle" onclick="toggleSidebar()" title="Recolher menu">
     <i class="ti ti-layout-sidebar-left-collapse" id="sbToggleIcon"></i>
   </div>
@@ -3827,12 +3842,27 @@ function openNameModal(){
 function renderUserChip(){
   const name=getUserName();
   const chip=document.getElementById('userChip');
-  if(!name||!hasClaimedIdentity()){ chip.style.display='none'; return; }
+  if(!name||!hasClaimedIdentity()){ chip.style.display='none'; renderSidebarUser(); return; }
   chip.style.display='flex';
   mountAvatar('userAvatarEl',name,22,'user-avatar');
   document.getElementById('userNameEl').textContent=name.split(' ')[0];
   const summary=formatProfileSummary(findProfile(name));
   chip.title=summary?`${name} — ${summary}`:'Editar perfil';
+  renderSidebarUser();
+}
+function renderSidebarUser(){
+  const el=document.getElementById('sbUser');
+  if(!el) return;
+  const name=getUserName();
+  if(!name||!hasClaimedIdentity()){ el.style.display='none'; return; }
+  el.style.display='flex';
+  mountAvatar('sbUserAvatar',name,32,'sb-user-avatar');
+  document.getElementById('sbUserName').textContent=name.split(' ')[0];
+  const role=getUserRole();
+  const roleEl=document.getElementById('sbUserRole');
+  if(roleEl) roleEl.textContent=ACCESS_ROLE_LABELS[role]||'';
+  const summary=formatProfileSummary(findProfile(name));
+  el.title=summary?`${name} — ${summary}`:'Editar perfil';
 }
 document.getElementById('nameInput').addEventListener('keydown',e=>{
   if(e.key==='Enter') saveProfile();
