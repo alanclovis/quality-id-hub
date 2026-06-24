@@ -5786,7 +5786,13 @@ window.addEventListener('DOMContentLoaded',()=>{
   </div>
 
   <div class="dim-panel" id="dimPanelControle">
-    <input type="search" class="dim-controle-search" id="dimControleSearch" placeholder="Buscar slot, tipo ou regra…" oninput="dimRenderControle()">
+    <div class="dim-controle-header">
+      <div class="dim-controle-header-text">
+        <h3 class="dim-controle-title">Dicionário de Slots</h3>
+        <p class="dim-controle-sub">Consulte as definições dos slots.</p>
+      </div>
+      <input type="search" class="dim-controle-search" id="dimControleSearch" placeholder="Buscar por nome, tipo ou regra…" oninput="dimRenderControle()">
+    </div>
     <div id="dimControleBody"></div>
   </div>
 </div>
@@ -5812,6 +5818,6 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=9"></script>
+<script src="dimensionamento.js?v=10"></script>
 </body>
 </html>

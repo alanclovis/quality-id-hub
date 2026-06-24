@@ -26,8 +26,54 @@
     pendingList: [],
     detailDraft: null,
     bridgePopup: null,
-    slotOptionsFallback: null
+    slotOptionsFallback: null,
+    dictionaryFallback: null
   };
+
+  function dimLoadDictionaryFallback() {
+    if (dimState.dictionaryFallback) {
+      return Promise.resolve(dimState.dictionaryFallback);
+    }
+    return fetch('dim-slot-dictionary.json?_=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('fetch failed');
+        return r.json();
+      })
+      .then(function (data) {
+        dimState.dictionaryFallback = data && data.items ? data : { items: [] };
+        return dimState.dictionaryFallback;
+      })
+      .catch(function () {
+        dimState.dictionaryFallback = { items: [] };
+        return dimState.dictionaryFallback;
+      });
+  }
+
+  function dimEnsureDictionary() {
+    if (dimState.dictionary && dimState.dictionary.items && dimState.dictionary.items.length >= 5) {
+      return Promise.resolve(dimState.dictionary);
+    }
+    return dimCall('getSlotDictionary', {}).then(function (d) {
+      if (d && d.items && d.items.length >= 5) {
+        dimState.dictionary = d;
+        return d;
+      }
+      return dimLoadDictionaryFallback().then(function (fb) {
+        dimState.dictionary = fb;
+        return fb;
+      });
+    }).catch(function () {
+      return dimLoadDictionaryFallback().then(function (fb) {
+        dimState.dictionary = fb;
+        return fb;
+      });
+    });
+  }
+
+  function dimSlotBadgeHtml(tipo) {
+    const col = dimColorFor(tipo);
+    return '<span class="dim-slot-badge" style="' + dimCellStyle(col) + '">' + escapeHtml(tipo) + '</span>';
+  }
 
   function dimLoadSlotOptionsFallback() {
     if (dimState.slotOptionsFallback) {
@@ -624,13 +670,12 @@
     const label = document.getElementById('dimWeekLabel');
     if (label) label.textContent = 'Semana ' + week + (week <= 26 ? ' · H1' : ' · H2');
     try {
-      const [schedule, dictionary] = await Promise.all([
+      const [schedule] = await Promise.all([
         dimCall('getUserSchedule', { week: week }),
-        dimState.dictionary ? Promise.resolve(dimState.dictionary) : dimCall('getSlotDictionary', {}),
-        dimLoadSlotOptionsFallback()
+        dimLoadSlotOptionsFallback(),
+        dimEnsureDictionary()
       ]);
       dimState.schedule = schedule;
-      dimState.dictionary = dictionary;
       dimEnsureSlotOptions(schedule);
       dimEnsureDayDates(schedule);
       dimNormalizeScheduleTimes(schedule);
@@ -659,7 +704,9 @@
       panel.classList.toggle('active', panel.id === 'dimPanel' + tab.charAt(0).toUpperCase() + tab.slice(1));
     });
     if (tab === 'ajustes') dimRenderAjustes();
-    if (tab === 'controle') dimRenderControle();
+    if (tab === 'controle') {
+      dimEnsureDictionary().then(function () { dimRenderControle(); });
+    }
   }
 
   function dimGetColors() {
@@ -1087,33 +1134,52 @@
 
   function dimRenderControle() {
     const el = document.getElementById('dimControleBody');
-    if (!el || !dimState.dictionary) return;
+    if (!el) return;
+    if (!dimState.dictionary || !dimState.dictionary.items) {
+      el.innerHTML = '<div class="dim-controle-empty"><span class="dim-saving-dot"></span> Carregando definições…</div>';
+      return;
+    }
     const q = (document.getElementById('dimControleSearch')?.value || '').toLowerCase();
     const items = (dimState.dictionary.items || []).filter(function (it) {
       if (!q) return true;
-      const hay = [it.atividade, it.tipoSlot, it.significado, it.classificacao].join(' ').toLowerCase();
+      const hay = [it.atividade, it.tipoSlot, it.significado, it.classificacao, it.conversao].join(' ').toLowerCase();
       return hay.indexOf(q) >= 0;
     });
     const groups = {};
+    const order = [];
     items.forEach(function (it) {
-      const cat = it.classificacao || (it.color && it.color.category) || 'Outros';
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(it);
+      const atividade = it.atividade || 'Outros';
+      if (!groups[atividade]) {
+        groups[atividade] = [];
+        order.push(atividade);
+      }
+      groups[atividade].push(it);
     });
-    const order = dimState.dictionary.categories || Object.keys(groups);
+    if (!order.length) {
+      el.innerHTML = '<div class="dim-controle-empty"><p>Nenhum resultado encontrado.</p><p class="dim-controle-empty-sub">Tente buscar por outro termo.</p></div>';
+      return;
+    }
     let html = '';
-    order.forEach(function (cat) {
-      if (!groups[cat] || !groups[cat].length) return;
-      html += '<div class="dim-controle-group"><h4>' + escapeHtml(cat) + '</h4>';
-      html += '<table class="dim-controle-table"><thead><tr><th>Slot</th><th>Significado</th><th>Conversão</th></tr></thead><tbody>';
-      groups[cat].forEach(function (it) {
-        const col = dimColorFor(it.tipoSlot);
-        html += '<tr><td><span class="dim-dropdown-swatch" style="background:' + col.bg + ';border:1px solid ' + (col.border || '#ddd') + ';display:inline-block;vertical-align:middle;margin-right:6px"></span>' +
-          escapeHtml(it.tipoSlot) + '</td><td>' + escapeHtml(it.significado || '—') + '</td><td>' + escapeHtml(it.conversao || '—') + '</td></tr>';
+    order.forEach(function (atividade) {
+      const rows = groups[atividade];
+      html += '<section class="dim-controle-block">';
+      html += '<div class="dim-controle-block-head"><span class="dim-controle-dot"></span>';
+      html += '<h4>' + escapeHtml(atividade) + '</h4>';
+      html += '<span class="dim-controle-count">' + rows.length + '</span></div>';
+      html += '<div class="dim-controle-table-wrap"><table class="dim-controle-table">';
+      html += '<thead><tr><th>Tipo de Slot</th><th>Significado / Regra</th><th>Classificação</th><th class="dim-controle-conv">Conv.</th></tr></thead><tbody>';
+      rows.forEach(function (it) {
+        html += '<tr>';
+        html += '<td class="dim-controle-tipo">' + dimSlotBadgeHtml(it.tipoSlot) + '</td>';
+        html += '<td class="dim-controle-significado">' + escapeHtml(it.significado || '—') + '</td>';
+        html += '<td><span class="dim-controle-class">' + escapeHtml(it.classificacao || '—') + '</span></td>';
+        html += '<td class="dim-controle-conv"><span class="dim-controle-conv-val" title="Como esse slot irá aparecer no planilhão/DIM oficial">' +
+          escapeHtml(it.conversao || '—') + '</span></td>';
+        html += '</tr>';
       });
-      html += '</tbody></table></div>';
+      html += '</tbody></table></div></section>';
     });
-    el.innerHTML = html || '<p style="color:var(--text3)">Nenhum slot encontrado.</p>';
+    el.innerHTML = html;
   }
 
   async function dimRunAutoDim() {

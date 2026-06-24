@@ -267,7 +267,8 @@ function hubGetSlotDictionary_() {
       conversao: String(row[4] || '')
     };
   }).filter(function (x) { return x.tipoSlot; });
-  return { items: items, categories: [] };
+  if (items.length >= 5) return { items: items, categories: [] };
+  return { items: [], categories: [] };
 }
 
 /** Mesma lista RAW_OPTIONS do Config_Slots.html (dropdown da escala) */
