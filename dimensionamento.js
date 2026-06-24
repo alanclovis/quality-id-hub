@@ -499,10 +499,6 @@
     return Math.ceil((((t - ys) / 86400000) + 1) / 7);
   }
 
-  function dimCanUseAdmin() {
-    return typeof canManageAccess === 'function' && canManageAccess();
-  }
-
   function dimEmailMismatch() {
     if (!dimState.session || !dimState.session.email) return false;
     const uid = localStorage.getItem('qhub_user_id');
@@ -809,8 +805,6 @@
     dimRenderSummary();
     if (dimState.activeTab === 'ajustes') dimRenderAjustes();
     if (dimState.activeTab === 'controle') dimRenderControle();
-    const adminBar = document.getElementById('dimAdminBar');
-    if (adminBar) adminBar.classList.toggle('visible', dimCanUseAdmin());
   }
 
   function dimFindDay(dayKey) {
@@ -1193,27 +1187,6 @@
     el.innerHTML = html;
   }
 
-  async function dimRunAutoDim() {
-    if (!dimCanUseAdmin()) return;
-    try {
-      const res = await dimCall('runAutoDimensionamento', { week: dimState.week });
-      dimShowToast('Dimensionamento automático: ' + (res.slotsFilled || 0) + ' slots');
-      await dimLoadWeek(dimState.week);
-    } catch (e) {
-      dimShowToast(e.message, true);
-    }
-  }
-
-  async function dimRunDeepDive() {
-    if (!dimCanUseAdmin()) return;
-    try {
-      const res = await dimCall('runDeepDive', { week: dimState.week });
-      dimShowToast('DeepDive gerado: ' + (res.rows || 0) + ' linhas na aba DeepDive Slots');
-    } catch (e) {
-      dimShowToast(e.message, true);
-    }
-  }
-
   function dimManualRefresh() {
     if (dimState.session && dimGetBridgeTarget()) {
       dimLoadWeek(dimState.week || dimGetIsoWeek());
@@ -1237,8 +1210,6 @@
   global.dimEditPending = dimEditPending;
   global.dimEditPendingByIndex = dimEditPendingByIndex;
   global.dimRenderControle = dimRenderControle;
-  global.dimRunAutoDim = dimRunAutoDim;
-  global.dimRunDeepDive = dimRunDeepDive;
   global.dimConnectBridge = dimConnectBridge;
   global.dimManualRefresh = dimManualRefresh;
   global.dimGetBridgeUrl = dimGetBridgeUrl;

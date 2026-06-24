@@ -197,12 +197,6 @@
   padding-bottom: 6px; border-bottom: 1px solid var(--border);
 }
 
-.dim-admin-bar {
-  display: none; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; padding: 12px;
-  background: #f0f7ff; border-radius: 12px;
-}
-.dim-admin-bar.visible { display: flex; }
-
 .dim-detail-modal-backdrop {
   position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.35);
   display: none; align-items: center; justify-content: center; padding: 16px;

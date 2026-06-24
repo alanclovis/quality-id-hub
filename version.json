@@ -1,5 +1,5 @@
 {
-  "commit": "22113ac",
-  "message": "Fix incomplete Controle de Slots by merging STATIC_SLOT_DATA with sheet rows.",
-  "date": "2026-06-23 23:49:43 -0300"
+  "commit": "e550f9e",
+  "message": "Bump version.json for Controle de Slots dictionary fix.",
+  "date": "2026-06-23 23:49:44 -0300"
 }
