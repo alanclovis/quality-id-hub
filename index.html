@@ -2593,6 +2593,7 @@ function applyLoadedPackData(parsed,updatedAt){
   updateEditButtonVisibility();
   saveLocal();
   if(document.getElementById('pagePrioridades')?.classList.contains('active')) renderPriorities();
+  syncDimensionamentoPageAccess();
   const gistId=getGistId();
   const link=document.getElementById('gistFooterLink');
   if(link&&gistId){ link.href=`https://gist.github.com/${gistId}`; link.style.display='flex'; }
@@ -3317,6 +3318,7 @@ function staggerCards(){
 
 // 3. Page transition
 let lastPage = 'links';
+let _dimAccessSnap = null;
 const _origShowPage = typeof showPage === 'function' ? showPage : null;
 
 function showPageAnimated(page){
@@ -3333,8 +3335,7 @@ function showPageAnimated(page){
   if(page==='dimensionamento'){
     document.body.classList.add('dim-page-active');
     document.getElementById('hubBuildFooter')?.classList.add('dim-footer-hidden');
-    const dimOk=typeof updateDimensionamentoAccess==='function'&&updateDimensionamentoAccess();
-    if(dimOk&&typeof dimInit==='function') dimInit();
+    syncDimensionamentoPageAccess();
   } else {
     document.body.classList.remove('dim-page-active');
     document.getElementById('hubBuildFooter')?.classList.remove('dim-footer-hidden');
@@ -3565,14 +3566,40 @@ function formatProfileSummary(profile){
 }
 
 const DIM_OPERATIONAL_AREAS=['id','vp','csat'];
+const DIM_OP_CACHE_KEY='qhub_dim_operational';
+
+function cacheOperationalProfile(areas){
+  try{
+    const op=Array.isArray(areas)&&areas.some(a=>DIM_OPERATIONAL_AREAS.includes(String(a).toLowerCase()));
+    localStorage.setItem(DIM_OP_CACHE_KEY, op?'1':'0');
+  }catch(e){/* ignore */}
+}
+
+function getDimensionamentoAccessState(name){
+  if(isVisitor()) return 'blocked';
+  name=name||getUserName();
+  if(!name||!hasClaimedIdentity()) return 'blocked';
+  const profile=findProfile(name);
+  if(profile&&Array.isArray(profile.areas)){
+    if(!profile.areas.length){
+      if(profile.updatedAt||profile.level) return 'blocked';
+    }else{
+      const areas=profile.areas.map(a=>String(a).toLowerCase());
+      cacheOperationalProfile(areas);
+      return areas.some(a=>DIM_OPERATIONAL_AREAS.includes(a))?'allowed':'blocked';
+    }
+  }
+  try{
+    const cached=localStorage.getItem(DIM_OP_CACHE_KEY);
+    if(cached==='1') return 'allowed';
+    if(cached==='0') return 'blocked';
+  }catch(e){/* ignore */}
+  if(getGistId()) return 'pending';
+  return 'blocked';
+}
 
 function hasOperationalProfile(name){
-  if(isVisitor()) return false;
-  name=name||getUserName();
-  if(!name||!hasClaimedIdentity()) return false;
-  const profile=findProfile(name)||{};
-  const areas=Array.isArray(profile.areas)?profile.areas.map(a=>String(a).toLowerCase()):[];
-  return areas.some(a=>DIM_OPERATIONAL_AREAS.includes(a));
+  return getDimensionamentoAccessState(name)==='allowed';
 }
 
 function getDimensionamentoGateHint(){
@@ -3583,16 +3610,29 @@ function getDimensionamentoGateHint(){
 }
 
 function updateDimensionamentoAccess(){
-  const operational=hasOperationalProfile();
+  const state=getDimensionamentoAccessState();
   const gate=document.getElementById('dimNonOperationalGate');
   const app=document.getElementById('dimAppContent');
+  const pending=document.getElementById('dimAccessPending');
   const hint=document.getElementById('dimNonOpHint');
   const profileBtn=document.getElementById('dimNonOpProfileBtn');
-  if(gate) gate.hidden=operational;
-  if(app) app.hidden=!operational;
-  if(hint) hint.textContent=getDimensionamentoGateHint();
+  const allowed=state==='allowed';
+  if(pending) pending.hidden=state!=='pending';
+  if(gate) gate.hidden=state!=='blocked';
+  if(app) app.hidden=!allowed;
+  if(hint&&state==='blocked') hint.textContent=getDimensionamentoGateHint();
   if(profileBtn) profileBtn.style.display=isVisitor()?'none':'';
-  return operational;
+  return allowed;
+}
+
+function syncDimensionamentoPageAccess(){
+  if(!document.getElementById('pageDimensionamento')?.classList.contains('active')) return false;
+  const state=getDimensionamentoAccessState();
+  const dimOk=updateDimensionamentoAccess();
+  const becameAllowed=dimOk&&_dimAccessSnap!=='allowed';
+  _dimAccessSnap=state;
+  if(dimOk&&becameAllowed&&typeof dimInit==='function') dimInit();
+  return dimOk;
 }
 
 function ensureProfilesData(){
@@ -3845,6 +3885,7 @@ async function saveProfile(){
   }
   ensureProfilesData();
   const {level,areas}=readProfileFormValues();
+  cacheOperationalProfile(areas);
   const profilePatch={level,areas,updatedAt:Date.now()};
   const avatarChange=pendingAvatar;
   if(avatarChange!==undefined){
@@ -3873,8 +3914,7 @@ async function saveProfile(){
   saveLocal();
   if(canSyncProfileToGist()) await syncOwnProfileToGist(val,oldName);
   if(document.getElementById('pageDimensionamento')?.classList.contains('active')){
-    const dimOk=updateDimensionamentoAccess();
-    if(dimOk&&typeof dimInit==='function') dimInit();
+    syncDimensionamentoPageAccess();
   }
   if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
 }
@@ -5637,6 +5677,7 @@ async function loadHubBuildFooter(){
   }
 }
 window.addEventListener('DOMContentLoaded',()=>{
+  loadLocal();
   initProfileForm();
   initTagFilterUI();
   const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
@@ -5808,6 +5849,9 @@ window.addEventListener('DOMContentLoaded',()=>{
 <div class="page" id="pageDimensionamento"><div class="layout">
 
 <div class="dim-wrap">
+  <div class="dim-access-pending" id="dimAccessPending" hidden>
+    <div class="dim-empty-state"><span class="dim-week-loading-spinner"></span><p>Carregando seu perfil…</p></div>
+  </div>
   <div class="dim-nonop-gate" id="dimNonOperationalGate" hidden>
     <div class="dim-nonop-card">
       <div class="dim-nonop-icon"><i class="ti ti-calendar-off"></i></div>

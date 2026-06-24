@@ -24,6 +24,11 @@
 .dim-nonop-actions {
   display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
 }
+.dim-access-pending {
+  display: flex; align-items: center; justify-content: center;
+  min-height: min(48vh, 420px); padding: 24px 16px;
+}
+.dim-access-pending[hidden] { display: none !important; }
 
 .dim-wrap { max-width: 100%; }
 .dim-header {
