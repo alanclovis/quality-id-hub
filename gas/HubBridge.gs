@@ -22,15 +22,15 @@ function hubHandleAction_(action, payload) {
     case 'ping':
       return { pong: true };
     case 'getSessionInfo':
-      return hubGetSessionInfo_();
+      return hubGetSessionInfo_(payload || {});
     case 'getUserSchedule':
       return hubGetUserSchedule_(payload || {});
     case 'saveBatchData':
       return hubSaveBatchData_(payload || {});
     case 'getPendingDetails':
-      return hubGetPendingDetails_(payload && payload.week);
+      return hubGetPendingDetails_(payload || {});
     case 'getAdjustments':
-      return hubGetAdjustments_(payload && payload.week);
+      return hubGetAdjustments_(payload || {});
     case 'saveDetail':
       return hubSaveDetail_(payload || {});
     case 'getSlotDictionary':
@@ -48,11 +48,14 @@ function hubHandleAction_(action, payload) {
   }
 }
 
-function hubGetSessionInfo_() {
+function hubGetSessionInfo_(payload) {
+  payload = payload || {};
+  var fromPayload = payload.userEmail ? String(payload.userEmail).toLowerCase().trim() : '';
   var email = Session.getActiveUser().getEmail().toLowerCase().trim();
+  if (!email) email = fromPayload;
   return {
     email: email,
-    analystKey: email.split('@')[0],
+    analystKey: email ? email.split('@')[0] : '',
     isLeader: false
   };
 }
@@ -79,23 +82,26 @@ function hubGetWeekDateMap_(weekKey, userEmail) {
   if (!sheet || sheet.getLastRow() < 2) return map;
 
   userEmail = String(userEmail || '').toLowerCase().trim();
-  weekKey = String(weekKey);
+  weekKey = _core_parseWeekNum_(weekKey);
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return map;
-  var rows = sheet.getRange(2, 1, lastRow, 8).getDisplayValues();
+  var lastCol = Math.max(8, sheet.getLastColumn());
+  var headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+  var cols = _core_mapSheetColumns_(headers);
+  var idColEnd = Math.max(cols.dia, cols.data, cols.semana, cols.analista, cols.email, 0) + 1;
+  var rows = sheet.getRange(2, 1, lastRow, idColEnd).getDisplayValues();
 
   rows.forEach(function (row) {
-    var email = String(row[7] || '').toLowerCase().trim();
-    var analyst = String(row[6] || '').toLowerCase().trim();
+    var email = cols.email >= 0 && row[cols.email] ? String(row[cols.email]).toLowerCase().trim() : '';
+    var analyst = cols.analista >= 0 && row[cols.analista] ? String(row[cols.analista]).toLowerCase().trim() : '';
     if (!_core_rowMatchesUser_(email, analyst, userEmail)) return;
-    var weekNum = _core_parseWeekNum_(row[4]);
-    if (weekNum !== _core_parseWeekNum_(weekKey)) return;
-    var dateIso = _core_formatDateToISO(row[3]);
-    var dayName = _core_dayNameFromRow_(row, null, 2);
+    var weekNum = cols.semana >= 0 ? _core_parseWeekNum_(row[cols.semana]) : '';
+    if (weekNum !== weekKey) return;
+    var dateIso = cols.data >= 0 ? _core_formatDateToISO(row[cols.data]) : '';
+    var dayName = _core_dayNameFromRow_(row, null, cols.dia);
     if (!dateIso) dateIso = _core_dateFromWeekAndDay_(weekNum, dayName);
     if (!dateIso) return;
     var d = _core_parseDate(dateIso);
-    if (!dayName || !_core_isWeekdayName_(dayName)) dayName = _core_dayNameFromRow_(row, d, 2);
+    if (!dayName || !_core_isWeekdayName_(dayName)) dayName = _core_dayNameFromRow_(row, d, cols.dia);
     if (_core_isWeekdayName_(dayName)) map[dayName] = dateIso;
   });
   return map;
@@ -130,7 +136,10 @@ function hubGetUserSchedule_(payload) {
 
   var weekKey = _core_parseWeekNum_(payload.week != null ? payload.week : hubGetCurrentWeek_());
   var weekData = _core_getScheduleWeek_(raw.schedule, weekKey);
-  var userEmail = raw.userEmail || Session.getActiveUser().getEmail().toLowerCase().trim();
+  var userEmail = raw.userEmail || _core_resolveUserEmail_(payload);
+  if (!userEmail) {
+    throw new Error('E-mail não identificado. Conecte à planilha no Hub ou abra o app GAS logado com sua conta @nubank.com.br.');
+  }
   var dateByDayName = hubGetWeekDateMap_(weekKey, userEmail);
 
   var days = [];
@@ -458,13 +467,14 @@ function hubBuildAdjustmentsFromWeekData_(weekKey, weekData, userEmail, detailTy
   };
 }
 
-function hubGetAdjustments_(week) {
-  var raw = getUserSchedule({ week: week });
+function hubGetAdjustments_(payload) {
+  payload = payload || {};
+  var raw = getUserSchedule({ week: payload.week, userEmail: payload.userEmail });
   if (raw.error) throw new Error(raw.error);
 
-  var weekKey = _core_parseWeekNum_(week != null ? week : hubGetCurrentWeek_());
+  var weekKey = _core_parseWeekNum_(payload.week != null ? payload.week : hubGetCurrentWeek_());
   var weekData = _core_getScheduleWeek_(raw.schedule, weekKey);
-  var userEmail = raw.userEmail || Session.getActiveUser().getEmail().toLowerCase().trim();
+  var userEmail = raw.userEmail || _core_resolveUserEmail_(payload);
   var config = hubGetConfig_();
   return hubBuildAdjustmentsFromWeekData_(
     weekKey,
@@ -475,8 +485,8 @@ function hubGetAdjustments_(week) {
   );
 }
 
-function hubGetPendingDetails_(week) {
-  var adj = hubGetAdjustments_(week);
+function hubGetPendingDetails_(payload) {
+  var adj = hubGetAdjustments_(payload || {});
   return {
     pending: adj.pending,
     pendingCount: adj.pendingCount,

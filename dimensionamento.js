@@ -123,12 +123,13 @@
     warming: false,
     warmupDone: false,
     refreshingWeek: false,
+    silentLoadCount: 0,
     initInProgress: false,
     detailSaving: false
   };
 
   const DIM_WEEK_CACHE_TTL = 21600000; // 6h
-  const DIM_WEEK_CACHE_VERSION = 2;
+  const DIM_WEEK_CACHE_VERSION = 3;
   const DIM_SESSION_TTL = 28800000; // 8h
 
   function dimLoadDictionaryFallback() {
@@ -395,7 +396,10 @@
     return dimWaitForBridgeTarget(maxMs).then(function () {
       if (!dimState.session) dimRestoreSession();
       if (dimState.session) return dimState.session;
-      return dimJsonpApi('getSessionInfo', {}, 6000).then(function (s) {
+      return dimJsonpApi('getSessionInfo', dimPayloadWithUserEmail({}), 6000).then(function (s) {
+        if ((!s || !s.email) && dimGetCacheEmail()) {
+          s = { email: dimGetCacheEmail(), analystKey: dimGetCacheEmail().split('@')[0], isLeader: false };
+        }
         dimState.session = s;
         dimSaveSession(s);
         dimState.bridgeReady = true;
@@ -636,7 +640,10 @@
           finish(new Error('Não conectou. Permita pop-ups, clique em Conectar e aguarde o popup fechar sozinho.'));
           return;
         }
-        dimJsonpApi('getSessionInfo', {}, 20000).then(function (s) {
+        dimJsonpApi('getSessionInfo', dimPayloadWithUserEmail({}), 20000).then(function (s) {
+          if ((!s || !s.email) && dimGetCacheEmail()) {
+            s = { email: dimGetCacheEmail(), analystKey: dimGetCacheEmail().split('@')[0], isLeader: false };
+          }
           if (settled) return;
           dimState.session = s;
           dimSaveSession(s);
@@ -665,7 +672,10 @@
     dimUpdateStatus();
 
     try {
-      await dimJsonpApi('getSessionInfo', {}, 12000).then(function (s) {
+      await dimJsonpApi('getSessionInfo', dimPayloadWithUserEmail({}), 12000).then(function (s) {
+        if ((!s || !s.email) && dimGetCacheEmail()) {
+          s = { email: dimGetCacheEmail(), analystKey: dimGetCacheEmail().split('@')[0], isLeader: false };
+        }
         dimState.session = s;
         dimSaveSession(s);
         dimState.bridgeReady = true;
@@ -860,6 +870,21 @@
     return '';
   }
 
+  function dimResolveUserEmail() {
+    const fromSession = dimSaveUserEmail();
+    if (fromSession) return fromSession;
+    return dimGetCacheEmail() || '';
+  }
+
+  function dimPayloadWithUserEmail(payload) {
+    const out = Object.assign({}, payload || {});
+    if (!out.userEmail) {
+      const email = dimResolveUserEmail();
+      if (email) out.userEmail = email;
+    }
+    return out;
+  }
+
   function dimCall(action, payload, timeoutMs) {
     timeoutMs = timeoutMs || dimCallTimeoutFor(action);
     const url = dimGetBridgeUrl();
@@ -867,8 +892,11 @@
       return Promise.reject(new Error('URL da ponte não configurada. Admin: Configuração → Técnico → URL Dimensionamento.'));
     }
     dimEnsureIframe();
-    const bridgeMs = Math.min(timeoutMs, 45000);
-    const savePayload = Object.assign({}, payload || {});
+    const callPayload = dimPayloadWithUserEmail(payload);
+    const bridgeMs = (action === 'getUserSchedule' || action === 'saveBatchData' || action === 'saveDetail')
+      ? timeoutMs
+      : Math.min(timeoutMs, 45000);
+    const savePayload = Object.assign({}, callPayload);
     if ((action === 'saveBatchData' || action === 'saveDetail') && dimSaveUserEmail()) {
       savePayload.userEmail = dimSaveUserEmail();
     }
@@ -889,11 +917,15 @@
       });
     }
 
-    // JSONP is most reliable from GitHub Pages (no iframe/cookies dependency)
+    if (action === 'getUserSchedule' && !callPayload.userEmail) {
+      return Promise.reject(new Error('E-mail não identificado. Atualize seu cadastro no Hub ou conecte à planilha.'));
+    }
+
+    // JSONP is most reliable from GitHub Pages when userEmail is in payload (no Google cookies)
     return dimFirstResolved([
-      dimJsonpApi(action, payload, timeoutMs),
+      dimJsonpApi(action, callPayload, timeoutMs),
       viaBridge(),
-      dimFetchApi(action, payload, Math.min(15000, timeoutMs))
+      dimFetchApi(action, callPayload, Math.min(20000, timeoutMs))
     ]);
   }
 
@@ -1579,8 +1611,13 @@
   }
 
   function dimSetWeekRefreshing(refreshing) {
-    dimState.refreshingWeek = refreshing;
-    document.getElementById('dimWeekLabel')?.classList.toggle('is-refreshing', refreshing);
+    if (refreshing) {
+      dimState.silentLoadCount = (dimState.silentLoadCount || 0) + 1;
+    } else {
+      dimState.silentLoadCount = Math.max(0, (dimState.silentLoadCount || 0) - 1);
+    }
+    dimState.refreshingWeek = dimState.silentLoadCount > 0;
+    document.getElementById('dimWeekLabel')?.classList.toggle('is-refreshing', dimState.refreshingWeek);
     dimUpdateStatus();
   }
 
@@ -1920,7 +1957,7 @@
     try {
       const schedule = await dimCall('getUserSchedule', {
         week: week,
-        userEmail: dimSaveUserEmail() || undefined
+        userEmail: dimResolveUserEmail() || undefined
       });
       if (loadId !== dimState.loadWeekSeq) return;
       dimApplySchedule(schedule);
@@ -1950,7 +1987,7 @@
     } finally {
       if (!silent) {
         dimSetWeekLoading(false);
-      } else if (loadId === dimState.loadWeekSeq) {
+      } else {
         dimSetWeekRefreshing(false);
       }
     }

@@ -57,47 +57,27 @@ function getUserSchedule(payload) {
         if (!sheet) throw new Error(`Aba "${MAIN_TAB_NAME}" não encontrada.`);
     }
 
-    const data = sheet.getDataRange().getDisplayValues(); 
-    if (data.length < 2) return { schedule: {}, userEmail: userEmail };
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow < 2) return { schedule: {}, userEmail: userEmail };
 
-    const headers = data[0];
+    const headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
     const cols = _core_mapSheetColumns_(headers);
+    const slotStart = cols.slotStart >= 0 ? cols.slotStart : SLOT_START_COL_INDEX;
+    const slotColCount = Math.max(0, lastCol - slotStart);
+    const targetWeek = payload.week != null ? _core_parseWeekNum_(payload.week) : '';
 
-    // 1. Carrega detalhes
-    const detailsMap = {};
-    const detailsSheet = ss.getSheetByName(DETAILS_TAB_NAME);
-    
-    if (detailsSheet && detailsSheet.getLastRow() > 1) {
-      const detailsData = detailsSheet.getDataRange().getDisplayValues();
-      for (let d = 1; d < detailsData.length; d++) {
-        const row = detailsData[d];
-        if (!row[4]) continue;
-
-        const rowAnalyst = String(row[4]).toLowerCase().trim();
-        if (_core_rowMatchesUser_(rowAnalyst, rowAnalyst, userEmail)) {
-           const keyDate = _core_formatDateToISO(row[2]); 
-           const keyTime = _core_normalizeTimeStr(row[3]); 
-           const key = `${keyDate}_${keyTime}`; 
-           
-           detailsMap[key] = {
-             action: row[5],
-             project: row[6],
-             otherSpec: row[7],
-             quantity: row[1] 
-           };
-        }
-      }
-    }
+    const detailsMap = _core_loadDetailsForUser_(ss, userEmail);
 
     const result = {};
-    const slotStart = cols.slotStart >= 0 ? cols.slotStart : SLOT_START_COL_INDEX;
-    
-    // 2. Processa grade
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const rowEmail = cols.email >= 0 && row[cols.email] ? String(row[cols.email]).toLowerCase().trim() : "";
-      const rowAnalyst = cols.analista >= 0 && row[cols.analista] ? String(row[cols.analista]).toLowerCase().trim() : "";
-      
+    const idColEnd = Math.min(lastCol, Math.max(cols.dia, cols.data, cols.semana, cols.analista, cols.email, 0) + 1);
+    const idData = sheet.getRange(2, 1, lastRow, idColEnd).getDisplayValues();
+    const matchMeta = [];
+
+    for (let i = 0; i < idData.length; i++) {
+      const row = idData[i];
+      const rowEmail = cols.email >= 0 && row[cols.email] ? String(row[cols.email]).toLowerCase().trim() : '';
+      const rowAnalyst = cols.analista >= 0 && row[cols.analista] ? String(row[cols.analista]).toLowerCase().trim() : '';
       if (!_core_rowMatchesUser_(rowEmail, rowAnalyst, userEmail)) continue;
 
       const dayName = _core_dayNameFromRow_(row, null, cols.dia);
@@ -114,26 +94,35 @@ function getUserSchedule(payload) {
       if (!weekNum) weekNum = _core_getWeekNumber(dateObj);
       weekNum = _core_parseWeekNum_(weekNum);
       if (!weekNum) continue;
+      if (targetWeek && weekNum !== targetWeek) continue;
 
-      if (!result[weekNum]) result[weekNum] = {};
-      if (!result[weekNum][dayName]) result[weekNum][dayName] = {};
-
-      for (let h = slotStart; h < headers.length; h++) {
-        const timeHeader = headers[h];
-        if (timeHeader) {
-          const normalizedTimeKey = _core_normalizeTimeStr(timeHeader);
-          if (normalizedTimeKey) {
-              const key = `${dateIso}_${normalizedTimeKey}`;
-              const cellValue = row[h] ? String(row[h]) : "";
-              
-              result[weekNum][dayName][normalizedTimeKey] = { 
-                task: cellValue, 
-                details: detailsMap[key] || null
-              };
-          }
-        }
-      }
+      matchMeta.push({ sheetRow: i + 2, weekNum: weekNum, dayName: dayName, dateIso: dateIso });
     }
+
+    if (!matchMeta.length) return { schedule: {}, userEmail: userEmail };
+
+    matchMeta.forEach(function (meta) {
+      if (!result[meta.weekNum]) result[meta.weekNum] = {};
+      if (!result[meta.weekNum][meta.dayName]) result[meta.weekNum][meta.dayName] = {};
+
+      const slotRow = slotColCount > 0
+        ? sheet.getRange(meta.sheetRow, slotStart + 1, 1, slotColCount).getDisplayValues()[0]
+        : [];
+
+      for (let h = 0; h < slotRow.length; h++) {
+        const hdrIdx = slotStart + h;
+        const timeHeader = headers[hdrIdx];
+        if (!timeHeader) continue;
+        const normalizedTimeKey = _core_normalizeTimeStr(timeHeader);
+        if (!normalizedTimeKey) continue;
+        const key = meta.dateIso + '_' + normalizedTimeKey;
+        const cellValue = slotRow[h] ? String(slotRow[h]) : '';
+        result[meta.weekNum][meta.dayName][normalizedTimeKey] = {
+          task: cellValue,
+          details: detailsMap[key] || null
+        };
+      }
+    });
 
     return { schedule: result, userEmail: userEmail };
 
@@ -142,11 +131,37 @@ function getUserSchedule(payload) {
   }
 }
 
+function _core_loadDetailsForUser_(ss, userEmail) {
+  const detailsMap = {};
+  const detailsSheet = ss.getSheetByName(DETAILS_TAB_NAME);
+  if (!detailsSheet || detailsSheet.getLastRow() < 2) return detailsMap;
+
+  const detailsData = detailsSheet.getDataRange().getDisplayValues();
+  for (let d = 1; d < detailsData.length; d++) {
+    const row = detailsData[d];
+    if (!row[4]) continue;
+
+    const rowAnalyst = String(row[4]).toLowerCase().trim();
+    if (!_core_rowMatchesUser_(rowAnalyst, rowAnalyst, userEmail)) continue;
+
+    const keyDate = _core_formatDateToISO(row[2]);
+    const keyTime = _core_normalizeTimeStr(row[3]);
+    const key = keyDate + '_' + keyTime;
+
+    detailsMap[key] = {
+      action: row[5],
+      project: row[6],
+      otherSpec: row[7],
+      quantity: row[1]
+    };
+  }
+  return detailsMap;
+}
+
 function _core_resolveUserEmail_(payload) {
   const fromPayload = payload && payload.userEmail ? String(payload.userEmail).toLowerCase().trim() : '';
-  const fromSession = Session.getActiveUser().getEmail().toLowerCase().trim();
-  const fromEffective = Session.getEffectiveUser().getEmail().toLowerCase().trim();
-  return fromPayload || fromSession || fromEffective;
+  if (fromPayload) return fromPayload;
+  return Session.getActiveUser().getEmail().toLowerCase().trim();
 }
 
 function _core_findCol_(header, names) {
@@ -173,7 +188,10 @@ function _core_mapSheetColumns_(header) {
 
   let slotStart = typeof SLOT_START_COL_INDEX !== 'undefined' ? SLOT_START_COL_INDEX : 8;
   for (let j = slotStart; j < header.length; j++) {
-    if (_core_normalizeTimeStr(header[j])) break;
+    if (_core_normalizeTimeStr(header[j])) {
+      slotStart = j;
+      break;
+    }
   }
 
   return {

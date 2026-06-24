@@ -120,11 +120,22 @@
       if (Date.now() - lastSaveTimeRef.current < 10000) return; 
       
       if (typeof google === 'undefined' || !google.script) { setIsLoading(false); setLastUpdate(new Date()); setCurrentUser("Dev Mode"); return; }
+
+      const loadTimeoutId = setTimeout(() => {
+        setIsLoading(false);
+        setCurrentUser(prev => prev === "Carregando..." ? "Timeout ao carregar escala" : prev);
+      }, 120000);
       
       google.script.run.withSuccessHandler(response => {
+           clearTimeout(loadTimeoutId);
            if (dirtyDaysQueueRef.current.size > 0 || isProcessingRef.current || modalConfig !== null || editingCell !== null) return; 
 
-           if (response.error) { console.error(response.error); setIsLoading(false); return; }
+           if (response.error) {
+             console.error(response.error);
+             setCurrentUser(response.userEmail || String(response.error));
+             setIsLoading(false);
+             return;
+           }
            
            if (response.schedule) {
                const merged = generateInitialData();
@@ -152,10 +163,17 @@
                } else if (currentJson === newJson) {
                    setLastUpdate(new Date());
                }
-               setCurrentUser(response.userEmail);
+               setCurrentUser(response.userEmail || "Usuário não identificado");
+           } else {
+             setCurrentUser(response.userEmail || "Usuário não identificado");
            }
            setIsLoading(false);
-        }).withFailureHandler(e => { console.error(e); setIsLoading(false); }).getUserSchedule();
+        }).withFailureHandler(e => {
+          clearTimeout(loadTimeoutId);
+          console.error(e);
+          setCurrentUser("Erro ao carregar escala");
+          setIsLoading(false);
+        }).getUserSchedule({});
     };
 
     useEffect(() => { selectedCellsRef.current = selectedCells; }, [selectedCells]);
