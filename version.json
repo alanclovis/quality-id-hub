@@ -1,5 +1,5 @@
 {
-  "commit": "00c33e5",
-  "message": "Bump version.json for week loading UX and detail cancel fix.",
-  "date": "2026-06-24 00:11:47 -0300"
+  "commit": "9a1c059",
+  "message": "Stop full week reload after slot edits in dimensionamento.",
+  "date": "2026-06-24 00:16:57 -0300"
 }
