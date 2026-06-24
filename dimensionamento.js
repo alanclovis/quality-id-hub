@@ -96,79 +96,79 @@
     return frame;
   }
 
-  function dimWaitForBridgeReady(timeoutMs) {
-    timeoutMs = timeoutMs || 30000;
-    if (dimState.bridgeReady && dimState.session) {
-      return Promise.resolve();
-    }
-
-    dimOpenBridgePopup();
-    dimEnsureIframe();
-
+  function dimWaitForPopupReady(ms) {
+    ms = ms || 60000;
     return new Promise(function (resolve, reject) {
-      const deadline = Date.now() + timeoutMs;
       let settled = false;
+      function done() { if (!settled) { settled = true; resolve(); } }
+      function fail(msg) { if (!settled) { settled = true; reject(new Error(msg)); } }
+      const deadline = Date.now() + ms;
 
-      function done() {
-        if (settled) return;
-        settled = true;
-        resolve();
-      }
-
-      function fail(msg) {
-        if (settled) return;
-        settled = true;
-        reject(new Error(msg));
-      }
-
-      const onReady = function (ev) {
-        const msg = ev.data;
-        if (!msg || msg.source !== 'dim-bridge') return;
-        if (msg.event === 'ready') dimState.bridgeReady = true;
-        if (msg.event === 'session' && msg.data) dimState.session = msg.data;
-        if (dimState.bridgeReady && dimState.session) {
-          window.removeEventListener('message', onReady);
+      const onMsg = function (ev) {
+        const m = ev.data;
+        if (!m || m.source !== 'dim-bridge') return;
+        if (m.event === 'ready') dimState.bridgeReady = true;
+        if (m.event === 'session' && m.data) {
+          dimState.session = m.data;
+          dimState.bridgeReady = true;
+          window.removeEventListener('message', onMsg);
           done();
         }
       };
-      window.addEventListener('message', onReady);
+      window.addEventListener('message', onMsg);
 
-      function tryPing() {
+      function poll() {
         if (settled) return;
-        if (dimState.bridgeReady && dimState.session) { done(); return; }
-        dimCall('ping', {}, 8000).then(function () {
+        if (Date.now() > deadline) {
+          window.removeEventListener('message', onMsg);
+          fail('Não conectou. Mantenha a janela Dim Bridge aberta (Ponte ativa) e tente de novo.');
+          return;
+        }
+        if (!dimGetBridgeTarget()) {
+          setTimeout(poll, 800);
+          return;
+        }
+        dimCall('ping', {}, 6000).then(function () {
           dimState.bridgeReady = true;
-          window.removeEventListener('message', onReady);
-          if (!dimState.session) {
-            dimCall('getSessionInfo', {}, 15000).then(function (s) {
-              dimState.session = s;
-              done();
-            }).catch(function () { done(); });
-          } else {
+          if (dimState.session) {
+            window.removeEventListener('message', onMsg);
             done();
+            return;
           }
-        }).catch(function () {
-          if (Date.now() > deadline) {
-            window.removeEventListener('message', onReady);
-            fail('Ponte não respondeu. Use "Conectar ponte" e mantenha a janela aberta.');
-          } else {
-            setTimeout(tryPing, 1500);
-          }
-        });
+          dimCall('getSessionInfo', {}, 15000).then(function (s) {
+            dimState.session = s;
+            window.removeEventListener('message', onMsg);
+            done();
+          }).catch(function () { setTimeout(poll, 1200); });
+        }).catch(function () { setTimeout(poll, 1200); });
       }
-
-      setTimeout(tryPing, 1200);
+      setTimeout(poll, 1500);
     });
   }
 
-  function dimConnectBridge() {
+  async function dimConnectBridge() {
     const url = dimBridgeBaseUrl();
     if (!url) {
       dimShowToast('Configure a URL da ponte em Configuração → Técnico', true);
       return;
     }
-    dimOpenBridgePopup();
-    dimShowToast('Mantenha a janela "Dim Bridge" aberta. A grade carrega automaticamente.');
+    const w = dimOpenBridgePopup();
+    if (!w) {
+      dimRenderError('Pop-up bloqueado. No Chrome: ícone à direita da barra de endereço → sempre permitir pop-ups neste site.');
+      return;
+    }
+    const grid = document.getElementById('dimGridWrap');
+    if (grid) {
+      grid.innerHTML = '<div class="dim-empty-state"><span class="dim-saving-dot"></span><p>Conectando…<br>Mantenha a janela <strong>Dim Bridge</strong> aberta.</p></div>';
+    }
+    dimUpdateStatus();
+    try {
+      await dimWaitForPopupReady(90000);
+      await dimLoadWeek(dimState.week || dimGetIsoWeek());
+      dimStartReloadTimer();
+    } catch (e) {
+      dimRenderError(String(e.message || e));
+    }
   }
 
   let dimCallSeq = 0;
@@ -291,21 +291,42 @@
 
   async function dimInit() {
     if (dimState.week == null) dimState.week = dimGetIsoWeek();
-    dimUpdateStatus();
-    const url = dimBridgeBaseUrl();
+    const url = dimGetBridgeUrl();
     if (!url) {
       dimRenderEmptySetup();
       return;
     }
-    try {
-      await dimWaitForBridgeReady();
-      if (!dimState.session) {
-        dimState.session = await dimCall('getSessionInfo', {}, 30000);
+    dimUpdateStatus();
+    if (dimState.session && dimState.bridgePopup && !dimState.bridgePopup.closed) {
+      try {
+        await dimLoadWeek(dimState.week);
+        dimStartReloadTimer();
+      } catch (e) {
+        dimRenderError(String(e.message || e));
       }
-      await dimLoadWeek(dimState.week);
-      dimStartReloadTimer();
-    } catch (e) {
-      dimRenderError(String(e.message || e));
+      return;
+    }
+    dimRenderConnectPrompt();
+  }
+
+  function dimRenderConnectPrompt() {
+    const grid = document.getElementById('dimGridWrap');
+    if (grid) {
+      grid.innerHTML =
+        '<div class="dim-empty-state">' +
+        '<i class="ti ti-plug-connected" style="font-size:44px;opacity:.6"></i>' +
+        '<p style="margin-top:14px;font-size:16px;font-weight:600">Conectar à planilha Google</p>' +
+        '<p style="font-size:13px;color:var(--text3);margin-top:8px;line-height:1.5">' +
+        'Clique no botão abaixo. Uma janela <strong>Dim Bridge</strong> vai abrir — ' +
+        '<strong>mantenha-a aberta</strong> enquanto usa esta página.</p>' +
+        '<p style="margin-top:20px">' +
+        '<button type="button" class="btn primary" style="font-size:15px;padding:12px 28px" onclick="dimConnectBridge()">' +
+        '<i class="ti ti-plug"></i> Conectar à planilha</button></p></div>';
+    }
+    const el = document.getElementById('dimStatus');
+    if (el) {
+      el.className = 'dim-status warn';
+      el.innerHTML = '<i class="ti ti-info-circle"></i><span>Clique em <strong>Conectar à planilha</strong> para carregar sua escala</span>';
     }
   }
 
@@ -322,7 +343,7 @@
       grid.innerHTML = '<div class="dim-empty-state"><i class="ti ti-alert-circle"></i><p>' + escapeHtml(msg) + '</p>' +
         '<p style="margin-top:10px;font-size:12px">Mantenha a janela <strong>Dim Bridge</strong> aberta enquanto usa esta página.</p>' +
         '<p style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
-        '<button type="button" class="btn primary" onclick="dimConnectBridge()"><i class="ti ti-plug"></i> Conectar ponte</button>' +
+        '<button type="button" class="btn primary" onclick="dimConnectBridge()"><i class="ti ti-plug"></i> Conectar à planilha</button>' +
         '<button type="button" class="btn" onclick="dimManualRefresh()"><i class="ti ti-refresh"></i> Atualizar</button>' +
         '</p></div>';
     }
@@ -755,7 +776,11 @@
   }
 
   function dimManualRefresh() {
-    dimInit();
+    if (dimState.session && dimGetBridgeTarget()) {
+      dimLoadWeek(dimState.week || dimGetIsoWeek());
+    } else {
+      dimConnectBridge();
+    }
   }
 
   // Export globals

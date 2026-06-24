@@ -12,6 +12,12 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
+  // API JSON para o Hub (fetch com credentials)
+  if (e && e.parameter && e.parameter.api) {
+    const json = dimApiCall(e.parameter.api, e.parameter.payload || '{}');
+    return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+  }
+
   return HtmlService.createTemplateFromFile('Index')
       .evaluate()
       .setTitle('Dimensionamento ID Quality/Csat')
