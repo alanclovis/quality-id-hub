@@ -302,8 +302,8 @@ function _core_normalizeTimeStr(t) {
   const str = String(t).trim();
   const parts = str.split(':');
   if (parts.length >= 2) {
-      const hh = parseInt(parts[0], 10).toString(); 
-      const mm = parts[1].padStart(2, '0');
+      const hh = String(parseInt(parts[0], 10)).padStart(2, '0');
+      const mm = String(parts[1]).replace(/\D/g, '').substring(0, 2).padStart(2, '0');
       return `${hh}:${mm}`;
   }
   return str;

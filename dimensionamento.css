@@ -49,7 +49,7 @@
 .dim-grid th {
   position: sticky; top: 0; z-index: 2; background: var(--bg3);
   font-weight: 600; font-size: 10px; padding: 6px 4px; text-align: center;
-  white-space: nowrap;
+  white-space: nowrap; min-width: 52px;
 }
 .dim-grid th.dim-day-col { left: 0; z-index: 3; min-width: 72px; }
 .dim-grid td.dim-day-label {

@@ -140,7 +140,8 @@ function hubGetUserSchedule_(week) {
     Object.keys(daySlots).forEach(function (time) {
       var cell = daySlots[time];
       var task = cell && cell.task ? String(cell.task) : '';
-      slots[time] = task;
+      var normTime = hubNormalizeTime_(time);
+      slots[normTime] = task;
       if (task) {
         summary[task] = (summary[task] || 0) + 1;
         filledCount++;
@@ -314,12 +315,46 @@ function hubGetSlotColors_() {
   return {};
 }
 
-function hubGetConfig_() {
+function hubNormalizeTime_(t) {
+  if (!t) return '';
+  var str = String(t).trim();
+  var parts = str.split(':');
+  if (parts.length >= 2) {
+    var hh = parseInt(parts[0], 10);
+    if (isNaN(hh)) return str;
+    var mm = String(parts[1]).replace(/\D/g, '').substring(0, 2);
+    if (mm.length < 2) mm = mm.padStart(2, '0');
+    return String(hh).padStart(2, '0') + ':' + mm;
+  }
+  return str;
+}
+
+/** Lê horários do cabeçalho da planilha (coluna I em diante) */
+function hubGetTimeSlotsFromSheet_() {
+  var startCol = typeof SLOT_START_COL_INDEX !== 'undefined' ? SLOT_START_COL_INDEX : 8;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = typeof MAIN_TAB_NAME !== 'undefined' ? MAIN_TAB_NAME : 'H1.2026';
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return null;
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
+  var slots = [];
+  for (var h = startCol; h < headers.length; h++) {
+    var n = hubNormalizeTime_(headers[h]);
+    if (n) slots.push(n);
+  }
+  return slots.length ? slots : null;
+}
+
+function hubDefaultTimeSlots_() {
   var slots = [];
   for (var h = 6; h <= 23; h++) {
     slots.push((h < 10 ? '0' : '') + h + ':00');
     slots.push((h < 10 ? '0' : '') + h + ':30');
   }
+  return slots;
+}
+function hubGetConfig_() {
+  var slots = hubGetTimeSlotsFromSheet_() || hubDefaultTimeSlots_();
   return {
     timeSlots: slots,
     days: ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira'],

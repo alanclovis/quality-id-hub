@@ -560,6 +560,32 @@
     }
   }
 
+  function dimNormalizeTime(t) {
+    if (!t) return '';
+    const parts = String(t).trim().split(':');
+    if (parts.length >= 2) {
+      const hh = String(parseInt(parts[0], 10)).padStart(2, '0');
+      const mm = String(parts[1].replace(/\D/g, '').substring(0, 2)).padStart(2, '0');
+      return hh + ':' + mm;
+    }
+    return String(t).trim();
+  }
+
+  function dimNormalizeScheduleTimes(schedule) {
+    if (!schedule) return;
+    if (schedule.config && schedule.config.timeSlots) {
+      schedule.config.timeSlots = schedule.config.timeSlots.map(dimNormalizeTime).filter(Boolean);
+    }
+    (schedule.days || []).forEach(function (day) {
+      if (!day.slots) return;
+      const norm = {};
+      Object.keys(day.slots).forEach(function (k) {
+        norm[dimNormalizeTime(k)] = day.slots[k];
+      });
+      day.slots = norm;
+    });
+  }
+
   function dimDatesForWeek(weekNumber) {
     const simpleYear = 2026;
     const d = new Date(simpleYear, 0, 1 + (weekNumber - 1) * 7);
@@ -607,6 +633,7 @@
       dimState.dictionary = dictionary;
       dimEnsureSlotOptions(schedule);
       dimEnsureDayDates(schedule);
+      dimNormalizeScheduleTimes(schedule);
       if (schedule.identity) dimState.session = schedule.identity;
       dimUpdateStatus();
       dimRenderAll();
@@ -880,7 +907,7 @@
 
     dimRenderGrid();
     dimRenderSummary();
-    dimQueueSave(dateIso, time, newVal, day.day);
+    dimQueueSave(dateIso, dimNormalizeTime(time), newVal, day.day);
 
     const detailSlots = dimState.schedule.config.detailSlots || [];
     if (detailSlots.indexOf(newVal) >= 0) {
