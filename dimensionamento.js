@@ -93,6 +93,7 @@
     dropdown: null,
     pendingList: [],
     detailDraft: null,
+    clearDraft: null,
     bridgePopup: null,
     slotOptionsFallback: null,
     dictionaryFallback: null,
@@ -1158,9 +1159,11 @@
       ? '<div class="dim-dropdown-header">' + selCount + ' slots selecionados</div>'
       : '';
     dd.innerHTML = headerHtml +
+      '<div class="dim-dropdown-pin">' +
+      '<div class="dim-dropdown-item dim-dropdown-clear-item" onclick="dimOnClearSlotClick()">' +
+      '<span class="dim-dropdown-swatch dim-dropdown-swatch-clear"></span>(Limpar Slot)</div></div>' +
       '<div class="dim-dropdown-search"><input type="text" placeholder="Buscar slot…" id="dimDropdownSearch"></div>' +
-      '<div class="dim-dropdown-list" id="dimDropdownList"></div>' +
-      '<div class="dim-dropdown-clear" onclick="dimApplySlot(null)">Limpar slot</div>';
+      '<div class="dim-dropdown-list" id="dimDropdownList"></div>';
 
     document.body.appendChild(backdrop);
     document.body.appendChild(dd);
@@ -1220,6 +1223,89 @@
       dimApplySlotValue(day, h, cur, 'Break');
     }
     return changes;
+  }
+
+  function dimExecuteClearCells(entries) {
+    if (!entries || !entries.length) return;
+    const undoBatch = [];
+    const savesByDate = {};
+    entries.forEach(function (entry) {
+      const day = entry.day;
+      const time = entry.time;
+      const current = day.slots[time] || '';
+      if (!current) return;
+      const dateIso = dimResolveDayDate(day);
+      if (!dateIso) return;
+      undoBatch.push({ day: day.day, date: dateIso, time: time, prev: current, next: '' });
+      dimApplySlotValue(day, time, current, '');
+      if (!savesByDate[dateIso]) savesByDate[dateIso] = { dayKey: day.day, slots: {} };
+      savesByDate[dateIso].slots[dimNormalizeTime(time)] = '';
+    });
+    if (!undoBatch.length) {
+      dimShowToast('Nada para limpar', true);
+      return;
+    }
+    dimPushUndoBatch(undoBatch);
+    dimRenderGrid();
+    dimRenderSummary();
+    Object.keys(savesByDate).forEach(function (dateIso) {
+      const meta = savesByDate[dateIso];
+      Object.keys(meta.slots).forEach(function (t) {
+        dimQueueSave(dateIso, t, meta.slots[t], meta.dayKey);
+      });
+    });
+    dimClearSelection();
+  }
+
+  function dimOnClearSlotClick() {
+    const targets = dimGetApplyTargets();
+    if (!targets.length) return;
+    dimCloseDropdown();
+    if (targets.length > 1) {
+      dimExecuteClearCells(targets.map(function (t) {
+        return { day: t.day, time: t.time };
+      }));
+      return;
+    }
+    const t = targets[0];
+    dimState.clearDraft = { day: t.day, time: t.time, dayKey: t.day.day };
+    dimState.modalOpen = true;
+    const bd = document.getElementById('dimClearBackdrop');
+    const meta = document.getElementById('dimClearMeta');
+    const qty = document.getElementById('dimClearQty');
+    if (meta) {
+      meta.textContent = 'Início: ' + t.time + ' · ' + (DIM_DAY_LABELS[t.dayKey] || t.dayKey);
+    }
+    if (qty) qty.value = '1';
+    if (bd) bd.classList.add('active');
+  }
+
+  function dimCloseClearModal() {
+    dimState.modalOpen = false;
+    dimState.clearDraft = null;
+    document.getElementById('dimClearBackdrop')?.classList.remove('active');
+  }
+
+  function dimClearQtyDelta(delta) {
+    const inp = document.getElementById('dimClearQty');
+    if (!inp) return;
+    const cur = parseInt(inp.value, 10) || 1;
+    inp.value = String(Math.max(1, Math.min(20, cur + delta)));
+  }
+
+  function dimConfirmClear() {
+    const ctx = dimState.clearDraft;
+    if (!ctx) return;
+    const quantity = Math.max(1, Math.min(20, parseInt(document.getElementById('dimClearQty')?.value, 10) || 1));
+    const times = (dimState.schedule && dimState.schedule.config.timeSlots) || [];
+    const startIdx = times.indexOf(dimNormalizeTime(ctx.time));
+    if (startIdx < 0) return;
+    const entries = [];
+    for (let i = 0; i < quantity && startIdx + i < times.length; i++) {
+      entries.push({ day: ctx.day, time: times[startIdx + i] });
+    }
+    dimCloseClearModal();
+    dimExecuteClearCells(entries);
   }
 
   function dimApplySlot(value) {
@@ -1806,6 +1892,10 @@
   global.dimEditPending = dimEditPending;
   global.dimEditPendingByIndex = dimEditPendingByIndex;
   global.dimRenderControle = dimRenderControle;
+  global.dimOnClearSlotClick = dimOnClearSlotClick;
+  global.dimCloseClearModal = dimCloseClearModal;
+  global.dimClearQtyDelta = dimClearQtyDelta;
+  global.dimConfirmClear = dimConfirmClear;
   global.dimConnectBridge = dimConnectBridge;
   global.dimManualRefresh = dimManualRefresh;
   global.dimGetBridgeUrl = dimGetBridgeUrl;

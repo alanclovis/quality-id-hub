@@ -5861,9 +5861,33 @@ window.addEventListener('DOMContentLoaded',()=>{
   </div>
 </div>
 
+<div class="dim-detail-modal-backdrop" id="dimClearBackdrop" onclick="if(event.target===this)dimCloseClearModal()">
+  <div class="dim-detail-modal dim-clear-modal">
+    <h3><i class="ti ti-eraser"></i> Limpar slot</h3>
+    <p class="dim-detail-meta" id="dimClearMeta"></p>
+    <div class="dim-detail-duration">
+      <div class="dim-detail-duration-head">
+        <div>
+          <label class="dim-detail-duration-label">Limpar quantos slots?</label>
+          <p class="dim-detail-hint">Cada slot tem 30 minutos</p>
+        </div>
+        <div class="dim-detail-stepper">
+          <button type="button" class="dim-detail-stepper-btn" onclick="dimClearQtyDelta(-1)" aria-label="Diminuir">−</button>
+          <input type="number" id="dimClearQty" min="1" max="20" value="1" class="dim-detail-stepper-input">
+          <button type="button" class="dim-detail-stepper-btn" onclick="dimClearQtyDelta(1)" aria-label="Aumentar">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="dim-detail-actions">
+      <button type="button" class="btn" onclick="dimCloseClearModal()">Cancelar</button>
+      <button type="button" class="btn primary" style="background:#dc2626;border-color:#dc2626" onclick="dimConfirmClear()"><i class="ti ti-eraser"></i> Limpar</button>
+    </div>
+  </div>
+</div>
+
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=16"></script>
+<script src="dimensionamento.js?v=17"></script>
 </body>
 </html>
