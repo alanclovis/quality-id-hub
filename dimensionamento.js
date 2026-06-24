@@ -574,7 +574,7 @@
       dimSaveSession(msg.data);
       dimState.bridgeReady = true;
       dimUpdateStatus();
-      dimWarmup();
+      dimWarmupFetchWeek();
       if (document.getElementById('pageDimensionamento')?.classList.contains('active') &&
           !dimState.schedule) {
         const wk = dimState.week || dimGetIsoWeek();
@@ -619,16 +619,78 @@
     });
   }
 
+  function dimFirstResolved(promises) {
+    return new Promise(function (resolve, reject) {
+      if (!promises.length) {
+        reject(new Error('Falha ao comunicar com Apps Script'));
+        return;
+      }
+      var failures = 0;
+      var lastErr = null;
+      promises.forEach(function (p) {
+        Promise.resolve(p).then(resolve).catch(function (err) {
+          lastErr = err;
+          failures++;
+          if (failures >= promises.length) {
+            reject(lastErr || new Error('Falha ao comunicar com Apps Script'));
+          }
+        });
+      });
+    });
+  }
+
+  function dimWaitForBridgeTarget(maxMs) {
+    maxMs = maxMs || 12000;
+    return new Promise(function (resolve, reject) {
+      if (dimGetBridgeTarget()) return resolve(dimGetBridgeTarget());
+      var deadline = Date.now() + maxMs;
+      var onMsg = function (ev) {
+        var m = ev.data;
+        if (!m || m.source !== 'dim-bridge') return;
+        if (m.event === 'ready') dimState.bridgeReady = true;
+        if (m.event === 'session' && m.data) {
+          dimState.session = m.data;
+          dimSaveSession(m.data);
+          dimState.bridgeReady = true;
+        }
+        if (dimGetBridgeTarget()) {
+          window.removeEventListener('message', onMsg);
+          clearInterval(poll);
+          resolve(dimGetBridgeTarget());
+        }
+      };
+      window.addEventListener('message', onMsg);
+      var poll = setInterval(function () {
+        if (dimGetBridgeTarget()) {
+          window.removeEventListener('message', onMsg);
+          clearInterval(poll);
+          resolve(dimGetBridgeTarget());
+          return;
+        }
+        if (Date.now() > deadline) {
+          window.removeEventListener('message', onMsg);
+          clearInterval(poll);
+          reject(new Error('Ponte indisponível. Clique em Conectar à planilha.'));
+        }
+      }, 200);
+    });
+  }
+
   function dimCall(action, payload, timeoutMs) {
+    timeoutMs = timeoutMs || 45000;
     const url = dimGetBridgeUrl();
     if (!url) {
       return Promise.reject(new Error('URL da ponte não configurada. Admin: Configuração → Técnico → URL Dimensionamento.'));
     }
-    return dimJsonpApi(action, payload, timeoutMs).catch(function () {
-      return dimFetchApi(action, payload, timeoutMs).catch(function () {
+    dimEnsureIframe();
+    const fastMs = 10000;
+    return dimFirstResolved([
+      dimJsonpApi(action, payload, fastMs),
+      dimFetchApi(action, payload, fastMs),
+      dimWaitForBridgeTarget(12000).then(function () {
         return dimCallViaPostMessage(action, payload, timeoutMs);
-      });
-    });
+      })
+    ]);
   }
 
   function dimGetIsoWeek(d) {
@@ -1134,11 +1196,23 @@
       dimRenderEmptySetup();
       return;
     }
+    dimEnsureIframe();
     dimUpdateStatus();
     const stored = dimReadStoredSession();
     if (stored) {
       dimState.session = stored;
       dimState.bridgeReady = true;
+    } else {
+      try {
+        await dimWaitForBridgeTarget(5000);
+        if (!dimState.session) {
+          const bridged = dimReadStoredSession();
+          if (bridged) {
+            dimState.session = bridged;
+            dimState.bridgeReady = true;
+          }
+        }
+      } catch (e) { /* bridge may still be loading */ }
     }
     if (dimState.session) {
       try {
@@ -1181,28 +1255,13 @@
     }, 0);
   }
 
-  function dimWarmup() {
-    if (typeof hasOperationalProfile === 'function' && !hasOperationalProfile()) return;
-    if (!dimGetBridgeUrl()) return;
-    const stored = dimReadStoredSession();
-    if (!stored) return;
-    if (dimState.warming || dimState.warmupDone) return;
+  function dimWarmupFetchWeek() {
+    if (!dimState.session || dimState.warming) return;
+    if (dimState.warmupDone && dimState.schedule) return;
 
     dimState.warming = true;
-    dimState.session = stored;
-    dimState.bridgeReady = true;
-
-    dimEnsureIframe();
-    dimLoadSlotOptionsFallback();
-    dimEnsureDictionary().catch(function () { /* ignore */ });
-
     const week = dimState.week || dimGetIsoWeek();
     dimState.week = week;
-
-    const cached = dimReadWeekCache(week);
-    if (cached) {
-      dimApplySchedule(cached, { render: false });
-    }
 
     dimLoadWeek(week, { silent: true })
       .then(function () {
@@ -1214,6 +1273,31 @@
       });
 
     if (!dimState.reloadTimer) dimStartReloadTimer();
+  }
+
+  function dimWarmup() {
+    if (typeof hasOperationalProfile === 'function' && !hasOperationalProfile()) return;
+    if (!dimGetBridgeUrl()) return;
+
+    dimEnsureIframe();
+    dimLoadSlotOptionsFallback();
+    dimEnsureDictionary().catch(function () { /* ignore */ });
+
+    const week = dimState.week || dimGetIsoWeek();
+    dimState.week = week;
+
+    const stored = dimReadStoredSession();
+    if (stored) {
+      dimState.session = stored;
+      dimState.bridgeReady = true;
+    }
+
+    const cached = dimReadWeekCache(week);
+    if (cached) {
+      dimApplySchedule(cached, { render: false });
+    }
+
+    dimWarmupFetchWeek();
   }
 
   function dimRenderConnectPrompt() {
