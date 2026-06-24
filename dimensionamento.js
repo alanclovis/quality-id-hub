@@ -118,6 +118,7 @@
   };
 
   const DIM_WEEK_CACHE_TTL = 21600000; // 6h
+  const DIM_SESSION_TTL = 28800000; // 8h
 
   function dimLoadDictionaryFallback() {
     if (dimState.dictionaryFallback) {
@@ -297,7 +298,7 @@
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!parsed || !parsed.session) return null;
-      if (parsed.ts && Date.now() - parsed.ts > 3600000) return null;
+      if (parsed.ts && Date.now() - parsed.ts > DIM_SESSION_TTL) return null;
       return parsed.session;
     } catch (e) {
       return null;
@@ -315,6 +316,10 @@
       const u = getAccessUserById(uid);
       if (u && u.email) return u.email.toLowerCase();
     }
+    if (typeof getUserName === 'function' && typeof findProfile === 'function') {
+      const profile = findProfile(getUserName());
+      if (profile && profile.email) return String(profile.email).toLowerCase();
+    }
     return '';
   }
 
@@ -322,6 +327,62 @@
     const email = dimGetCacheEmail();
     if (!email) return null;
     return 'qhub_dim_week_' + week + '_' + email.replace(/[^a-z0-9@._-]/gi, '_');
+  }
+
+  function dimIsDimPageActive() {
+    return !!document.getElementById('pageDimensionamento')?.classList.contains('active');
+  }
+
+  function dimRestoreSession() {
+    const stored = dimReadStoredSession();
+    if (stored) {
+      dimState.session = stored;
+      dimState.bridgeReady = true;
+      return true;
+    }
+    return false;
+  }
+
+  function dimTryInstantWeek(week, options) {
+    options = options || {};
+    week = week || dimState.week || dimGetIsoWeek();
+    const shouldRender = options.render !== false && dimIsDimPageActive();
+
+    if (dimState.schedule && dimState.week === week) {
+      if (shouldRender) dimRenderAll();
+      return true;
+    }
+    const cached = dimReadWeekCache(week);
+    if (cached) {
+      dimApplySchedule(cached, { render: shouldRender });
+      dimSetLastUpdate();
+      return true;
+    }
+    return false;
+  }
+
+  function dimEnsureSessionBackground(maxMs) {
+    maxMs = maxMs || 8000;
+    if (dimState.session) return Promise.resolve(dimState.session);
+    return dimWaitForBridgeTarget(maxMs).then(function () {
+      if (!dimState.session) dimRestoreSession();
+      if (dimState.session) return dimState.session;
+      return dimJsonpApi('getSessionInfo', {}, 6000).then(function (s) {
+        dimState.session = s;
+        dimSaveSession(s);
+        dimState.bridgeReady = true;
+        dimUpdateStatus();
+        return s;
+      });
+    }).catch(function () {
+      dimRestoreSession();
+      return dimState.session || null;
+    });
+  }
+
+  function dimRefreshWeekInBackground(week) {
+    week = week || dimState.week || dimGetIsoWeek();
+    dimLoadWeek(week, { silent: true, skipCacheCheck: true }).catch(function () { /* ignore */ });
   }
 
   function dimReadWeekCache(week) {
@@ -527,7 +588,7 @@
         });
       }
 
-      setTimeout(tryJsonp, 6000);
+      tryJsonp();
     });
   }
 
@@ -537,22 +598,44 @@
       dimShowToast('Configure a URL da ponte em Configuração → Técnico', true);
       return;
     }
+    const week = dimState.week || dimGetIsoWeek();
+    const hadInstant = dimTryInstantWeek(week);
+
     const w = dimOpenBridgePopup();
     if (!w) {
+      if (hadInstant) {
+        dimShowToast('Pop-up bloqueado — exibindo última versão. Permita pop-ups para sincronizar.', true);
+        dimEnsureSessionBackground(8000).then(function () {
+          if (dimState.session) dimRefreshWeekInBackground(week);
+        });
+        return;
+      }
       dimRenderError('Pop-up bloqueado. No Chrome: ícone à direita da barra de endereço → sempre permitir pop-ups neste site.');
       return;
     }
     dimReloadBridgeIframe();
-    const grid = document.getElementById('dimGridWrap');
-    if (grid) {
-      grid.innerHTML = '<div class="dim-empty-state"><span class="dim-saving-dot"></span><p>Conectando…<br>O popup vai redirecionar e fechar sozinho.</p></div>';
+    if (!hadInstant) {
+      const grid = document.getElementById('dimGridWrap');
+      if (grid) {
+        grid.innerHTML = '<div class="dim-empty-state"><span class="dim-saving-dot"></span><p>Conectando…<br>O popup vai redirecionar e fechar sozinho.</p></div>';
+      }
     }
     dimUpdateStatus();
     try {
-      await dimWaitForBridgeReady(90000);
-      await dimLoadWeek(dimState.week || dimGetIsoWeek());
-      dimStartReloadTimer();
+      await dimWaitForBridgeReady(25000);
+      if (hadInstant || dimState.schedule) {
+        dimStartReloadTimer();
+        dimRefreshWeekInBackground(week);
+      } else {
+        await dimLoadWeek(week);
+        dimStartReloadTimer();
+      }
     } catch (e) {
+      if (dimState.schedule) {
+        dimShowToast('Sem conexão agora — exibindo última versão salva', true);
+        dimStartReloadTimer();
+        return;
+      }
       dimRenderError(String(e.message || e));
     }
   }
@@ -575,10 +658,13 @@
       dimState.bridgeReady = true;
       dimUpdateStatus();
       dimWarmupFetchWeek();
-      if (document.getElementById('pageDimensionamento')?.classList.contains('active') &&
-          !dimState.schedule) {
+      if (dimIsDimPageActive()) {
         const wk = dimState.week || dimGetIsoWeek();
-        dimLoadWeek(wk).catch(function () {});
+        if (!dimTryInstantWeek(wk)) {
+          dimLoadWeek(wk).catch(function () {});
+        } else {
+          dimRefreshWeekInBackground(wk);
+        }
       }
       return;
     }
@@ -677,19 +763,29 @@
   }
 
   function dimCall(action, payload, timeoutMs) {
-    timeoutMs = timeoutMs || 45000;
+    timeoutMs = timeoutMs || 20000;
     const url = dimGetBridgeUrl();
     if (!url) {
       return Promise.reject(new Error('URL da ponte não configurada. Admin: Configuração → Técnico → URL Dimensionamento.'));
     }
     dimEnsureIframe();
-    const fastMs = 10000;
-    return dimFirstResolved([
-      dimJsonpApi(action, payload, fastMs),
-      dimFetchApi(action, payload, fastMs),
-      dimWaitForBridgeTarget(12000).then(function () {
+    const fastMs = 6000;
+
+    function viaBridge() {
+      return dimWaitForBridgeTarget(3500).then(function (target) {
+        if (!target) throw new Error('Bridge indisponível');
         return dimCallViaPostMessage(action, payload, timeoutMs);
-      })
+      });
+    }
+
+    if (dimGetBridgeTarget() && dimState.bridgeReady) {
+      return dimCallViaPostMessage(action, payload, timeoutMs);
+    }
+
+    return dimFirstResolved([
+      viaBridge(),
+      dimJsonpApi(action, payload, fastMs),
+      dimFetchApi(action, payload, fastMs)
     ]);
   }
 
@@ -1196,56 +1292,71 @@
       dimRenderEmptySetup();
       return;
     }
+
     dimEnsureIframe();
+    dimLoadSlotOptionsFallback();
+    const week = dimState.week;
+
+    dimRestoreSession();
+    const hadInstant = dimTryInstantWeek(week);
     dimUpdateStatus();
-    const stored = dimReadStoredSession();
-    if (stored) {
-      dimState.session = stored;
-      dimState.bridgeReady = true;
-    } else {
-      try {
-        await dimWaitForBridgeTarget(5000);
-        if (!dimState.session) {
-          const bridged = dimReadStoredSession();
-          if (bridged) {
-            dimState.session = bridged;
-            dimState.bridgeReady = true;
-          }
-        }
-      } catch (e) { /* bridge may still be loading */ }
+
+    if (!dimState.session) {
+      dimEnsureSessionBackground(hadInstant ? 10000 : 3500).then(function (s) {
+        if (s && dimState.schedule) dimRefreshWeekInBackground(week);
+      });
     }
+
     if (dimState.session) {
       try {
-        const week = dimState.week;
-        if (dimState.schedule && dimState.week === week) {
-          dimRenderAll();
+        if (hadInstant) {
           dimStartReloadTimer();
           dimRefreshPendingBadge();
           dimMaybeShowOnboarding();
-          dimLoadWeek(week, { silent: true }).catch(function () {});
-          return;
-        }
-        const cached = dimReadWeekCache(week);
-        if (cached) {
-          dimApplySchedule(cached);
-          dimSetLastUpdate();
+          dimRefreshWeekInBackground(week);
+        } else {
+          await dimLoadWeek(week);
           dimStartReloadTimer();
           dimRefreshPendingBadge();
           dimMaybeShowOnboarding();
-          dimLoadWeek(week, { silent: true }).catch(function () {});
-          return;
         }
-        await dimLoadWeek(week);
+      } catch (e) {
+        if (dimState.schedule) {
+          dimShowToast('Não foi possível atualizar — exibindo última versão salva', true);
+          dimRefreshWeekInBackground(week);
+          dimStartReloadTimer();
+        } else {
+          dimState.session = null;
+          try { localStorage.removeItem('qhub_dim_session'); } catch (err) { /* ignore */ }
+          dimRenderConnectPrompt();
+        }
+      }
+      return;
+    }
+
+    if (hadInstant) {
+      dimStartReloadTimer();
+      dimMaybeShowOnboarding();
+      return;
+    }
+
+    try {
+      await dimWaitForBridgeTarget(2500);
+    } catch (e) { /* ignore */ }
+
+    if (dimState.session) {
+      try {
+        if (!dimTryInstantWeek(week)) await dimLoadWeek(week);
+        else dimRefreshWeekInBackground(week);
         dimStartReloadTimer();
         dimRefreshPendingBadge();
         dimMaybeShowOnboarding();
       } catch (e) {
-        dimState.session = null;
-        try { localStorage.removeItem('qhub_dim_session'); } catch (err) { /* ignore */ }
         dimRenderConnectPrompt();
       }
       return;
     }
+
     dimRenderConnectPrompt();
   }
 
@@ -1287,18 +1398,16 @@
     const week = dimState.week || dimGetIsoWeek();
     dimState.week = week;
 
-    const stored = dimReadStoredSession();
-    if (stored) {
-      dimState.session = stored;
-      dimState.bridgeReady = true;
-    }
+    dimRestoreSession();
+    dimTryInstantWeek(week, { render: false });
 
-    const cached = dimReadWeekCache(week);
-    if (cached) {
-      dimApplySchedule(cached, { render: false });
+    if (dimState.session) {
+      dimWarmupFetchWeek();
+    } else {
+      dimEnsureSessionBackground(8000).then(function (s) {
+        if (s) dimWarmupFetchWeek();
+      });
     }
-
-    dimWarmupFetchWeek();
   }
 
   function dimRenderConnectPrompt() {
