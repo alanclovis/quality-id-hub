@@ -100,7 +100,9 @@
     selectionAnchor: null,
     selectDrag: false,
     selectDragMoved: false,
-    gridSelectBound: false
+    gridSelectBound: false,
+    loadingWeek: false,
+    loadWeekSeq: 0
   };
 
   function dimLoadDictionaryFallback() {
@@ -581,9 +583,42 @@
     return u.email.toLowerCase() !== dimState.session.email.toLowerCase();
   }
 
+  function dimSetWeekLoading(loading) {
+    dimState.loadingWeek = loading;
+    const wrap = document.getElementById('dimGridWrap');
+    const label = document.getElementById('dimWeekLabel');
+    if (wrap) {
+      wrap.classList.toggle('is-loading', loading);
+      let overlay = wrap.querySelector('.dim-week-loading');
+      if (loading) {
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.className = 'dim-week-loading';
+          overlay.innerHTML = '<span class="dim-week-loading-spinner"></span><span class="dim-week-loading-text"></span>';
+          wrap.appendChild(overlay);
+        }
+        const txt = overlay.querySelector('.dim-week-loading-text');
+        if (txt) txt.textContent = 'Carregando semana ' + dimState.week + '…';
+      } else if (overlay) {
+        overlay.remove();
+      }
+    }
+    if (label) label.classList.toggle('is-loading', loading);
+    document.querySelectorAll('.dim-week-nav button, .dim-header-actions .btn-sm').forEach(function (btn) {
+      btn.disabled = loading;
+    });
+    dimUpdateStatus();
+  }
+
   function dimUpdateStatus() {
     const el = document.getElementById('dimStatus');
     if (!el) return;
+    if (dimState.loadingWeek) {
+      el.className = 'dim-status pending';
+      el.innerHTML = '<span class="dim-saving-dot"></span><span>Carregando semana <strong>' +
+        escapeHtml(String(dimState.week)) + '</strong>…</span>';
+      return;
+    }
     const url = dimBridgeBaseUrl();
     if (!url) {
       el.className = 'dim-status warn';
@@ -746,24 +781,31 @@
   }
 
   async function dimLoadWeek(week) {
+    const loadId = ++dimState.loadWeekSeq;
     dimState.week = week;
     const label = document.getElementById('dimWeekLabel');
-    if (label) label.textContent = 'Semana ' + week + (week <= 26 ? ' · H1' : ' · H2');
+    if (label) {
+      label.textContent = 'Semana ' + week + (week <= 26 ? ' · H1' : ' · H2');
+    }
+    dimSetWeekLoading(true);
     try {
       const [schedule] = await Promise.all([
         dimCall('getUserSchedule', { week: week }),
         dimLoadSlotOptionsFallback(),
         dimEnsureDictionary()
       ]);
+      if (loadId !== dimState.loadWeekSeq) return;
       dimState.schedule = schedule;
       dimEnsureSlotOptions(schedule);
       dimEnsureDayDates(schedule);
       dimNormalizeScheduleTimes(schedule);
       if (schedule.identity) dimState.session = schedule.identity;
-      dimUpdateStatus();
       dimRenderAll();
     } catch (e) {
+      if (loadId !== dimState.loadWeekSeq) return;
       dimRenderError(String(e.message || e));
+    } finally {
+      if (loadId === dimState.loadWeekSeq) dimSetWeekLoading(false);
     }
   }
 
@@ -1185,6 +1227,41 @@
     dimCloseDropdown();
 
     const detailSlots = dimState.schedule.config.detailSlots || DIM_DETAIL_SLOTS;
+
+    if (newVal && detailSlots.indexOf(newVal) >= 0) {
+      const t = targets[0];
+      const modalCtx = {
+        slot: newVal,
+        date: dimResolveDayDate(t.day),
+        time: t.time,
+        day: t.day.day
+      };
+      if (isMulti) {
+        modalCtx.multiTargets = targets.map(function (x) {
+          return {
+            day: x.day.day,
+            time: x.time,
+            date: dimResolveDayDate(x.day)
+          };
+        });
+      }
+      const needsApply = targets.some(function (x) {
+        return (x.day.slots[x.time] || '') !== newVal;
+      });
+      if (needsApply) {
+        modalCtx.pendingApply = {
+          targets: targets.map(function (x) {
+            return { dayKey: x.day.day, day: x.day, time: x.time };
+          }),
+          newVal: newVal,
+          isMulti: isMulti
+        };
+      }
+      dimOpenDetailModal(modalCtx);
+      if (isMulti) dimClearSelection();
+      return;
+    }
+
     const undoBatch = [];
     const savesByDate = {};
 
@@ -1215,18 +1292,7 @@
       });
     }
 
-    if (!undoBatch.length) {
-      if (!isMulti && newVal && detailSlots.indexOf(newVal) >= 0) {
-        const t = targets[0];
-        dimOpenDetailModal({
-          slot: newVal,
-          date: dimResolveDayDate(t.day),
-          time: t.time,
-          day: t.day.day
-        });
-      }
-      return;
-    }
+    if (!undoBatch.length) return;
 
     dimPushUndoBatch(undoBatch);
 
@@ -1241,26 +1307,6 @@
     });
 
     if (isMulti) dimClearSelection();
-
-    if (newVal && detailSlots.indexOf(newVal) >= 0) {
-      const t = targets[0];
-      const modalCtx = {
-        slot: newVal,
-        date: dimResolveDayDate(t.day),
-        time: t.time,
-        day: t.day.day
-      };
-      if (isMulti) {
-        modalCtx.multiTargets = targets.map(function (x) {
-          return {
-            day: x.day.day,
-            time: x.time,
-            date: dimResolveDayDate(x.day)
-          };
-        });
-      }
-      dimOpenDetailModal(modalCtx);
-    }
   }
 
   function dimPushUndoBatch(entries) {
@@ -1350,7 +1396,7 @@
 
   function dimShouldPauseReload() {
     return dimState.editingCell || dimState.modalOpen || dimState.saving ||
-      dimState.selectDrag || dimState.saveQueue.length > 0 ||
+      dimState.loadingWeek || dimState.selectDrag || dimState.saveQueue.length > 0 ||
       Object.keys(dimState.pendingSaves).length > 0;
   }
 
@@ -1533,6 +1579,23 @@
     document.getElementById('dimDetailBackdrop')?.classList.remove('active');
   }
 
+  function dimApplyPendingDetailSlots(pending) {
+    if (!pending || !pending.targets || !pending.newVal) return {};
+    const undoBatch = [];
+    const savesByDate = {};
+    pending.targets.forEach(function (t) {
+      const current = t.day.slots[t.time] || '';
+      const dateIso = dimResolveDayDate(t.day);
+      if (!dateIso) return;
+      undoBatch.push({ day: t.dayKey, date: dateIso, time: t.time, prev: current, next: pending.newVal });
+      dimApplySlotValue(t.day, t.time, current, pending.newVal);
+      if (!savesByDate[dateIso]) savesByDate[dateIso] = { dayKey: t.dayKey, slots: {} };
+      savesByDate[dateIso].slots[dimNormalizeTime(t.time)] = pending.newVal;
+    });
+    if (undoBatch.length) dimPushUndoBatch(undoBatch);
+    return savesByDate;
+  }
+
   async function dimSaveDetail() {
     const ctx = dimState.detailDraft;
     if (!ctx) return;
@@ -1560,7 +1623,21 @@
 
     const day = dimFindDay(ctx.day);
     const dateIso = ctx.date || (day ? dimResolveDayDate(day) : '');
-    if (!dateIso) {
+
+    let savesByDate = {};
+    if (ctx.pendingApply) {
+      savesByDate = dimApplyPendingDetailSlots(ctx.pendingApply);
+      dimRenderGrid();
+      dimRenderSummary();
+      Object.keys(savesByDate).forEach(function (dIso) {
+        const meta = savesByDate[dIso];
+        Object.keys(meta.slots).forEach(function (ts) {
+          dimQueueSave(dIso, ts, meta.slots[ts], meta.dayKey);
+        });
+      });
+    }
+
+    if (!dateIso && !ctx.pendingApply) {
       dimShowToast('Data do dia não encontrada — recarregue a semana', true);
       return;
     }
@@ -1576,7 +1653,7 @@
         const tDate = t.date || (tDay ? dimResolveDayDate(tDay) : '');
         if (!tDate) continue;
 
-        if (i === 0 && tDay && targets.length === 1) {
+        if (i === 0 && tDay && targets.length === 1 && !ctx.pendingApply) {
           const slotUpdates = dimApplyDetailDuration(tDay, t.time, ctx.slot, quantity, ctx.initialQuantity || 1);
           dimRenderGrid();
           dimRenderSummary();

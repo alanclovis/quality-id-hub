@@ -1,5 +1,5 @@
 {
-  "commit": "3622dfe",
-  "message": "Add multi-slot selection to dimensionamento grid in Hub and GAS.",
+  "commit": "bbfa975",
+  "message": "Bump version.json for multi-slot grid selection.",
   "date": "2026-06-24 00:06:19 -0300"
 }
