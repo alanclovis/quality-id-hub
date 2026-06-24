@@ -115,7 +115,8 @@
     warming: false,
     warmupDone: false,
     refreshingWeek: false,
-    initInProgress: false
+    initInProgress: false,
+    detailSaving: false
   };
 
   const DIM_WEEK_CACHE_TTL = 21600000; // 6h
@@ -2700,7 +2701,7 @@
 
   async function dimSaveDetail() {
     const ctx = dimState.detailDraft;
-    if (!ctx) return;
+    if (!ctx || dimState.detailSaving) return;
 
     const config = ctx.detailConfig || dimGetSlotDetailConfig(ctx.slot);
     const acao = document.getElementById('dimDetailAcao')?.value || '';
@@ -2740,9 +2741,20 @@
     }
     dimState.detailConfirmOvertime = false;
 
-    let savesByDate = {};
+    if (!dateIso && !ctx.pendingApply && !targets.some(function (t) {
+      const d = dimFindDay(t.day);
+      return t.date || (d ? dimResolveDayDate(d) : '');
+    })) {
+      dimShowToast('Data do dia não encontrada — recarregue a semana', true);
+      return;
+    }
+
+    dimState.detailSaving = true;
+    const saveBtn = document.querySelector('#dimDetailBackdrop .btn.primary');
+    if (saveBtn) saveBtn.disabled = true;
+
     if (ctx.pendingApply) {
-      savesByDate = dimApplyPendingDetailSlots(ctx.pendingApply);
+      const savesByDate = dimApplyPendingDetailSlots(ctx.pendingApply);
       dimRenderGrid();
       dimRenderSummary();
       Object.keys(savesByDate).forEach(function (dIso) {
@@ -2753,50 +2765,60 @@
       });
     }
 
-    if (!dateIso && !ctx.pendingApply) {
+    const detailPayloads = [];
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i];
+      const tDay = dimFindDay(t.day);
+      const tDate = t.date || (tDay ? dimResolveDayDate(tDay) : '');
+      if (!tDate) continue;
+
+      if (i === 0 && tDay && targets.length === 1 && !ctx.pendingApply) {
+        const slotUpdates = dimApplyDetailDuration(tDay, t.time, ctx.slot, quantity, ctx.initialQuantity || 1);
+        dimRenderGrid();
+        dimRenderSummary();
+        if (Object.keys(slotUpdates).length) {
+          Object.keys(slotUpdates).forEach(function (ts) {
+            dimQueueSave(tDate, dimNormalizeTime(ts), slotUpdates[ts], tDay.day);
+          });
+        }
+      }
+
+      detailPayloads.push({
+        tipo: ctx.slot,
+        slot: ctx.slot,
+        date: tDate,
+        hora: t.time,
+        time: t.time,
+        quantidade: targets.length > 1 ? 1 : quantity,
+        acao: acao,
+        projeto: projeto,
+        especificacao: especificacao
+      });
+    }
+
+    dimCloseDetailModal();
+    dimClearSelection();
+    dimState.detailSaving = false;
+
+    if (!detailPayloads.length) {
       dimShowToast('Data do dia não encontrada — recarregue a semana', true);
       return;
     }
 
-    try {
-      for (let i = 0; i < targets.length; i++) {
-        const t = targets[i];
-        const tDay = dimFindDay(t.day);
-        const tDate = t.date || (tDay ? dimResolveDayDate(tDay) : '');
-        if (!tDate) continue;
-
-        if (i === 0 && tDay && targets.length === 1 && !ctx.pendingApply) {
-          const slotUpdates = dimApplyDetailDuration(tDay, t.time, ctx.slot, quantity, ctx.initialQuantity || 1);
-          dimRenderGrid();
-          dimRenderSummary();
-          if (Object.keys(slotUpdates).length) {
-            Object.keys(slotUpdates).forEach(function (ts) {
-              dimQueueSave(tDate, dimNormalizeTime(ts), slotUpdates[ts], tDay.day);
-            });
-          }
+    (async function () {
+      try {
+        for (let i = 0; i < detailPayloads.length; i++) {
+          await dimCall('saveDetail', detailPayloads[i]);
         }
-
-        await dimCall('saveDetail', {
-          tipo: ctx.slot,
-          slot: ctx.slot,
-          date: tDate,
-          hora: t.time,
-          time: t.time,
-          quantidade: targets.length > 1 ? 1 : quantity,
-          acao: acao,
-          projeto: projeto,
-          especificacao: especificacao
-        });
+        dimShowToast(detailPayloads.length > 1
+          ? 'Detalhes salvos em ' + detailPayloads.length + ' slots'
+          : 'Detalhe salvo em Base_Detalhes');
+        dimRefreshPendingBadge();
+        if (dimState.activeTab === 'ajustes') dimRenderAjustes();
+      } catch (e) {
+        dimShowToast('Erro ao salvar detalhe: ' + e.message, true);
       }
-      dimShowToast(targets.length > 1
-        ? 'Detalhes salvos em ' + targets.length + ' slots'
-        : 'Detalhe salvo em Base_Detalhes');
-      dimCloseDetailModal();
-      dimClearSelection();
-      if (dimState.activeTab === 'ajustes') dimRenderAjustes();
-    } catch (e) {
-      dimShowToast('Erro: ' + e.message, true);
-    }
+    })();
   }
 
   async function dimRenderAjustes() {
@@ -2903,11 +2925,14 @@
   }
 
   function dimManualRefresh() {
-    if (dimState.session && dimGetBridgeTarget()) {
-      dimLoadWeek(dimState.week || dimGetIsoWeek());
-    } else {
-      dimConnectBridge();
+    const week = dimState.week || dimGetIsoWeek();
+    if (dimTryInstantWeek(week)) {
+      dimRefreshWeekInBackground(week);
+      return;
     }
+    dimLoadWeek(week).catch(function () {
+      dimConnectBridge();
+    });
   }
 
   // Export globals
