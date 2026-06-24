@@ -1,5 +1,5 @@
 {
-  "commit": "a1d5590",
-  "message": "Show explanatory gate on Dimensionamento for non-operational users.",
-  "date": "2026-06-24 00:39:38 -0300"
+  "commit": "a93359a",
+  "message": "Refine Dimensionamento grid alerts and restore compact cells.",
+  "date": "2026-06-24 00:47:26 -0300"
 }
