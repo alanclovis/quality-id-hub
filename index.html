@@ -861,6 +861,14 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   .preview-tooltip{display:none;}
   .section-nav-bar{padding:8px 0 10px;}
 }
+.hub-build-footer{
+  text-align:center;padding:10px 16px 14px;font-size:11px;color:var(--text3);
+  border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;
+}
+.hub-build-footer a{color:var(--text3);text-decoration:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+.hub-build-footer a:hover{color:#0071e3;text-decoration:underline;}
+.hub-build-footer .hub-build-msg{opacity:.85;}
+.hub-build-footer .hub-build-date{opacity:.65;margin-left:6px;}
 </style>
 </head>
 <body>
@@ -5532,6 +5540,23 @@ function renderPriorities(){
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
+async function loadHubBuildFooter(){
+  const el=document.getElementById('hubBuildFooter');
+  if(!el) return;
+  const repo='https://github.com/alanclovis/quality-id-hub';
+  try{
+    const r=await fetch('version.json?_='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw new Error('version fetch failed');
+    const v=await r.json();
+    const commit=v.commit||'?';
+    const msg=v.message?`<span class="hub-build-msg"> · ${escapeHtml(v.message)}</span>`:'';
+    const date=v.date?`<span class="hub-build-date">${escapeHtml(new Date(v.date).toLocaleString('pt-BR'))}</span>`:'';
+    el.innerHTML=`<a href="${repo}/commit/${encodeURIComponent(commit)}" target="_blank" rel="noopener" title="Ver commit no GitHub">${escapeHtml(commit)}</a>${msg}${date}`;
+  }catch(e){
+    el.textContent='Hub (versão não publicada)';
+    el.title=String(e&&e.message||e);
+  }
+}
 window.addEventListener('DOMContentLoaded',()=>{
   initProfileForm();
   initTagFilterUI();
@@ -5547,6 +5572,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(!hasClaimedIdentity()||needsMandatoryToken()) openNameModal();
   loadFromGist();
   initPriGridEvents();
+  loadHubBuildFooter();
 });
 </script>
 
@@ -5785,6 +5811,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
+<footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
 <script src="dimensionamento.js?v=3"></script>
 </body>
 </html>
