@@ -1,5 +1,5 @@
 {
-  "commit": "ab196f8",
-  "message": "Fix dimensionamento: connect-first UX via popup, no auto timeout.",
-  "date": "2026-06-23 22:53:04 -0300"
+  "commit": "495d08f",
+  "message": "Add commit version footer to Hub for deploy tracking.",
+  "date": "2026-06-23 22:56:13 -0300"
 }
