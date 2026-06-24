@@ -24,8 +24,29 @@
     activeTab: 'escala',
     dropdown: null,
     pendingList: [],
-    detailDraft: null
+    detailDraft: null,
+    bridgePopup: null
   };
+
+  function dimGetBridgeTarget() {
+    if (dimState.bridgePopup && !dimState.bridgePopup.closed) {
+      return dimState.bridgePopup;
+    }
+    const frame = document.getElementById('dimBridgeFrame');
+    if (frame && frame.contentWindow) return frame.contentWindow;
+    return null;
+  }
+
+  function dimOpenBridgePopup() {
+    const url = dimBridgeBaseUrl();
+    if (!url) return null;
+    if (dimState.bridgePopup && !dimState.bridgePopup.closed) {
+      dimState.bridgePopup.focus();
+      return dimState.bridgePopup;
+    }
+    dimState.bridgePopup = window.open(url, 'dimBridgeAuth', 'width=520,height=360');
+    return dimState.bridgePopup;
+  }
 
   function dimGetBridgeUrl() {
     if (typeof data !== 'undefined' && data.dimensionamento && data.dimensionamento.bridgeUrl) {
@@ -76,11 +97,14 @@
   }
 
   function dimWaitForBridgeReady(timeoutMs) {
-    timeoutMs = timeoutMs || 90000;
-    dimEnsureIframe();
+    timeoutMs = timeoutMs || 30000;
     if (dimState.bridgeReady && dimState.session) {
       return Promise.resolve();
     }
+
+    dimOpenBridgePopup();
+    dimEnsureIframe();
+
     return new Promise(function (resolve, reject) {
       const deadline = Date.now() + timeoutMs;
       let settled = false;
@@ -102,7 +126,7 @@
         if (!msg || msg.source !== 'dim-bridge') return;
         if (msg.event === 'ready') dimState.bridgeReady = true;
         if (msg.event === 'session' && msg.data) dimState.session = msg.data;
-        if (dimState.bridgeReady) {
+        if (dimState.bridgeReady && dimState.session) {
           window.removeEventListener('message', onReady);
           done();
         }
@@ -111,30 +135,29 @@
 
       function tryPing() {
         if (settled) return;
-        if (dimState.bridgeReady) { done(); return; }
-        dimCall('ping', {}, 10000).then(function () {
+        if (dimState.bridgeReady && dimState.session) { done(); return; }
+        dimCall('ping', {}, 8000).then(function () {
           dimState.bridgeReady = true;
           window.removeEventListener('message', onReady);
-          done();
+          if (!dimState.session) {
+            dimCall('getSessionInfo', {}, 15000).then(function (s) {
+              dimState.session = s;
+              done();
+            }).catch(function () { done(); });
+          } else {
+            done();
+          }
         }).catch(function () {
           if (Date.now() > deadline) {
             window.removeEventListener('message', onReady);
-            fail('Ponte não respondeu. Clique em "Conectar ponte" e faça login Google @nubank.com.br.');
+            fail('Ponte não respondeu. Use "Conectar ponte" e mantenha a janela aberta.');
           } else {
-            setTimeout(tryPing, 2000);
+            setTimeout(tryPing, 1500);
           }
         });
       }
 
-      const frame = document.getElementById('dimBridgeFrame');
-      if (frame) {
-        frame.addEventListener('load', function () { setTimeout(tryPing, 800); }, { once: true });
-        if (frame.contentDocument || frame.contentWindow) {
-          setTimeout(tryPing, 1500);
-        }
-      } else {
-        setTimeout(tryPing, 1500);
-      }
+      setTimeout(tryPing, 1200);
     });
   }
 
@@ -144,8 +167,8 @@
       dimShowToast('Configure a URL da ponte em Configuração → Técnico', true);
       return;
     }
-    window.open(url, 'dimBridgeAuth', 'width=520,height=360');
-    dimShowToast('Faça login Google na janela que abriu, depois clique Atualizar aqui.');
+    dimOpenBridgePopup();
+    dimShowToast('Mantenha a janela "Dim Bridge" aberta. A grade carrega automaticamente.');
   }
 
   let dimCallSeq = 0;
@@ -162,7 +185,12 @@
     }
     if (msg.event === 'session' && msg.data) {
       dimState.session = msg.data;
+      dimState.bridgeReady = true;
       dimUpdateStatus();
+      if (document.getElementById('pageDimensionamento')?.classList.contains('active')) {
+        const wk = dimState.week || dimGetIsoWeek();
+        dimLoadWeek(wk).catch(function () {});
+      }
       return;
     }
     if (msg.id && dimCallWaiters[msg.id]) {
@@ -179,6 +207,7 @@
         return;
       }
       dimEnsureIframe();
+      dimOpenBridgePopup();
       const id = 'dim-' + (++dimCallSeq) + '-' + Date.now();
       const timer = setTimeout(function () {
         delete dimCallWaiters[id];
@@ -191,14 +220,14 @@
         else reject(new Error(msg.error || 'Erro na ponte'));
       };
 
-      const frame = document.getElementById('dimBridgeFrame');
-      if (!frame || !frame.contentWindow) {
+      const target = dimGetBridgeTarget();
+      if (!target) {
         clearTimeout(timer);
         delete dimCallWaiters[id];
-        reject(new Error('Iframe da ponte indisponível'));
+        reject(new Error('Ponte indisponível. Clique em Conectar ponte.'));
         return;
       }
-      frame.contentWindow.postMessage({
+      target.postMessage({
         source: 'quality-id-hub',
         id: id,
         action: action,
@@ -291,7 +320,7 @@
     const grid = document.getElementById('dimGridWrap');
     if (grid) {
       grid.innerHTML = '<div class="dim-empty-state"><i class="ti ti-alert-circle"></i><p>' + escapeHtml(msg) + '</p>' +
-        '<p style="margin-top:10px;font-size:12px">O Hub fala com a planilha via iframe. Se o navegador bloquear cookies de terceiros, use o botão abaixo.</p>' +
+        '<p style="margin-top:10px;font-size:12px">Mantenha a janela <strong>Dim Bridge</strong> aberta enquanto usa esta página.</p>' +
         '<p style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
         '<button type="button" class="btn primary" onclick="dimConnectBridge()"><i class="ti ti-plug"></i> Conectar ponte</button>' +
         '<button type="button" class="btn" onclick="dimManualRefresh()"><i class="ti ti-refresh"></i> Atualizar</button>' +
@@ -726,7 +755,7 @@
   }
 
   function dimManualRefresh() {
-    dimLoadWeek(dimState.week);
+    dimInit();
   }
 
   // Export globals
