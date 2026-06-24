@@ -80,20 +80,21 @@ function hubGetWeekDateMap_(weekKey, userEmail) {
 
   userEmail = String(userEmail || '').toLowerCase().trim();
   weekKey = String(weekKey);
-  var dayNames = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-  var rows = sheet.getRange(2, 4, sheet.getLastRow(), 8).getDisplayValues();
+  var lastRow = sheet.getLastRow();
+  var numRows = Math.max(1, lastRow - 1);
+  var rows = sheet.getRange(2, 1, numRows, 8).getDisplayValues();
 
   rows.forEach(function (row) {
-    var email = String(row[4] || '').toLowerCase().trim();
-    if (email !== userEmail) return;
-    var weekNum = row[1] ? String(row[1]).trim() : '';
+    var email = String(row[7] || '').toLowerCase().trim();
+    var analyst = String(row[6] || '').toLowerCase().trim();
+    if (!_core_rowMatchesUser_(email, analyst, userEmail)) return;
+    var weekNum = row[4] != null ? String(row[4]).trim() : '';
     if (weekNum !== weekKey) return;
-    var dateIso = _core_formatDateToISO(row[0]);
+    var dateIso = _core_formatDateToISO(row[3]);
     if (!dateIso) return;
     var d = _core_parseDate(dateIso);
-    if (!d || isNaN(d.getTime())) return;
-    var dayName = dayNames[d.getUTCDay()];
-    if (dayName) map[dayName] = dateIso;
+    var dayName = _core_dayNameFromRow_(row, d);
+    if (_core_isWeekdayName_(dayName)) map[dayName] = dateIso;
   });
   return map;
 }

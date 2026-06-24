@@ -42,7 +42,13 @@ function getUserSchedule() {
     const userEmail = Session.getActiveUser().getEmail().toLowerCase().trim();
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    
+    if (!userEmail) {
+      return {
+        error: 'Google não identificou seu e-mail. Abra o app logado com sua conta @nubank.com.br e autorize o acesso.',
+        schedule: {},
+        userEmail: ''
+      };
+    }
     let sheet = ss.getSheetByName(MAIN_TAB_NAME);
     if (!sheet) {
         const sheets = ss.getSheets();
@@ -102,9 +108,9 @@ function getUserSchedule() {
           const dateObj = _core_parseDate(dateIso); 
           
           if (dateObj instanceof Date && !isNaN(dateObj)) {
-              const dayName = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][dateObj.getUTCDay()];
+              const dayName = _core_dayNameFromRow_(row, dateObj);
 
-              if (dayName) {
+              if (_core_isWeekdayName_(dayName)) {
                  if (!result[weekNum]) result[weekNum] = {};
                  if (!result[weekNum][dayName]) result[weekNum][dayName] = {};
 
@@ -141,17 +147,44 @@ function _core_resolveUserEmail_(payload) {
   return fromPayload || fromSession;
 }
 
+function _core_normalizeUserKey_(s) {
+  return String(s || '').toLowerCase().trim()
+    .replace(/\s+/g, '.')
+    .replace(/@.*$/, '')
+    .replace(/[^a-z0-9._-]/g, '');
+}
+
 function _core_rowMatchesUser_(rowEmail, rowAnalyst, userEmail) {
   const u = String(userEmail || '').toLowerCase().trim();
   if (!u) return false;
-  const e = String(rowEmail || '').toLowerCase().trim();
-  const a = String(rowAnalyst || '').toLowerCase().trim();
-  const uUser = u.split('@')[0];
-  if (e && e === u) return true;
-  if (a && a === u) return true;
-  if (e && e.split('@')[0] === uUser) return true;
-  if (a && (a === uUser || u.indexOf(a) >= 0)) return true;
+  const uKey = _core_normalizeUserKey_(u);
+  const eKey = _core_normalizeUserKey_(rowEmail);
+  const aKey = _core_normalizeUserKey_(rowAnalyst);
+  if (!uKey) return false;
+  if (eKey && eKey === uKey) return true;
+  if (aKey && aKey === uKey) return true;
+  if (eKey && (eKey === uKey || uKey.indexOf(eKey) >= 0 || eKey.indexOf(uKey) >= 0)) return true;
+  if (aKey && (aKey === uKey || uKey.indexOf(aKey) >= 0 || aKey.indexOf(uKey) >= 0)) return true;
   return false;
+}
+
+/** Usa coluna DIA SEMANA (C) quando existir; senão deriva da data local */
+function _core_dayNameFromRow_(row, dateObj) {
+  const rawDia = row[2] != null ? String(row[2]).trim().toLowerCase() : '';
+  if (rawDia.indexOf('segunda') >= 0) return 'segunda';
+  if (rawDia.indexOf('terça') >= 0 || rawDia.indexOf('terca') >= 0) return 'terça';
+  if (rawDia.indexOf('quarta') >= 0) return 'quarta';
+  if (rawDia.indexOf('quinta') >= 0) return 'quinta';
+  if (rawDia.indexOf('sexta') >= 0) return 'sexta';
+  if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+    const names = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+    return names[dateObj.getDay()] || '';
+  }
+  return '';
+}
+
+function _core_isWeekdayName_(dayName) {
+  return ['segunda', 'terça', 'quarta', 'quinta', 'sexta'].indexOf(dayName) >= 0;
 }
 
 // --- OPERAÇÃO EM LOTE (ESTRATÉGIA LIMPAR E SUBSTITUIR) ---
