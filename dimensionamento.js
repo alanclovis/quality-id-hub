@@ -1258,6 +1258,7 @@
   function dimWarmupFetchWeek() {
     if (!dimState.session || dimState.warming) return;
     if (dimState.warmupDone && dimState.schedule) return;
+    if (dimState.loadingWeek) return;
 
     dimState.warming = true;
     const week = dimState.week || dimGetIsoWeek();
@@ -1460,9 +1461,10 @@
       if (loadId !== dimState.loadWeekSeq) return;
       if (!silent) dimRenderError(String(e.message || e));
     } finally {
-      if (loadId === dimState.loadWeekSeq) {
-        if (!silent) dimSetWeekLoading(false);
-        else dimSetWeekRefreshing(false);
+      if (!silent) {
+        dimSetWeekLoading(false);
+      } else if (loadId === dimState.loadWeekSeq) {
+        dimSetWeekRefreshing(false);
       }
     }
   }
