@@ -1,5 +1,5 @@
 {
-  "commit": "20f917a",
-  "message": "Bump version.json for Limpar Slot in dimensionamento.",
-  "date": "2026-06-24 00:18:40 -0300"
+  "commit": "f3fb0d1",
+  "message": "Add duration modal for slot apply in Hub matching GAS behavior.",
+  "date": "2026-06-24 00:20:49 -0300"
 }
