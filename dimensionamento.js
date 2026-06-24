@@ -94,6 +94,7 @@
     pendingList: [],
     detailDraft: null,
     clearDraft: null,
+    applyDraft: null,
     bridgePopup: null,
     slotOptionsFallback: null,
     dictionaryFallback: null,
@@ -1308,6 +1309,107 @@
     dimExecuteClearCells(entries);
   }
 
+  function dimOpenApplyModal(ctx) {
+    dimState.modalOpen = true;
+    dimState.applyDraft = ctx;
+    const bd = document.getElementById('dimApplyBackdrop');
+    if (!bd) return;
+    document.getElementById('dimApplyTitle').textContent = ctx.slot;
+    const meta = document.getElementById('dimApplyMeta');
+    if (meta) {
+      meta.textContent = 'Início: ' + ctx.time + ' · ' + (DIM_DAY_LABELS[ctx.dayKey] || ctx.dayKey);
+    }
+    const qty = document.getElementById('dimApplyQty');
+    const minus = document.getElementById('dimApplyQtyMinus');
+    const plus = document.getElementById('dimApplyQtyPlus');
+    const initial = ctx.initialQuantity || 1;
+    if (qty) {
+      qty.value = String(ctx.fixedQty ? ctx.fixedQty : initial);
+      qty.disabled = !!ctx.fixedQty;
+    }
+    if (minus) minus.disabled = !!ctx.fixedQty;
+    if (plus) plus.disabled = !!ctx.fixedQty;
+    dimApplyUpdateQtyHint();
+    bd.classList.add('active');
+  }
+
+  function dimCloseApplyModal() {
+    dimState.modalOpen = false;
+    dimState.applyDraft = null;
+    document.getElementById('dimApplyBackdrop')?.classList.remove('active');
+  }
+
+  function dimApplyQtyDelta(delta) {
+    const draft = dimState.applyDraft;
+    if (!draft || draft.fixedQty) return;
+    const inp = document.getElementById('dimApplyQty');
+    if (!inp) return;
+    const cur = parseInt(inp.value, 10) || 1;
+    inp.value = String(Math.max(1, Math.min(20, cur + delta)));
+    dimApplyUpdateQtyHint();
+  }
+
+  function dimApplyUpdateQtyHint() {
+    const hint = document.getElementById('dimApplyQtyHint');
+    const draft = dimState.applyDraft;
+    if (!hint || !draft) return;
+    const qty = parseInt(document.getElementById('dimApplyQty')?.value, 10) || 1;
+    const initial = draft.initialQuantity || 1;
+    if (qty < initial) {
+      hint.style.display = 'block';
+      hint.textContent = 'Os slots excedentes (' + (initial - qty) + ') virarão AVLB.';
+    } else {
+      hint.style.display = 'none';
+      hint.textContent = '';
+    }
+  }
+
+  function dimConfirmApplySlot() {
+    const ctx = dimState.applyDraft;
+    if (!ctx) return;
+    const quantity = ctx.fixedQty || Math.max(1, Math.min(20, parseInt(document.getElementById('dimApplyQty')?.value, 10) || 1));
+    const day = ctx.day;
+    const dateIso = dimResolveDayDate(day);
+    if (!dateIso) {
+      dimShowToast('Data do dia não encontrada — recarregue a semana', true);
+      return;
+    }
+    const times = (dimState.schedule && dimState.schedule.config.timeSlots) || [];
+    const startIdx = times.indexOf(dimNormalizeTime(ctx.time));
+    if (startIdx < 0) return;
+    const initialQty = ctx.initialQuantity || 1;
+    const undoBatch = [];
+    const savesByDate = { [dateIso]: { dayKey: day.day, slots: {} } };
+    const maxSpan = Math.max(quantity, initialQty);
+
+    for (let i = 0; i < maxSpan; i++) {
+      const h = times[startIdx + i];
+      if (!h) break;
+      const prev = day.slots[h] || '';
+      let next;
+      if (i < quantity) next = ctx.slot;
+      else if (i < initialQty) next = 'AVLB';
+      else continue;
+      if (prev === next) continue;
+      undoBatch.push({ day: day.day, date: dateIso, time: h, prev: prev, next: next });
+      dimApplySlotValue(day, h, prev, next);
+      savesByDate[dateIso].slots[dimNormalizeTime(h)] = next;
+    }
+
+    dimCloseApplyModal();
+    if (!undoBatch.length) return;
+
+    dimPushUndoBatch(undoBatch);
+    dimRenderGrid();
+    dimRenderSummary();
+    Object.keys(savesByDate).forEach(function (dIso) {
+      const meta = savesByDate[dIso];
+      Object.keys(meta.slots).forEach(function (t) {
+        dimQueueSave(dIso, t, meta.slots[t], meta.dayKey);
+      });
+    });
+  }
+
   function dimApplySlot(value) {
     const targets = dimGetApplyTargets();
     if (!targets.length) return;
@@ -1350,6 +1452,36 @@
       dimOpenDetailModal(modalCtx);
       if (isMulti) dimClearSelection();
       return;
+    }
+
+    if (!isMulti) {
+      const t = targets[0];
+      const current = t.day.slots[t.time] || '';
+      let initialQuantity = 1;
+      if (newVal && current === newVal) {
+        initialQuantity = dimCountConsecutiveSlots(t.day, t.time, newVal);
+      }
+      if (newVal === 'Break') {
+        dimOpenApplyModal({
+          slot: 'Break',
+          day: t.day,
+          time: t.time,
+          dayKey: t.day.day,
+          initialQuantity: 2,
+          fixedQty: 2
+        });
+        return;
+      }
+      if (newVal) {
+        dimOpenApplyModal({
+          slot: newVal,
+          day: t.day,
+          time: t.time,
+          dayKey: t.day.day,
+          initialQuantity: initialQuantity
+        });
+        return;
+      }
     }
 
     const undoBatch = [];
@@ -1896,6 +2028,9 @@
   global.dimCloseClearModal = dimCloseClearModal;
   global.dimClearQtyDelta = dimClearQtyDelta;
   global.dimConfirmClear = dimConfirmClear;
+  global.dimCloseApplyModal = dimCloseApplyModal;
+  global.dimApplyQtyDelta = dimApplyQtyDelta;
+  global.dimConfirmApplySlot = dimConfirmApplySlot;
   global.dimConnectBridge = dimConnectBridge;
   global.dimManualRefresh = dimManualRefresh;
   global.dimGetBridgeUrl = dimGetBridgeUrl;
