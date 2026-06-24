@@ -1,5 +1,5 @@
 {
-  "commit": "6e32473",
-  "message": "Improve week loading feedback and fix detail slot cancel in Hub.",
+  "commit": "00c33e5",
+  "message": "Bump version.json for week loading UX and detail cancel fix.",
   "date": "2026-06-24 00:11:47 -0300"
 }

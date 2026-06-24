@@ -511,7 +511,8 @@
       dimSaveSession(msg.data);
       dimState.bridgeReady = true;
       dimUpdateStatus();
-      if (document.getElementById('pageDimensionamento')?.classList.contains('active')) {
+      if (document.getElementById('pageDimensionamento')?.classList.contains('active') &&
+          !dimState.schedule) {
         const wk = dimState.week || dimGetIsoWeek();
         dimLoadWeek(wk).catch(function () {});
       }
@@ -780,14 +781,16 @@
     return fallback[day.day] || '';
   }
 
-  async function dimLoadWeek(week) {
+  async function dimLoadWeek(week, options) {
+    options = options || {};
+    const silent = !!options.silent;
     const loadId = ++dimState.loadWeekSeq;
     dimState.week = week;
     const label = document.getElementById('dimWeekLabel');
     if (label) {
       label.textContent = 'Semana ' + week + (week <= 26 ? ' · H1' : ' · H2');
     }
-    dimSetWeekLoading(true);
+    if (!silent) dimSetWeekLoading(true);
     try {
       const [schedule] = await Promise.all([
         dimCall('getUserSchedule', { week: week }),
@@ -801,11 +804,12 @@
       dimNormalizeScheduleTimes(schedule);
       if (schedule.identity) dimState.session = schedule.identity;
       dimRenderAll();
+      if (silent) dimUpdateStatus();
     } catch (e) {
       if (loadId !== dimState.loadWeekSeq) return;
-      dimRenderError(String(e.message || e));
+      if (!silent) dimRenderError(String(e.message || e));
     } finally {
-      if (loadId === dimState.loadWeekSeq) dimSetWeekLoading(false);
+      if (loadId === dimState.loadWeekSeq && !silent) dimSetWeekLoading(false);
     }
   }
 
@@ -1405,7 +1409,7 @@
     dimState.reloadTimer = setInterval(function () {
       if (document.getElementById('pageDimensionamento')?.classList.contains('active') &&
           !dimShouldPauseReload()) {
-        dimLoadWeek(dimState.week);
+        dimLoadWeek(dimState.week, { silent: true });
       }
     }, 60000);
   }
@@ -1681,7 +1685,6 @@
         : 'Detalhe salvo em Base_Detalhes');
       dimCloseDetailModal();
       dimClearSelection();
-      await dimLoadWeek(dimState.week);
       if (dimState.activeTab === 'ajustes') dimRenderAjustes();
     } catch (e) {
       dimShowToast('Erro: ' + e.message, true);
