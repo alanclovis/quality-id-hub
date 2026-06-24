@@ -187,8 +187,10 @@ function hubGetUserSchedule_(week) {
 
 /** Adapta payload do Hub → saveBatchData({ slots: [{dayDate,time,task}] }) */
 function hubSaveBatchData_(payload) {
+  payload = payload || {};
   var slotItems = [];
-  var userEmail = Session.getActiveUser().getEmail().toLowerCase().trim();
+  var userEmail = String(payload.userEmail || Session.getActiveUser().getEmail() || '').toLowerCase().trim();
+  if (!userEmail) throw new Error('Usuário não autenticado. Conecte à planilha no Hub e tente salvar de novo.');
 
   if (payload.slots && Array.isArray(payload.slots)) {
     slotItems = payload.slots;
@@ -218,7 +220,7 @@ function hubSaveBatchData_(payload) {
     details = [hubDetailToLegacy_(payload.detail, payload.detailSlot)];
   }
 
-  var result = saveBatchData({ slots: slotItems, details: details });
+  var result = saveBatchData({ slots: slotItems, details: details, userEmail: userEmail });
   if (result && result.error) throw new Error(result.error);
   return Object.assign({ ok: true }, result || {});
 }
@@ -479,8 +481,11 @@ function hubGetPendingDetails_(week) {
 }
 
 function hubSaveDetail_(payload) {
+  payload = payload || {};
+  var userEmail = String(payload.userEmail || Session.getActiveUser().getEmail() || '').toLowerCase().trim();
+  if (!userEmail) throw new Error('Usuário não autenticado. Conecte à planilha no Hub e tente salvar de novo.');
   var legacy = hubDetailToLegacy_(payload, payload.tipo || payload.slot);
-  var result = saveBatchData({ slots: [], details: [legacy] });
+  var result = saveBatchData({ slots: [], details: [legacy], userEmail: userEmail });
   if (result && result.error) throw new Error(result.error);
   return { ok: true };
 }

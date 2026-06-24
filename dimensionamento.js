@@ -426,6 +426,14 @@
     return null;
   }
 
+  function dimInvalidateWeekCache(week) {
+    week = week || dimState.week || dimGetIsoWeek();
+    const key = dimWeekCacheKey(week);
+    if (key) {
+      try { localStorage.removeItem(key); } catch (e) { /* ignore */ }
+    }
+  }
+
   function dimSaveWeekCache(week, schedule) {
     const key = dimWeekCacheKey(week);
     if (!key || !schedule) return;
@@ -825,6 +833,14 @@
     return 30000;
   }
 
+  function dimSaveUserEmail() {
+    if (dimState.session && dimState.session.email) return dimState.session.email;
+    if (dimState.schedule && dimState.schedule.identity && dimState.schedule.identity.email) {
+      return dimState.schedule.identity.email;
+    }
+    return '';
+  }
+
   function dimCall(action, payload, timeoutMs) {
     timeoutMs = timeoutMs || dimCallTimeoutFor(action);
     const url = dimGetBridgeUrl();
@@ -833,11 +849,24 @@
     }
     dimEnsureIframe();
     const bridgeMs = Math.min(timeoutMs, 45000);
+    const savePayload = Object.assign({}, payload || {});
+    if ((action === 'saveBatchData' || action === 'saveDetail') && dimSaveUserEmail()) {
+      savePayload.userEmail = dimSaveUserEmail();
+    }
 
     function viaBridge() {
       return dimWaitForBridgeTarget(8000).then(function (target) {
         if (!target) throw new Error('Bridge indisponível');
-        return dimCallViaPostMessage(action, payload, bridgeMs);
+        return dimCallViaPostMessage(action, savePayload, bridgeMs);
+      });
+    }
+
+    if (action === 'saveBatchData' || action === 'saveDetail') {
+      return dimWaitForBridgeTarget(12000).then(function (target) {
+        if (!target) {
+          throw new Error('Conecte à planilha antes de salvar (clique em Conectar à planilha).');
+        }
+        return dimCallViaPostMessage(action, savePayload, timeoutMs);
       });
     }
 
@@ -2748,15 +2777,24 @@
         week: dimState.week,
         date: date,
         day: (dimState.pendingMeta && dimState.pendingMeta[date]) || '',
-        slots: slots
+        slots: slots,
+        userEmail: dimSaveUserEmail()
       });
       if (res && res.validationRejected) {
         dimShowToast('Planilha rejeitou slot(s): verifique validação de dados', true);
+      } else if (res && res.savedSlots === 0) {
+        dimShowToast('Nada foi gravado na planilha — recarregue a semana e tente de novo', true);
       } else {
-        dimShowToast('Salvo na planilha');
+        dimInvalidateWeekCache(dimState.week);
+        dimShowToast('Salvo na planilha' + (res && res.savedSlots ? ' (' + res.savedSlots + ' células)' : ''));
       }
     } catch (e) {
       dimShowToast('Erro ao salvar: ' + e.message, true);
+      Object.keys(slots).forEach(function (time) {
+        if (!dimState.pendingSaves[date]) dimState.pendingSaves[date] = {};
+        dimState.pendingSaves[date][time] = slots[time];
+      });
+      if (dimState.saveQueue.indexOf(date) < 0) dimState.saveQueue.unshift(date);
     }
 
     if (dimState.pendingMeta) delete dimState.pendingMeta[date];
@@ -3097,9 +3135,12 @@
 
     (async function () {
       try {
+        const userEmail = dimSaveUserEmail();
         for (let i = 0; i < detailPayloads.length; i++) {
+          if (userEmail) detailPayloads[i].userEmail = userEmail;
           await dimCall('saveDetail', detailPayloads[i]);
         }
+        dimInvalidateWeekCache(dimState.week);
         dimShowToast(detailPayloads.length > 1
           ? 'Detalhes salvos em ' + detailPayloads.length + ' slots'
           : 'Detalhe salvo em Base_Detalhes');

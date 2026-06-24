@@ -90,8 +90,9 @@ function getUserSchedule() {
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       const rowEmail = row[colEmailIdx] ? String(row[colEmailIdx]).toLowerCase().trim() : "";
+      const rowAnalyst = row[6] ? String(row[6]).toLowerCase().trim() : "";
       
-      if (rowEmail === userEmail) {
+      if (_core_rowMatchesUser_(rowEmail, rowAnalyst, userEmail)) {
           const dateVal = row[colDataIdx];
           const dateIso = _core_formatDateToISO(dateVal);
           
@@ -134,16 +135,41 @@ function getUserSchedule() {
   }
 }
 
+function _core_resolveUserEmail_(payload) {
+  const fromPayload = payload && payload.userEmail ? String(payload.userEmail).toLowerCase().trim() : '';
+  const fromSession = Session.getActiveUser().getEmail().toLowerCase().trim();
+  return fromPayload || fromSession;
+}
+
+function _core_rowMatchesUser_(rowEmail, rowAnalyst, userEmail) {
+  const u = String(userEmail || '').toLowerCase().trim();
+  if (!u) return false;
+  const e = String(rowEmail || '').toLowerCase().trim();
+  const a = String(rowAnalyst || '').toLowerCase().trim();
+  const uUser = u.split('@')[0];
+  if (e && e === u) return true;
+  if (a && a === u) return true;
+  if (e && e.split('@')[0] === uUser) return true;
+  if (a && (a === uUser || u.indexOf(a) >= 0)) return true;
+  return false;
+}
+
 // --- OPERAÇÃO EM LOTE (ESTRATÉGIA LIMPAR E SUBSTITUIR) ---
 function saveBatchData(payload) {
+  payload = payload || {};
   const lock = LockService.getScriptLock();
   try { lock.waitLock(10000); } catch (e) { return { error: "Servidor ocupado." }; }
 
   try {
-    const userEmail = Session.getActiveUser().getEmail().toLowerCase().trim();
+    const userEmail = _core_resolveUserEmail_(payload);
+    if (!userEmail) {
+      return { error: 'Usuário não autenticado. Conecte à planilha no Hub e tente salvar de novo.' };
+    }
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let savedSlots = 0;
+    const missedDates = [];
     
-    // 1. Atualiza Grade (H1.2026) - (Inalterado)
+    // 1. Atualiza Grade (H1.2026)
     if (payload.slots && payload.slots.length > 0) {
       let sheet = ss.getSheetByName(MAIN_TAB_NAME);
       if (!sheet) {
@@ -171,13 +197,13 @@ function saveBatchData(payload) {
         Object.keys(slotsByDate).forEach(dateIso => {
            let rowFound = -1;
            for (let i = searchData.length - 1; i >= 1; i--) {
-              const email = String(searchData[i][4] || "").toLowerCase().trim();
-              if (email === userEmail) {
-                 const d = _core_formatDateToISO(searchData[i][0]);
-                 if (d === dateIso) {
-                    rowFound = i + 1;
-                    break;
-                 }
+              const email = String(searchData[i][4] || '').toLowerCase().trim();
+              const analyst = String(searchData[i][3] || '').toLowerCase().trim();
+              if (!_core_rowMatchesUser_(email, analyst, userEmail)) continue;
+              const d = _core_formatDateToISO(searchData[i][0]);
+              if (d === dateIso) {
+                 rowFound = i + 1;
+                 break;
               }
            }
 
@@ -186,11 +212,24 @@ function saveBatchData(payload) {
                  const col = timeColMap[_core_normalizeTimeStr(slotItem.time)];
                  if (col) {
                     sheet.getRange(rowFound, col).setValue(slotItem.task);
+                    savedSlots++;
                  }
               });
+           } else {
+              missedDates.push(dateIso);
            }
         });
       }
+    }
+
+    if (payload.slots && payload.slots.length > 0 && savedSlots === 0) {
+      const hint = missedDates.length
+        ? ' Datas não encontradas: ' + missedDates.join(', ') + '.'
+        : '';
+      return {
+        error: 'Nenhuma célula foi gravada na planilha.' + hint +
+          ' Verifique se está conectada com o e-mail correto e recarregue a semana.'
+      };
     }
 
     // 2. Atualiza Detalhes (Base_Detalhes) - LÓGICA REVISADA
@@ -251,7 +290,7 @@ function saveBatchData(payload) {
     }
 
     SpreadsheetApp.flush();
-    return { success: true };
+    return { success: true, savedSlots: savedSlots, missedDates: missedDates };
 
   } catch (e) {
     return { error: e.toString() };
