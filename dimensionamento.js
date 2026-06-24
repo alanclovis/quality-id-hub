@@ -104,7 +104,14 @@
     selectDragMoved: false,
     gridSelectBound: false,
     loadingWeek: false,
-    loadWeekSeq: 0
+    loadWeekSeq: 0,
+    lastUpdate: null,
+    gridZoom: 100,
+    applyConfirmOvertime: false,
+    detailConfirmOvertime: false,
+    keyboardBound: false,
+    gridScrollBound: false,
+    weekMenuBound: false
   };
 
   function dimLoadDictionaryFallback() {
@@ -586,6 +593,348 @@
     return u.email.toLowerCase() !== dimState.session.email.toLowerCase();
   }
 
+  function dimEmailMismatch() {
+    if (!dimState.session || !dimState.session.email) return false;
+    const uid = localStorage.getItem('qhub_user_id');
+    if (!uid || typeof getAccessUserById !== 'function') return false;
+    const u = getAccessUserById(uid);
+    if (!u || !u.email) return false;
+    return u.email.toLowerCase() !== dimState.session.email.toLowerCase();
+  }
+
+  function dimMinSlotsAlert() {
+    return (dimState.schedule && dimState.schedule.config && dimState.schedule.config.minSlotsAlert) || 18;
+  }
+
+  function dimCountFilled(day) {
+    if (!day) return 0;
+    if (day.filledCount != null) return day.filledCount;
+    return Object.keys(day.slots || {}).filter(function (k) { return day.slots[k]; }).length;
+  }
+
+  function dimIsBreakSlot(val) {
+    return String(val || '').toLowerCase() === 'break';
+  }
+
+  function dimProjectedDayTotal(day, startTime, quantity) {
+    const times = (dimState.schedule && dimState.schedule.config.timeSlots) || [];
+    const startIdx = times.indexOf(dimNormalizeTime(startTime));
+    if (startIdx < 0 || !day) return dimCountFilled(day);
+    const currentTotal = dimCountFilled(day);
+    let slotsNeeded = quantity;
+    let overwrittenWorkCount = 0;
+    for (let i = 0; i < times.length - startIdx; i++) {
+      if (slotsNeeded <= 0) break;
+      const h = times[startIdx + i];
+      const existing = day.slots[h] || '';
+      if (dimIsBreakSlot(existing)) continue;
+      if (existing) overwrittenWorkCount++;
+      slotsNeeded--;
+    }
+    return currentTotal - overwrittenWorkCount + quantity;
+  }
+
+  function dimSetLastUpdate() {
+    dimState.lastUpdate = Date.now();
+    try { localStorage.setItem('qhub_dim_last_update', String(dimState.lastUpdate)); } catch (e) { /* ignore */ }
+    dimUpdateStatus();
+  }
+
+  function dimUpdateWeekLabel() {
+    const week = dimState.week || dimGetIsoWeek();
+    const label = document.getElementById('dimWeekLabel');
+    if (label) {
+      label.textContent = 'Semana ' + week + (week <= 26 ? ' · H1' : ' · H2');
+    }
+    const cur = document.getElementById('dimCurrentWeekNum');
+    if (cur) cur.textContent = String(dimGetIsoWeek());
+    dimBuildWeekMenu();
+  }
+
+  function dimBuildWeekMenu() {
+    const menu = document.getElementById('dimWeekMenu');
+    if (!menu || dimState.week == null) return;
+    const currentIso = dimGetIsoWeek();
+    const start = dimState.week <= 26 ? 1 : 27;
+    const end = dimState.week <= 26 ? 26 : 53;
+    let html = '';
+    for (let w = start; w <= end; w++) {
+      const active = w === dimState.week ? ' active' : '';
+      const curMark = w === currentIso ? ' <span style="opacity:.7;font-size:11px">atual</span>' : '';
+      html += '<button type="button" class="' + active.trim() + '" onclick="dimSelectWeek(' + w + ')">Semana ' + w + curMark + '</button>';
+    }
+    menu.innerHTML = html;
+  }
+
+  function dimToggleWeekMenu(force) {
+    const menu = document.getElementById('dimWeekMenu');
+    if (!menu) return;
+    if (force === false) menu.classList.remove('open');
+    else if (force === true) menu.classList.add('open');
+    else menu.classList.toggle('open');
+  }
+
+  function dimSelectWeek(w) {
+    dimToggleWeekMenu(false);
+    dimLoadWeek(w);
+  }
+
+  function dimBindWeekMenuClose() {
+    if (dimState.weekMenuBound) return;
+    dimState.weekMenuBound = true;
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('.dim-week-select-wrap')) dimToggleWeekMenu(false);
+    });
+  }
+
+  function dimUpdateSelectHint() {
+    const el = document.getElementById('dimSelectHint');
+    if (!el) return;
+    if (localStorage.getItem('qhub_dim_multi_hint_seen')) el.classList.add('hidden');
+  }
+
+  function dimHideMultiSelectHint() {
+    try { localStorage.setItem('qhub_dim_multi_hint_seen', '1'); } catch (e) { /* ignore */ }
+    document.getElementById('dimSelectHint')?.classList.add('hidden');
+  }
+
+  function dimUpdateAjustesBadge(count) {
+    const badge = document.getElementById('dimAjustesBadge');
+    if (!badge) return;
+    if (count > 0) {
+      badge.style.display = 'inline-flex';
+      badge.textContent = String(count);
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  async function dimRefreshPendingBadge() {
+    if (!dimState.session || !dimGetBridgeTarget()) return;
+    try {
+      const res = await dimCall('getPendingDetails', { week: dimState.week });
+      dimUpdateAjustesBadge((res.pending || []).length);
+    } catch (e) { /* ignore */ }
+  }
+
+  function dimGetSlotGroups() {
+    const options = dimGetSlotOptions();
+    const dict = (dimState.dictionary && dimState.dictionary.items) ? dimState.dictionary.items : [];
+    const activityBySlot = {};
+    dict.forEach(function (it) {
+      activityBySlot[String(it.tipoSlot || '').toLowerCase()] = it.atividade || 'Outros';
+    });
+    const groups = {};
+    const order = [];
+    options.forEach(function (opt) {
+      const act = activityBySlot[String(opt).toLowerCase()] || 'Outros';
+      if (!groups[act]) {
+        groups[act] = [];
+        order.push(act);
+      }
+      groups[act].push(opt);
+    });
+    return { groups: groups, order: order };
+  }
+
+  function dimEnsureGridShell() {
+    const wrap = document.getElementById('dimGridWrap');
+    if (!wrap) return null;
+    if (!wrap.querySelector('#dimGridInner')) {
+      wrap.innerHTML =
+        '<div class="dim-grid-zoom-bar">' +
+        '<span class="zoom-label"><i class="ti ti-zoom-in"></i> Zoom da grade</span>' +
+        '<button type="button" class="btn-sm" onclick="dimGridZoom(-10)"><i class="ti ti-minus"></i></button>' +
+        '<span class="dim-grid-zoom-val" id="dimGridZoomVal">100%</span>' +
+        '<button type="button" class="btn-sm" onclick="dimGridZoom(10)"><i class="ti ti-plus"></i></button>' +
+        '<button type="button" class="btn-sm" onclick="dimGridZoom(0,true)">Reset</button>' +
+        '</div>' +
+        '<div class="dim-grid-scaler" id="dimGridScaler"><div id="dimGridInner"></div></div>' +
+        '<div class="dim-grid-scroll-nav" id="dimGridScrollNav">' +
+        '<button type="button" onclick="dimScrollGrid(\'left\')">← manhã</button>' +
+        '<button type="button" onclick="dimScrollGrid(\'right\')">tarde →</button>' +
+        '</div>';
+      dimInitGridZoom();
+      dimBindGridScrollHints();
+    }
+    return document.getElementById('dimGridInner');
+  }
+
+  function dimInitGridZoom() {
+    const stored = parseInt(localStorage.getItem('qhub_dim_grid_zoom') || '100', 10);
+    dimState.gridZoom = isNaN(stored) ? 100 : stored;
+    dimApplyGridZoom();
+  }
+
+  function dimGridZoom(delta, reset) {
+    if (reset) dimState.gridZoom = 100;
+    else dimState.gridZoom = Math.max(80, Math.min(130, (dimState.gridZoom || 100) + delta));
+    dimApplyGridZoom();
+    try { localStorage.setItem('qhub_dim_grid_zoom', String(dimState.gridZoom)); } catch (e) { /* ignore */ }
+  }
+
+  function dimApplyGridZoom() {
+    const scaler = document.getElementById('dimGridScaler');
+    const val = document.getElementById('dimGridZoomVal');
+    const z = dimState.gridZoom || 100;
+    if (scaler) scaler.style.transform = 'scale(' + (z / 100) + ')';
+    if (val) val.textContent = z + '%';
+  }
+
+  function dimScrollGridToTime(time) {
+    const wrap = document.getElementById('dimGridWrap');
+    if (!wrap) return;
+    const headers = wrap.querySelectorAll('.dim-grid th:not(.dim-day-col)');
+    let target = null;
+    headers.forEach(function (th) {
+      if (th.textContent.trim() === time) target = th;
+    });
+    if (target) {
+      const left = target.offsetLeft - 100;
+      wrap.scrollLeft = Math.max(0, left);
+    }
+    dimUpdateGridScrollHints();
+  }
+
+  function dimScrollGridToDefault() {
+    if (!dimState.schedule) return;
+    const times = dimState.schedule.config.timeSlots || [];
+    let targetTime = '07:00';
+    outer: for (let d = 0; d < DIM_DAY_KEYS.length; d++) {
+      const day = dimFindDay(DIM_DAY_KEYS[d]);
+      if (!day) continue;
+      for (let t = 0; t < times.length; t++) {
+        if (day.slots && day.slots[times[t]]) {
+          targetTime = times[t];
+          break outer;
+        }
+      }
+    }
+    dimScrollGridToTime(targetTime);
+  }
+
+  function dimScrollGrid(dir) {
+    const wrap = document.getElementById('dimGridWrap');
+    if (!wrap) return;
+    const step = Math.max(240, wrap.clientWidth * 0.45);
+    wrap.scrollBy({ left: dir === 'left' ? -step : step, behavior: 'smooth' });
+    setTimeout(dimUpdateGridScrollHints, 350);
+  }
+
+  function dimUpdateGridScrollHints() {
+    const wrap = document.getElementById('dimGridWrap');
+    if (!wrap) return;
+    const max = wrap.scrollWidth - wrap.clientWidth;
+    wrap.classList.toggle('can-scroll-left', wrap.scrollLeft > 4);
+    wrap.classList.toggle('can-scroll-right', max > 4 && wrap.scrollLeft < max - 4);
+  }
+
+  function dimBindGridScrollHints() {
+    if (dimState.gridScrollBound) return;
+    const wrap = document.getElementById('dimGridWrap');
+    if (!wrap) return;
+    dimState.gridScrollBound = true;
+    wrap.addEventListener('scroll', dimUpdateGridScrollHints);
+    window.addEventListener('resize', dimUpdateGridScrollHints);
+  }
+
+  function dimAfterGridRender() {
+    dimScrollGridToDefault();
+    dimUpdateGridScrollHints();
+  }
+
+  function dimHighlightSlotInGrid(slotName) {
+    let first = null;
+    document.querySelectorAll('.dim-slot').forEach(function (cell) {
+      const val = cell.getAttribute('title') || '';
+      if (val.indexOf(slotName) === 0) {
+        cell.classList.add('highlight-flash');
+        if (!first) first = cell;
+      }
+    });
+    if (first) {
+      first.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      setTimeout(function () {
+        document.querySelectorAll('.dim-slot.highlight-flash').forEach(function (c) {
+          c.classList.remove('highlight-flash');
+        });
+      }, 2000);
+    }
+  }
+
+  function dimGoToSlot(dayKey, time) {
+    dimSwitchTab('escala');
+    setTimeout(function () {
+      dimScrollGridToTime(time);
+      const cell = document.querySelector(
+        '.dim-slot[data-day="' + dayKey + '"][data-time="' + time.replace(/"/g, '\\"') + '"]'
+      );
+      if (cell) {
+        cell.classList.add('highlight-flash');
+        cell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        setTimeout(function () { cell.classList.remove('highlight-flash'); }, 2000);
+      }
+    }, 80);
+  }
+
+  function dimToggleHelp(force) {
+    const bd = document.getElementById('dimHelpBackdrop');
+    if (!bd) return;
+    const open = force === undefined ? !bd.classList.contains('active') : !!force;
+    if (open) bd.classList.add('active');
+    else bd.classList.remove('active');
+    dimState.modalOpen = open;
+  }
+
+  function dimMaybeShowOnboarding() {
+    if (localStorage.getItem('qhub_dim_onboarded')) return;
+    try { localStorage.setItem('qhub_dim_onboarded', '1'); } catch (e) { /* ignore */ }
+    dimShowToast('Dica: conecte à planilha, clique em um slot para editar, use Desfazer após salvar.');
+  }
+
+  function dimBindKeyboard() {
+    if (dimState.keyboardBound) return;
+    dimState.keyboardBound = true;
+    document.addEventListener('keydown', function (e) {
+      const page = document.getElementById('pageDimensionamento');
+      if (!page || !page.classList.contains('active')) return;
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return;
+
+      if (e.key === 'Escape') {
+        if (dimState.dropdown) dimCloseDropdown();
+        else if (document.getElementById('dimHelpBackdrop')?.classList.contains('active')) dimToggleHelp(false);
+        else if (document.getElementById('dimApplyBackdrop')?.classList.contains('active')) dimCloseApplyModal();
+        else if (document.getElementById('dimClearBackdrop')?.classList.contains('active')) dimCloseClearModal();
+        else if (document.getElementById('dimDetailBackdrop')?.classList.contains('active')) dimCloseDetailModal();
+        else dimClearSelection();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        const bar = document.getElementById('dimUndoBar');
+        if (bar && bar.classList.contains('active')) {
+          e.preventDefault();
+          dimUndoLast();
+        }
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        dimChangeWeek(-1);
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        dimChangeWeek(1);
+        return;
+      }
+      if (e.key === '?' && !e.shiftKey) {
+        e.preventDefault();
+        dimToggleHelp(true);
+      }
+    });
+  }
+
   function dimSetWeekLoading(loading) {
     dimState.loadingWeek = loading;
     const wrap = document.getElementById('dimGridWrap');
@@ -615,35 +964,75 @@
 
   function dimUpdateStatus() {
     const el = document.getElementById('dimStatus');
+    const badge = document.getElementById('dimHeaderBadge');
+    const lastSync = document.getElementById('dimLastSync');
     if (!el) return;
+
+    function showBar(cls, html) {
+      el.className = 'dim-status visible ' + cls;
+      el.innerHTML = html;
+    }
+    function hideBar() {
+      el.className = 'dim-status';
+      el.innerHTML = '';
+    }
+    function setBadge(cls, html, visible) {
+      if (!badge) return;
+      badge.className = 'dim-header-badge ' + cls;
+      badge.innerHTML = html;
+      badge.style.display = visible ? 'inline-flex' : 'none';
+    }
+
+    if (!dimState.lastUpdate) {
+      try {
+        const stored = parseInt(localStorage.getItem('qhub_dim_last_update') || '0', 10);
+        if (stored) dimState.lastUpdate = stored;
+      } catch (e) { /* ignore */ }
+    }
+    if (lastSync) {
+      if (dimState.lastUpdate) {
+        const d = new Date(dimState.lastUpdate);
+        lastSync.textContent = 'Atualizado ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      } else {
+        lastSync.textContent = '';
+      }
+    }
+
     if (dimState.loadingWeek) {
-      el.className = 'dim-status pending';
-      el.innerHTML = '<span class="dim-saving-dot"></span><span>Carregando semana <strong>' +
-        escapeHtml(String(dimState.week)) + '</strong>…</span>';
+      setBadge('pending', '<span class="dim-saving-dot"></span> Carregando…', true);
+      showBar('pending', '<span class="dim-saving-dot"></span><span>Carregando semana <strong>' +
+        escapeHtml(String(dimState.week)) + '</strong>…</span>');
       return;
     }
+
     const url = dimBridgeBaseUrl();
     if (!url) {
-      el.className = 'dim-status warn';
-      el.innerHTML = '<i class="ti ti-alert-triangle"></i><span>Configure a URL da ponte em Configuração → Técnico</span>';
+      setBadge('warn', '<i class="ti ti-alert-triangle"></i> Configurar ponte', true);
+      showBar('warn', '<i class="ti ti-alert-triangle"></i><span>Configure a URL da ponte em Configuração → Técnico</span>');
       return;
     }
+
     if (dimState.saving || dimState.saveQueue.length) {
-      el.className = 'dim-status pending';
-      el.innerHTML = '<span class="dim-saving-dot"></span><span>Salvando alterações…</span>';
+      setBadge('pending', '<span class="dim-saving-dot"></span> Salvando…', true);
+      showBar('pending', '<span class="dim-saving-dot"></span><span>Salvando alterações…</span>');
       return;
     }
+
     if (dimState.session && dimState.session.email) {
-      let html = '<i class="ti ti-circle-check"></i><span>Conectado como <strong>' + escapeHtml(dimState.session.email) + '</strong></span>';
-      if (dimEmailMismatch()) {
-        html += ' <span style="margin-left:8px">⚠ E-mail diferente do cadastro Hub</span>';
+      const mismatch = dimEmailMismatch();
+      if (mismatch) {
+        setBadge('warn', '<i class="ti ti-alert-triangle"></i> E-mail divergente', true);
+        showBar('warn', '<i class="ti ti-alert-triangle"></i><span>Conectado como <strong>' +
+          escapeHtml(dimState.session.email) + '</strong> — e-mail diferente do cadastro Hub</span>');
+        return;
       }
-      el.className = dimEmailMismatch() ? 'dim-status warn' : 'dim-status ok';
-      el.innerHTML = html;
+      setBadge('ok', '<i class="ti ti-circle-check"></i> Salvo · ' + escapeHtml(dimState.session.email), true);
+      hideBar();
       return;
     }
-    el.className = 'dim-status pending';
-    el.innerHTML = '<span class="dim-saving-dot"></span><span>Conectando ao Google…</span>';
+
+    setBadge('pending', '<span class="dim-saving-dot"></span> Conectando…', true);
+    showBar('pending', '<span class="dim-saving-dot"></span><span>Conectando ao Google…</span>');
   }
 
   function dimShowToast(msg, isErr) {
@@ -653,7 +1042,11 @@
 
   async function dimInit() {
     dimBindGridSelection();
+    dimBindKeyboard();
+    dimBindWeekMenuClose();
+    dimUpdateSelectHint();
     if (dimState.week == null) dimState.week = dimGetIsoWeek();
+    dimUpdateWeekLabel();
     const url = dimGetBridgeUrl();
     if (!url) {
       dimRenderEmptySetup();
@@ -669,6 +1062,8 @@
       try {
         await dimLoadWeek(dimState.week);
         dimStartReloadTimer();
+        dimRefreshPendingBadge();
+        dimMaybeShowOnboarding();
       } catch (e) {
         dimState.session = null;
         try { localStorage.removeItem('qhub_dim_session'); } catch (err) { /* ignore */ }
@@ -695,9 +1090,11 @@
     }
     const el = document.getElementById('dimStatus');
     if (el) {
-      el.className = 'dim-status warn';
+      el.className = 'dim-status visible warn';
       el.innerHTML = '<i class="ti ti-info-circle"></i><span>Clique em <strong>Conectar à planilha</strong> para carregar sua escala</span>';
     }
+    const badge = document.getElementById('dimHeaderBadge');
+    if (badge) badge.style.display = 'none';
   }
 
   function dimRenderEmptySetup() {
@@ -788,10 +1185,7 @@
     const silent = !!options.silent;
     const loadId = ++dimState.loadWeekSeq;
     dimState.week = week;
-    const label = document.getElementById('dimWeekLabel');
-    if (label) {
-      label.textContent = 'Semana ' + week + (week <= 26 ? ' · H1' : ' · H2');
-    }
+    dimUpdateWeekLabel();
     if (!silent) dimSetWeekLoading(true);
     try {
       const [schedule] = await Promise.all([
@@ -806,6 +1200,8 @@
       dimNormalizeScheduleTimes(schedule);
       if (schedule.identity) dimState.session = schedule.identity;
       dimRenderAll();
+      dimSetLastUpdate();
+      dimRefreshPendingBadge();
       if (silent) dimUpdateStatus();
     } catch (e) {
       if (loadId !== dimState.loadWeekSeq) return;
@@ -927,6 +1323,7 @@
     dimRenderSummary();
     if (dimState.activeTab === 'ajustes') dimRenderAjustes();
     if (dimState.activeTab === 'controle') dimRenderControle();
+    dimUpdateWeekLabel();
   }
 
   function dimFindDay(dayKey) {
@@ -972,6 +1369,7 @@
   function dimSetSelection(cells, anchor) {
     dimState.selection = cells || [];
     dimState.selectionAnchor = anchor || (cells && cells[0]) || null;
+    if (dimState.selection.length > 1) dimHideMultiSelectHint();
     dimSyncSelectionVisual();
   }
 
@@ -1086,10 +1484,11 @@
   }
 
   function dimRenderGrid() {
-    const wrap = document.getElementById('dimGridWrap');
-    if (!wrap || !dimState.schedule) return;
+    const inner = dimEnsureGridShell();
+    if (!inner || !dimState.schedule) return;
 
     const slots = dimState.schedule.config.timeSlots || [];
+    const minAlert = dimMinSlotsAlert();
     let html = '<table class="dim-grid"><thead><tr><th class="dim-day-col">Dia</th>';
     slots.forEach(function (t) {
       html += '<th>' + escapeHtml(t) + '</th>';
@@ -1098,26 +1497,37 @@
 
     DIM_DAY_KEYS.forEach(function (dayKey) {
       const day = dimFindDay(dayKey);
-      const alert = day && day.filledCount < (dimState.schedule.config.minSlotsAlert || 18);
-      html += '<tr><td class="dim-day-label' + (alert ? ' dim-day-alert' : '') + '">';
-      html += escapeHtml(DIM_DAY_LABELS[dayKey]);
-      if (day && day.date) html += '<br><span style="font-weight:400;font-size:10px;color:var(--text3)">' + escapeHtml(day.date.slice(5)) + '</span>';
+      const filled = dimCountFilled(day);
+      const alert = filled < minAlert;
+      const dayLabel = DIM_DAY_LABELS[dayKey];
+      const dayTip = alert
+        ? 'Dia incompleto — faltam ' + (minAlert - filled) + ' slots'
+        : filled + '/' + minAlert + ' slots preenchidos';
+      html += '<tr><td class="dim-day-label' + (alert ? ' dim-day-alert' : '') + '" title="' + escapeHtml(dayTip) + '">';
+      html += escapeHtml(dayLabel);
+      if (day && day.date) {
+        html += '<br><span style="font-weight:400;font-size:10px;color:var(--text3)">' + escapeHtml(day.date.slice(5)) + '</span>';
+      }
+      html += '<span class="dim-day-count ' + (alert ? 'alert' : 'ok') + '">' + filled + '/' + minAlert + '</span>';
       html += '</td>';
       slots.forEach(function (time) {
         const val = day && day.slots ? (day.slots[time] || '') : '';
         const col = dimColorFor(val);
-        const cls = 'dim-slot' + (val ? '' : ' empty');
+        const isBreak = dimIsBreakSlot(val);
+        const cls = 'dim-slot' + (val ? '' : ' empty') + (isBreak ? ' is-break' : '');
+        const tip = (val || 'Vazio') + ' · ' + time + ' · ' + dayLabel;
         html += '<td class="' + cls + '" data-day="' + dayKey + '" data-time="' + escapeHtml(time) + '"';
         html += ' style="' + dimCellStyle(col) + '"';
-        html += ' title="' + escapeHtml(val || 'Vazio') + '">';
-        html += escapeHtml(val || '·');
+        html += ' title="' + escapeHtml(tip) + '">';
+        html += '<span class="dim-slot-inner">' + escapeHtml(val || '·') + '</span>';
         html += '</td>';
       });
       html += '</tr>';
     });
     html += '</tbody></table>';
-    wrap.innerHTML = html;
+    inner.innerHTML = html;
     dimSyncSelectionVisual();
+    dimAfterGridRender();
   }
 
   function dimRenderSummary() {
@@ -1131,9 +1541,13 @@
     }
     let html = '<div class="dim-summary-chips">';
     keys.forEach(function (k) {
+      const count = summary[k];
+      const hours = (count * 0.5).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
       const col = dimColorFor(k);
-      html += '<span class="dim-summary-chip" style="' + dimCellStyle(col) + '">';
-      html += escapeHtml(k) + ' <strong>' + summary[k] + '</strong></span>';
+      const safeK = escapeHtml(k).replace(/'/g, "\\'");
+      html += '<span class="dim-summary-chip" style="' + dimCellStyle(col) + '" onclick="dimHighlightSlotInGrid(\'' + safeK + '\')" title="Clique para destacar na grade">';
+      html += escapeHtml(k) + ' · <strong>' + count + '</strong> slots';
+      html += ' <span class="dim-chip-hours">· ' + hours + 'h</span></span>';
     });
     html += '</div>';
     el.innerHTML = html;
@@ -1173,13 +1587,25 @@
     function renderList(filter) {
       const list = dd.querySelector('#dimDropdownList');
       const q = (filter || '').toLowerCase();
-      const items = options.filter(function (o) { return !q || o.toLowerCase().indexOf(q) >= 0; });
-      list.innerHTML = items.map(function (opt) {
-        const col = dimColorFor(opt);
-        return '<div class="dim-dropdown-item" data-val="' + escapeHtml(opt) + '" onclick="dimApplySlot(this.dataset.val)">' +
-          '<span class="dim-dropdown-swatch" style="background:' + col.bg + ';border:1px solid ' + (col.border || '#ddd') + '"></span>' +
-          escapeHtml(opt) + '</div>';
-      }).join('');
+      const grouped = dimGetSlotGroups();
+      let html = '';
+      grouped.order.forEach(function (act) {
+        const items = grouped.groups[act].filter(function (o) {
+          return !q || o.toLowerCase().indexOf(q) >= 0;
+        });
+        if (!items.length) return;
+        html += '<div class="dim-dropdown-group-label">' + escapeHtml(act) + '</div>';
+        items.forEach(function (opt) {
+          const col = dimColorFor(opt);
+          html += '<div class="dim-dropdown-item" data-val="' + escapeHtml(opt) + '" onclick="dimApplySlot(this.dataset.val)">' +
+            '<span class="dim-dropdown-swatch" style="background:' + col.bg + ';border:1px solid ' + (col.border || '#ddd') + '"></span>' +
+            escapeHtml(opt) + '</div>';
+        });
+      });
+      if (!html) {
+        html = '<div style="padding:12px;color:var(--text3);font-size:13px">Nenhum slot encontrado</div>';
+      }
+      list.innerHTML = html;
     }
     renderList('');
     const inp = dd.querySelector('#dimDropdownSearch');
@@ -1312,6 +1738,7 @@
   function dimOpenApplyModal(ctx) {
     dimState.modalOpen = true;
     dimState.applyDraft = ctx;
+    dimState.applyConfirmOvertime = false;
     const bd = document.getElementById('dimApplyBackdrop');
     if (!bd) return;
     document.getElementById('dimApplyTitle').textContent = ctx.slot;
@@ -1326,9 +1753,15 @@
     if (qty) {
       qty.value = String(ctx.fixedQty ? ctx.fixedQty : initial);
       qty.disabled = !!ctx.fixedQty;
+      qty.oninput = function () {
+        dimState.applyConfirmOvertime = false;
+        dimApplyUpdateQtyHint();
+      };
     }
     if (minus) minus.disabled = !!ctx.fixedQty;
     if (plus) plus.disabled = !!ctx.fixedQty;
+    const ot = document.getElementById('dimApplyOvertime');
+    if (ot) ot.style.display = 'none';
     dimApplyUpdateQtyHint();
     bd.classList.add('active');
   }
@@ -1336,12 +1769,16 @@
   function dimCloseApplyModal() {
     dimState.modalOpen = false;
     dimState.applyDraft = null;
+    dimState.applyConfirmOvertime = false;
     document.getElementById('dimApplyBackdrop')?.classList.remove('active');
+    const ot = document.getElementById('dimApplyOvertime');
+    if (ot) ot.style.display = 'none';
   }
 
   function dimApplyQtyDelta(delta) {
     const draft = dimState.applyDraft;
     if (!draft || draft.fixedQty) return;
+    dimState.applyConfirmOvertime = false;
     const inp = document.getElementById('dimApplyQty');
     if (!inp) return;
     const cur = parseInt(inp.value, 10) || 1;
@@ -1352,6 +1789,7 @@
   function dimApplyUpdateQtyHint() {
     const hint = document.getElementById('dimApplyQtyHint');
     const draft = dimState.applyDraft;
+    const ot = document.getElementById('dimApplyOvertime');
     if (!hint || !draft) return;
     const qty = parseInt(document.getElementById('dimApplyQty')?.value, 10) || 1;
     const initial = draft.initialQuantity || 1;
@@ -1362,6 +1800,15 @@
       hint.style.display = 'none';
       hint.textContent = '';
     }
+    if (ot) {
+      if (dimState.applyConfirmOvertime) {
+        ot.style.display = 'block';
+      } else {
+        const day = draft.day;
+        const projected = dimProjectedDayTotal(day, draft.time, qty);
+        ot.style.display = projected > dimMinSlotsAlert() ? 'block' : 'none';
+      }
+    }
   }
 
   function dimConfirmApplySlot() {
@@ -1369,6 +1816,14 @@
     if (!ctx) return;
     const quantity = ctx.fixedQty || Math.max(1, Math.min(20, parseInt(document.getElementById('dimApplyQty')?.value, 10) || 1));
     const day = ctx.day;
+    const projected = dimProjectedDayTotal(day, ctx.time, quantity);
+    if (projected > dimMinSlotsAlert() && !dimState.applyConfirmOvertime) {
+      dimState.applyConfirmOvertime = true;
+      const ot = document.getElementById('dimApplyOvertime');
+      if (ot) ot.style.display = 'block';
+      return;
+    }
+    dimState.applyConfirmOvertime = false;
     const dateIso = dimResolveDayDate(day);
     if (!dateIso) {
       dimShowToast('Data do dia não encontrada — recarregue a semana', true);
@@ -1674,6 +2129,7 @@
   }
 
   function dimDetailQtyDelta(delta) {
+    dimState.detailConfirmOvertime = false;
     const inp = document.getElementById('dimDetailQty');
     if (!inp) return;
     const cur = parseInt(inp.value, 10) || 1;
@@ -1685,6 +2141,7 @@
   function dimDetailUpdateQtyHint() {
     const hint = document.getElementById('dimDetailQtyHint');
     const draft = dimState.detailDraft;
+    const ot = document.getElementById('dimDetailOvertime');
     if (!hint || !draft) return;
     const qty = parseInt(document.getElementById('dimDetailQty')?.value, 10) || 1;
     const initial = draft.initialQuantity || 1;
@@ -1694,6 +2151,15 @@
     } else {
       hint.style.display = 'none';
       hint.textContent = '';
+    }
+    if (ot) {
+      if (dimState.detailConfirmOvertime) {
+        ot.style.display = 'block';
+      } else if (draft.day) {
+        const day = dimFindDay(draft.day);
+        const projected = day ? dimProjectedDayTotal(day, draft.time, qty) : 0;
+        ot.style.display = projected > dimMinSlotsAlert() ? 'block' : 'none';
+      }
     }
   }
 
@@ -1733,6 +2199,7 @@
 
   function dimOpenDetailModal(ctx) {
     dimState.modalOpen = true;
+    dimState.detailConfirmOvertime = false;
     const config = dimGetSlotDetailConfig(ctx.slot);
     const day = ctx.day ? dimFindDay(ctx.day) : null;
     const initialQuantity = ctx.quantidade || (day ? dimCountConsecutiveSlots(day, ctx.time, ctx.slot) : 1);
@@ -1791,6 +2258,12 @@
       if (durationBlock) durationBlock.style.display = 'none';
     }
 
+    const ot = document.getElementById('dimDetailOvertime');
+    if (ot) ot.style.display = 'none';
+    if (qtyInp) qtyInp.oninput = function () {
+      dimState.detailConfirmOvertime = false;
+      dimDetailUpdateQtyHint();
+    };
     dimDetailUpdateQtyHint();
     bd.classList.add('active');
   }
@@ -1798,7 +2271,10 @@
   function dimCloseDetailModal() {
     dimState.modalOpen = false;
     dimState.detailDraft = null;
+    dimState.detailConfirmOvertime = false;
     document.getElementById('dimDetailBackdrop')?.classList.remove('active');
+    const ot = document.getElementById('dimDetailOvertime');
+    if (ot) ot.style.display = 'none';
   }
 
   function dimApplyPendingDetailSlots(pending) {
@@ -1845,6 +2321,20 @@
 
     const day = dimFindDay(ctx.day);
     const dateIso = ctx.date || (day ? dimResolveDayDate(day) : '');
+    const targets = (ctx.multiTargets && ctx.multiTargets.length > 1)
+      ? ctx.multiTargets
+      : [{ day: ctx.day, time: ctx.time, date: ctx.date || dateIso }];
+
+    if (day && targets.length === 1 && !ctx.pendingApply) {
+      const projected = dimProjectedDayTotal(day, ctx.time, quantity);
+      if (projected > dimMinSlotsAlert() && !dimState.detailConfirmOvertime) {
+        dimState.detailConfirmOvertime = true;
+        const ot = document.getElementById('dimDetailOvertime');
+        if (ot) ot.style.display = 'block';
+        return;
+      }
+    }
+    dimState.detailConfirmOvertime = false;
 
     let savesByDate = {};
     if (ctx.pendingApply) {
@@ -1863,10 +2353,6 @@
       dimShowToast('Data do dia não encontrada — recarregue a semana', true);
       return;
     }
-
-    const targets = (ctx.multiTargets && ctx.multiTargets.length > 1)
-      ? ctx.multiTargets
-      : [{ day: ctx.day, time: ctx.time, date: ctx.date || dateIso }];
 
     try {
       for (let i = 0; i < targets.length; i++) {
@@ -1916,17 +2402,29 @@
       const res = await dimCall('getPendingDetails', { week: dimState.week });
       const pending = res.pending || [];
       dimState.pendingList = pending;
+      dimUpdateAjustesBadge(pending.length);
       if (!pending.length) {
         el.innerHTML = '<p style="color:var(--text3);font-size:14px">Nenhum detalhe pendente nesta semana.</p>';
         return;
       }
-      el.innerHTML = pending.map(function (p, idx) {
-        return '<div class="dim-ajuste-item pending">' +
-          '<div class="dim-ajuste-meta"><strong>' + escapeHtml(p.slot) + '</strong>' +
-          '<span>' + escapeHtml(p.date) + ' · ' + escapeHtml(p.time) + '</span></div>' +
-          '<button type="button" class="btn-sm primary" onclick="dimEditPendingByIndex(' + idx + ')">' +
-          '<i class="ti ti-pencil"></i> Preencher</button></div>';
-      }).join('');
+      let html = '<div class="dim-ajustes-table-wrap"><table class="dim-ajustes-table"><thead><tr>' +
+        '<th>Slot</th><th>Data</th><th>Horário</th><th>Status</th><th></th></tr></thead><tbody>';
+      pending.forEach(function (p, idx) {
+        const dayLabel = DIM_DAY_LABELS[p.day] || p.day || '—';
+        const safeTime = escapeHtml(p.time).replace(/'/g, "\\'");
+        const safeDay = escapeHtml(p.day || '').replace(/'/g, "\\'");
+        html += '<tr>';
+        html += '<td><strong>' + escapeHtml(p.slot) + '</strong></td>';
+        html += '<td>' + escapeHtml(p.date || dayLabel) + '</td>';
+        html += '<td style="font-family:ui-monospace,monospace">' + escapeHtml(p.time) + '</td>';
+        html += '<td><span class="dim-ajuste-item pending" style="display:inline-block;padding:4px 8px;margin:0">Pendente</span></td>';
+        html += '<td class="dim-ajustes-actions">';
+        html += '<button type="button" class="btn-sm" onclick="dimGoToSlot(\'' + safeDay + '\',\'' + safeTime + '\')" title="Ir para slot na grade"><i class="ti ti-arrow-right"></i></button>';
+        html += '<button type="button" class="btn-sm primary" onclick="dimEditPendingByIndex(' + idx + ')"><i class="ti ti-pencil"></i> Preencher</button>';
+        html += '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      el.innerHTML = html;
     } catch (e) {
       el.innerHTML = '<p class="dim-status err">' + escapeHtml(e.message) + '</p>';
     }
@@ -2035,5 +2533,12 @@
   global.dimManualRefresh = dimManualRefresh;
   global.dimGetBridgeUrl = dimGetBridgeUrl;
   global.dimSetBridgeUrl = dimSetBridgeUrl;
+  global.dimToggleWeekMenu = dimToggleWeekMenu;
+  global.dimSelectWeek = dimSelectWeek;
+  global.dimGridZoom = dimGridZoom;
+  global.dimScrollGrid = dimScrollGrid;
+  global.dimHighlightSlotInGrid = dimHighlightSlotInGrid;
+  global.dimGoToSlot = dimGoToSlot;
+  global.dimToggleHelp = dimToggleHelp;
 
 })(typeof window !== 'undefined' ? window : this);

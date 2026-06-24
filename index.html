@@ -3324,7 +3324,14 @@ function showPageAnimated(page){
   if(noticeEl) noticeEl.style.display=page==='links'?'':'none';
   if(page==='ferias'){ renderFerias(); renderFeriasLegend(); renderUpcoming(); }
   if(page==='prioridades') renderPriorities();
-  if(page==='dimensionamento'&&typeof dimInit==='function') dimInit();
+  if(page==='dimensionamento'){
+    document.body.classList.add('dim-page-active');
+    document.getElementById('hubBuildFooter')?.classList.add('dim-footer-hidden');
+    if(typeof dimInit==='function') dimInit();
+  } else {
+    document.body.classList.remove('dim-page-active');
+    document.getElementById('hubBuildFooter')?.classList.remove('dim-footer-hidden');
+  }
   lastPage=page;
   localStorage.setItem('qhub_page',page);
 }
@@ -5757,28 +5764,32 @@ window.addEventListener('DOMContentLoaded',()=>{
 </div><!-- end pagePrioridades -->
 
 <div class="page" id="pageDimensionamento"><div class="layout">
-<div class="zoom-bar" id="zoomBarDimensionamento">
-  <span class="zoom-label"><i class="ti ti-zoom-in" style="font-size:13px;vertical-align:-2px"></i> Zoom</span>
-  <button class="btn-sm" onclick="adjustZoom(-10)"><i class="ti ti-minus"></i></button>
-  <span class="zoom-value" id="zoomValDimensionamento">100%</span>
-  <button class="btn-sm" onclick="adjustZoom(10)"><i class="ti ti-plus"></i></button>
-  <button class="btn-sm" onclick="resetZoom()">Reset</button>
-</div>
 
 <div class="dim-wrap">
   <div class="dim-header">
     <div class="dim-title">
-      <i class="ti ti-calendar-time" style="font-size:22px;color:#7c3aed"></i>
+      <i class="ti ti-calendar-time" style="font-size:22px;color:#820ad1"></i>
       Dimensionamento
     </div>
     <div class="dim-header-actions">
       <div class="dim-week-nav">
-        <button class="btn-sm" onclick="dimChangeWeek(-1)" title="Semana anterior"><i class="ti ti-chevron-left"></i></button>
-        <span class="dim-week-label" id="dimWeekLabel">Semana —</span>
-        <button class="btn-sm" onclick="dimChangeWeek(1)" title="Próxima semana"><i class="ti ti-chevron-right"></i></button>
+        <button class="btn-sm" type="button" onclick="dimChangeWeek(-1)" title="Semana anterior (←)"><i class="ti ti-chevron-left"></i></button>
+        <div class="dim-week-select-wrap">
+          <button class="btn-sm" type="button" id="dimWeekDropdownBtn" onclick="dimToggleWeekMenu()" title="Escolher semana">
+            <span class="dim-week-label" id="dimWeekLabel">Semana —</span>
+            <i class="ti ti-chevron-down" style="font-size:12px;margin-left:4px"></i>
+          </button>
+          <div class="dim-week-menu" id="dimWeekMenu"></div>
+        </div>
+        <button class="btn-sm" type="button" onclick="dimChangeWeek(1)" title="Próxima semana (→)"><i class="ti ti-chevron-right"></i></button>
       </div>
-      <button class="btn-sm" onclick="dimGoCurrentWeek()">Hoje</button>
-      <button class="btn-sm" onclick="dimManualRefresh()" title="Atualizar da planilha"><i class="ti ti-refresh"></i> Atualizar</button>
+      <button class="btn-sm" type="button" onclick="dimGoCurrentWeek()" title="Ir para semana atual">Semana atual: <strong id="dimCurrentWeekNum">—</strong></button>
+      <button class="btn-sm" type="button" onclick="dimManualRefresh()" title="Atualizar da planilha"><i class="ti ti-refresh"></i> Atualizar</button>
+      <button class="btn-sm" type="button" onclick="dimToggleHelp()" title="Atalhos (?)"><i class="ti ti-help"></i></button>
+    </div>
+    <div class="dim-header-meta">
+      <span class="dim-header-badge ok" id="dimHeaderBadge" style="display:none"></span>
+      <span class="dim-last-sync" id="dimLastSync"></span>
     </div>
   </div>
 
@@ -5791,16 +5802,17 @@ window.addEventListener('DOMContentLoaded',()=>{
 
   <div class="dim-tabs">
     <button type="button" class="dim-tab active" data-dim-tab="escala" onclick="dimSwitchTab('escala')">Escala Semanal</button>
-    <button type="button" class="dim-tab" data-dim-tab="ajustes" onclick="dimSwitchTab('ajustes')">Ajustes</button>
+    <button type="button" class="dim-tab" data-dim-tab="ajustes" onclick="dimSwitchTab('ajustes')">Ajustes <span class="dim-tab-badge" id="dimAjustesBadge" style="display:none">0</span></button>
     <button type="button" class="dim-tab" data-dim-tab="controle" onclick="dimSwitchTab('controle')">Controle de Slots</button>
   </div>
+  <p class="dim-select-hint" id="dimSelectHint"><i class="ti ti-hand-click" style="vertical-align:-2px"></i> Arraste ou <kbd>Shift</kbd>+clique para selecionar vários slots</p>
 
   <div class="dim-panel active" id="dimPanelEscala">
     <div class="dim-grid-wrap" id="dimGridWrap">
       <div class="dim-empty-state"><i class="ti ti-loader"></i><p>Carregando escala…</p></div>
     </div>
     <div class="dim-summary">
-      <h4><i class="ti ti-chart-bar" style="color:#7c3aed"></i> Resumo da semana</h4>
+      <h4><i class="ti ti-chart-bar" style="color:#820ad1"></i> Resumo da semana</h4>
       <div id="dimSummary"></div>
     </div>
   </div>
@@ -5854,6 +5866,10 @@ window.addEventListener('DOMContentLoaded',()=>{
         <textarea id="dimDetailSpec" placeholder="Detalhes adicionais…"></textarea>
       </div>
     </div>
+    <div class="dim-overtime-warn" id="dimDetailOvertime" style="display:none">
+      <strong>Atenção: limite de 9 horas excedido.</strong>
+      <p style="margin:4px 0 0">Você está prestes a agendar mais de 18 slots (9h) neste dia — hora extra. Clique em <strong>Salvar</strong> novamente para confirmar.</p>
+    </div>
     <div class="dim-detail-actions">
       <button type="button" class="btn" onclick="dimCloseDetailModal()">Cancelar</button>
       <button type="button" class="btn primary" onclick="dimSaveDetail()"><i class="ti ti-check"></i> Salvar</button>
@@ -5878,6 +5894,10 @@ window.addEventListener('DOMContentLoaded',()=>{
         </div>
       </div>
       <p class="dim-detail-qty-hint" id="dimApplyQtyHint" style="display:none"></p>
+    </div>
+    <div class="dim-overtime-warn" id="dimApplyOvertime" style="display:none">
+      <strong>Atenção: limite de 9 horas excedido.</strong>
+      <p style="margin:4px 0 0">Você está prestes a agendar mais de 18 slots (9h) neste dia — hora extra. Clique em <strong>Salvar</strong> novamente para confirmar.</p>
     </div>
     <div class="dim-detail-actions">
       <button type="button" class="btn" onclick="dimCloseApplyModal()">Cancelar</button>
@@ -5911,8 +5931,24 @@ window.addEventListener('DOMContentLoaded',()=>{
 </div>
 
 
+<div class="dim-detail-modal-backdrop dim-help-modal" id="dimHelpBackdrop" onclick="if(event.target===this)dimToggleHelp(false)">
+  <div class="dim-detail-modal">
+    <h3><i class="ti ti-keyboard"></i> Atalhos e dicas</h3>
+    <ul>
+      <li><kbd>Esc</kbd> — fecha menu/modal ou limpa seleção</li>
+      <li><kbd>Ctrl/Cmd+Z</kbd> — desfazer (enquanto a barra estiver visível)</li>
+      <li><kbd>←</kbd> <kbd>→</kbd> — semana anterior / próxima</li>
+      <li><kbd>?</kbd> — este painel de ajuda</li>
+      <li>Arraste ou <kbd>Shift</kbd>+clique — seleção múltipla na grade</li>
+    </ul>
+    <div class="dim-detail-actions">
+      <button type="button" class="btn primary" onclick="dimToggleHelp(false)">Entendi</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=18"></script>
+<script src="dimensionamento.js?v=19"></script>
 </body>
 </html>
