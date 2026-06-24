@@ -1,5 +1,5 @@
 {
-  "commit": "a971239",
-  "message": "Remove Dim automático and DeepDive admin buttons from Hub.",
-  "date": "2026-06-23 23:53:44 -0300"
+  "commit": "a3b09d5",
+  "message": "Fix dimensionamento detail modal to match GAS slot personalization UI.",
+  "date": "2026-06-23 23:58:13 -0300"
 }
