@@ -350,6 +350,8 @@
     }
     return null;
   }
+
+  function dimWeekCacheKey(week) {
     const email = dimGetCacheEmail();
     if (!email) return null;
     return 'qhub_dim_week_' + week + '_' + email.replace(/[^a-z0-9@._-]/gi, '_');
