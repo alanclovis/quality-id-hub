@@ -275,6 +275,9 @@
 #dimPanelControle {
   font-family: var(--font-text);
 }
+.dim-controle-meta {
+  font-size: 12px; color: var(--text3); margin: 0 0 14px; font-family: var(--font-text);
+}
 .dim-controle-header {
   display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
   gap: 12px 20px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
@@ -316,27 +319,37 @@
   border-bottom: 1px solid var(--border); padding: 10px 12px; text-align: left; vertical-align: middle;
 }
 .dim-controle-table th {
-  background: var(--bg3); font-weight: 600; font-size: 11px; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--text3);
+  background: var(--bg3); font-family: var(--font-text); font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--text3);
+}
+.dim-controle-table tbody td {
+  font-family: var(--font-text); font-size: 13px; font-weight: 400; color: var(--text);
+  -webkit-font-smoothing: antialiased;
 }
 .dim-controle-table tbody tr:hover { background: rgba(130, 10, 209, 0.03); }
 .dim-controle-table tbody tr:last-child td { border-bottom: none; }
 .dim-controle-tipo { width: 22%; }
-.dim-controle-significado { width: 46%; line-height: 1.5; color: var(--text2); }
+.dim-controle-significado {
+  width: 46%; line-height: 1.55; color: var(--text2); font-size: 13px; font-weight: 400;
+}
 .dim-controle-conv { width: 10%; text-align: center; }
-.dim-slot-badge {
-  display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px;
-  font-size: 11px; font-weight: 600; white-space: nowrap; font-family: inherit;
+.dim-controle-table .dim-slot-badge {
+  font-family: var(--font-text); font-size: 12px; font-weight: 500; letter-spacing: -0.05px;
 }
 .dim-controle-class {
   display: inline-flex; padding: 4px 8px; border-radius: 6px; background: var(--bg3);
-  border: 1px solid var(--border); font-size: 11px; font-weight: 500;
-  color: var(--text2); text-transform: none;
+  border: 1px solid var(--border); font-family: var(--font-text); font-size: 12px; font-weight: 500;
+  color: var(--text2); text-transform: none; letter-spacing: -0.05px;
 }
 .dim-controle-conv-val {
   display: inline-flex; align-items: center; justify-content: center; min-width: 28px;
-  padding: 4px 8px; border-radius: 6px; font-family: inherit; font-size: 11px; font-weight: 600;
-  background: var(--bg3); border: 1px solid var(--border); cursor: help;
+  padding: 4px 8px; border-radius: 6px; font-family: var(--font-text); font-size: 12px;
+  font-weight: 600; letter-spacing: -0.05px; background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); cursor: help;
+}
+.dim-slot-badge {
+  display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 600; white-space: nowrap; font-family: inherit;
 }
 .dim-controle-empty {
   text-align: center; padding: 48px 20px; color: var(--text3); border: 1px dashed var(--border);

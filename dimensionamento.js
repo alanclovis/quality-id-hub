@@ -169,6 +169,12 @@
     return '<span class="dim-slot-badge" style="' + dimCellStyle(col) + '">' + escapeHtml(tipo) + '</span>';
   }
 
+  function dimFormatDictionaryText(text) {
+    const t = String(text || '').trim();
+    if (!t) return '—';
+    return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+  }
+
   function dimLoadSlotOptionsFallback() {
     if (dimState.slotOptionsFallback) {
       return Promise.resolve(dimState.slotOptionsFallback);
@@ -2512,7 +2518,7 @@
         html += '<tr>';
         html += '<td class="dim-controle-tipo">' + dimSlotBadgeHtml(it.tipoSlot) + '</td>';
         html += '<td class="dim-controle-significado">' + escapeHtml(it.significado || '—') + '</td>';
-        html += '<td><span class="dim-controle-class">' + escapeHtml(it.classificacao || '—') + '</span></td>';
+        html += '<td><span class="dim-controle-class">' + escapeHtml(dimFormatDictionaryText(it.classificacao)) + '</span></td>';
         html += '<td class="dim-controle-conv"><span class="dim-controle-conv-val" title="Como esse slot irá aparecer no planilhão/DIM oficial">' +
           escapeHtml(it.conversao || '—') + '</span></td>';
         html += '</tr>';
