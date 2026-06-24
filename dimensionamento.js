@@ -560,6 +560,39 @@
     }
   }
 
+  function dimDatesForWeek(weekNumber) {
+    const simpleYear = 2026;
+    const d = new Date(simpleYear, 0, 1 + (weekNumber - 1) * 7);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.getFullYear(), d.getMonth(), diff);
+    const out = {};
+    for (let i = 0; i < DIM_DAY_KEYS.length; i++) {
+      const current = new Date(monday);
+      current.setDate(monday.getDate() + i);
+      const yyyy = current.getFullYear();
+      const mm = String(current.getMonth() + 1).padStart(2, '0');
+      const dd = String(current.getDate()).padStart(2, '0');
+      out[DIM_DAY_KEYS[i]] = yyyy + '-' + mm + '-' + dd;
+    }
+    return out;
+  }
+
+  function dimEnsureDayDates(schedule) {
+    const week = schedule.week || dimState.week || dimGetIsoWeek();
+    const fallback = dimDatesForWeek(week);
+    (schedule.days || []).forEach(function (day) {
+      if (!day.date && fallback[day.day]) day.date = fallback[day.day];
+    });
+  }
+
+  function dimResolveDayDate(day) {
+    if (!day) return '';
+    if (day.date) return day.date;
+    const fallback = dimDatesForWeek(dimState.week || dimGetIsoWeek());
+    return fallback[day.day] || '';
+  }
+
   async function dimLoadWeek(week) {
     dimState.week = week;
     const label = document.getElementById('dimWeekLabel');
@@ -573,6 +606,7 @@
       dimState.schedule = schedule;
       dimState.dictionary = dictionary;
       dimEnsureSlotOptions(schedule);
+      dimEnsureDayDates(schedule);
       if (schedule.identity) dimState.session = schedule.identity;
       dimUpdateStatus();
       dimRenderAll();
@@ -838,13 +872,19 @@
     }
     day.filledCount = Object.keys(day.slots).filter(function (k) { return day.slots[k]; }).length;
 
+    const dateIso = dimResolveDayDate(day);
+    if (!dateIso) {
+      dimShowToast('Data do dia não encontrada — não foi possível salvar na planilha', true);
+      return;
+    }
+
     dimRenderGrid();
     dimRenderSummary();
-    dimQueueSave(day.date, time, newVal);
+    dimQueueSave(dateIso, time, newVal, day.day);
 
     const detailSlots = dimState.schedule.config.detailSlots || [];
     if (detailSlots.indexOf(newVal) >= 0) {
-      dimOpenDetailModal({ slot: newVal, date: day.date, time: time, day: day.day });
+      dimOpenDetailModal({ slot: newVal, date: dateIso, time: time, day: day.day });
     }
   }
 
@@ -874,13 +914,19 @@
     if (dimState.undoTimer) clearTimeout(dimState.undoTimer);
     dimRenderGrid();
     dimRenderSummary();
-    dimQueueSave(u.date, u.time, u.prev || '');
+    dimQueueSave(dimResolveDayDate(day) || u.date, u.time, u.prev || '', u.day);
   }
 
-  function dimQueueSave(date, time, value) {
+  function dimQueueSave(date, time, value, dayKey) {
+    if (!date) {
+      dimShowToast('Data inválida — recarregue a semana', true);
+      return;
+    }
     if (!dimState.pendingSaves[date]) dimState.pendingSaves[date] = {};
     dimState.pendingSaves[date][time] = value;
-    dimState.saveQueue.push(date);
+    dimState.pendingMeta = dimState.pendingMeta || {};
+    dimState.pendingMeta[date] = dayKey || (dimState.pendingMeta[date] || '');
+    if (dimState.saveQueue.indexOf(date) < 0) dimState.saveQueue.push(date);
     dimProcessSaveQueue();
   }
 
@@ -896,14 +942,19 @@
       const res = await dimCall('saveBatchData', {
         week: dimState.week,
         date: date,
+        day: (dimState.pendingMeta && dimState.pendingMeta[date]) || '',
         slots: slots
       });
       if (res && res.validationRejected) {
         dimShowToast('Planilha rejeitou slot(s): verifique validação de dados', true);
+      } else {
+        dimShowToast('Salvo na planilha');
       }
     } catch (e) {
       dimShowToast('Erro ao salvar: ' + e.message, true);
     }
+
+    if (dimState.pendingMeta) delete dimState.pendingMeta[date];
 
     dimState.saving = false;
     dimUpdateStatus();

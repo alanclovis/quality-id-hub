@@ -68,6 +68,55 @@ var HUB_DAY_MAP_ = {
   'segunda-feira': 'seg', 'terça-feira': 'ter', 'quarta-feira': 'qua', 'quinta-feira': 'qui', 'sexta-feira': 'sex'
 };
 
+/** Mapa dia da semana (segunda…) → ISO yyyy-mm-dd a partir da planilha */
+function hubGetWeekDateMap_(weekKey, userEmail) {
+  var map = {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = typeof MAIN_TAB_NAME !== 'undefined' ? MAIN_TAB_NAME : 'H1.2026';
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return map;
+
+  userEmail = String(userEmail || '').toLowerCase().trim();
+  weekKey = String(weekKey);
+  var dayNames = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+  var rows = sheet.getRange(2, 4, sheet.getLastRow(), 8).getDisplayValues();
+
+  rows.forEach(function (row) {
+    var email = String(row[4] || '').toLowerCase().trim();
+    if (email !== userEmail) return;
+    var weekNum = row[1] ? String(row[1]).trim() : '';
+    if (weekNum !== weekKey) return;
+    var dateIso = _core_formatDateToISO(row[0]);
+    if (!dateIso) return;
+    var d = _core_parseDate(dateIso);
+    if (!d || isNaN(d.getTime())) return;
+    var dayName = dayNames[d.getUTCDay()];
+    if (dayName) map[dayName] = dateIso;
+  });
+  return map;
+}
+
+/** Fallback: mesma lógica de getDatesForWeek do Config_Slots.html */
+function hubComputeDateForWeekDay_(weekNum, dayKey) {
+  var keyMap = { seg: 0, ter: 1, qua: 2, qui: 3, sex: 4 };
+  var idx = keyMap[String(dayKey || '').substring(0, 3)] ;
+  if (idx == null) return '';
+
+  var simpleYear = 2026;
+  var d = new Date(simpleYear, 0, 1 + (Number(weekNum) - 1) * 7);
+  var day = d.getDay();
+  var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  var monday = new Date(d.getFullYear(), d.getMonth(), diff);
+  var current = new Date(monday);
+  current.setDate(monday.getDate() + idx);
+  var yyyy = current.getFullYear();
+  var mm = String(current.getMonth() + 1);
+  if (mm.length < 2) mm = '0' + mm;
+  var dd = String(current.getDate());
+  if (dd.length < 2) dd = '0' + dd;
+  return yyyy + '-' + mm + '-' + dd;
+}
+
 /** Adapta { schedule, userEmail } do seu getUserSchedule() para o formato do Hub */
 function hubGetUserSchedule_(week) {
   var raw = getUserSchedule();
@@ -75,6 +124,8 @@ function hubGetUserSchedule_(week) {
 
   var weekKey = String(week != null ? week : hubGetCurrentWeek_());
   var weekData = (raw.schedule && raw.schedule[weekKey]) || {};
+  var userEmail = raw.userEmail || Session.getActiveUser().getEmail().toLowerCase().trim();
+  var dateByDayName = hubGetWeekDateMap_(weekKey, userEmail);
 
   var days = [];
   var summary = {};
@@ -84,6 +135,7 @@ function hubGetUserSchedule_(week) {
     var daySlots = weekData[dayName];
     var slots = {};
     var filledCount = 0;
+    var dateIso = dateByDayName[dayName] || hubComputeDateForWeekDay_(weekKey, dayKey);
 
     Object.keys(daySlots).forEach(function (time) {
       var cell = daySlots[time];
@@ -98,7 +150,7 @@ function hubGetUserSchedule_(week) {
     days.push({
       day: dayKey,
       dayLabel: dayName,
-      date: '',
+      date: dateIso,
       slots: slots,
       filledCount: filledCount
     });
@@ -122,18 +174,30 @@ function hubGetUserSchedule_(week) {
 /** Adapta payload do Hub → saveBatchData({ slots: [{dayDate,time,task}] }) */
 function hubSaveBatchData_(payload) {
   var slotItems = [];
+  var userEmail = Session.getActiveUser().getEmail().toLowerCase().trim();
 
   if (payload.slots && Array.isArray(payload.slots)) {
     slotItems = payload.slots;
-  } else if (payload.slots && typeof payload.slots === 'object' && payload.date) {
+  } else if (payload.slots && typeof payload.slots === 'object') {
+    var date = payload.date || '';
+    if (!date && payload.day) {
+      date = hubComputeDateForWeekDay_(payload.week, payload.day);
+      var map = hubGetWeekDateMap_(String(payload.week || ''), userEmail);
+      var dayNameMap = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta' };
+      var dn = dayNameMap[payload.day] || payload.day;
+      if (map[dn]) date = map[dn];
+    }
+    if (!date) throw new Error('Data do dia inválida — recarregue a semana e tente de novo.');
     Object.keys(payload.slots).forEach(function (time) {
       slotItems.push({
-        dayDate: payload.date,
+        dayDate: date,
         time: time,
         task: payload.slots[time] || ''
       });
     });
   }
+
+  if (!slotItems.length) throw new Error('Nenhum slot para salvar.');
 
   var details = payload.details || [];
   if (payload.detail && payload.detailSlot) {
