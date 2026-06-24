@@ -1,5 +1,5 @@
 {
-  "commit": "bbfa975",
-  "message": "Bump version.json for multi-slot grid selection.",
-  "date": "2026-06-24 00:06:19 -0300"
+  "commit": "6e32473",
+  "message": "Improve week loading feedback and fix detail slot cancel in Hub.",
+  "date": "2026-06-24 00:11:47 -0300"
 }
