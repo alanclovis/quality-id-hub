@@ -737,6 +737,33 @@
     return { groups: groups, order: order };
   }
 
+  function dimCountBreaks(day) {
+    if (!day || !day.slots) return 0;
+    let n = 0;
+    Object.keys(day.slots).forEach(function (k) {
+      if (dimIsBreakSlot(day.slots[k])) n++;
+    });
+    return n;
+  }
+
+  function dimMinBreaksAlert() {
+    return (dimState.schedule && dimState.schedule.config && dimState.schedule.config.minBreaksAlert) || 2;
+  }
+
+  function dimGetDayIssues(day) {
+    const minSlots = dimMinSlotsAlert();
+    const minBreaks = dimMinBreaksAlert();
+    const filled = dimCountFilled(day);
+    const breaks = dimCountBreaks(day);
+    const issues = [];
+    if (filled < minSlots) issues.push('Faltam ' + (minSlots - filled) + ' slots');
+    if (breaks < minBreaks) {
+      const missing = minBreaks - breaks;
+      issues.push(missing === 1 ? 'Falta 1 break' : 'Faltam ' + missing + ' breaks');
+    }
+    return issues;
+  }
+
   function dimEnsureGridShell() {
     const wrap = document.getElementById('dimGridWrap');
     if (!wrap) return null;
@@ -749,11 +776,7 @@
         '<button type="button" class="btn-sm" onclick="dimGridZoom(10)"><i class="ti ti-plus"></i></button>' +
         '<button type="button" class="btn-sm" onclick="dimGridZoom(0,true)">Reset</button>' +
         '</div>' +
-        '<div class="dim-grid-scaler" id="dimGridScaler"><div id="dimGridInner"></div></div>' +
-        '<div class="dim-grid-scroll-nav" id="dimGridScrollNav">' +
-        '<button type="button" onclick="dimScrollGrid(\'left\')">← manhã</button>' +
-        '<button type="button" onclick="dimScrollGrid(\'right\')">tarde →</button>' +
-        '</div>';
+        '<div class="dim-grid-scaler" id="dimGridScaler"><div id="dimGridInner"></div></div>';
       dimInitGridZoom();
       dimBindGridScrollHints();
     }
@@ -1489,7 +1512,6 @@
     if (!inner || !dimState.schedule) return;
 
     const slots = dimState.schedule.config.timeSlots || [];
-    const minAlert = dimMinSlotsAlert();
     let html = '<table class="dim-grid"><thead><tr><th class="dim-day-col">Dia</th>';
     slots.forEach(function (t) {
       html += '<th>' + escapeHtml(t) + '</th>';
@@ -1498,18 +1520,19 @@
 
     DIM_DAY_KEYS.forEach(function (dayKey) {
       const day = dimFindDay(dayKey);
-      const filled = dimCountFilled(day);
-      const alert = filled < minAlert;
+      const issues = dimGetDayIssues(day);
+      const hasAlert = issues.length > 0;
       const dayLabel = DIM_DAY_LABELS[dayKey];
-      const dayTip = alert
-        ? 'Dia incompleto — faltam ' + (minAlert - filled) + ' slots'
-        : filled + '/' + minAlert + ' slots preenchidos';
-      html += '<tr><td class="dim-day-label' + (alert ? ' dim-day-alert' : '') + '" title="' + escapeHtml(dayTip) + '">';
+      const dayTip = hasAlert ? issues.join(' — ') : dayLabel;
+      html += '<tr class="' + (hasAlert ? 'dim-day-row-alert' : '') + '">';
+      html += '<td class="dim-day-label" title="' + escapeHtml(dayTip) + '">';
       html += escapeHtml(dayLabel);
       if (day && day.date) {
         html += '<br><span style="font-weight:400;font-size:10px;color:var(--text3)">' + escapeHtml(day.date.slice(5)) + '</span>';
       }
-      html += '<span class="dim-day-count ' + (alert ? 'alert' : 'ok') + '">' + filled + '/' + minAlert + '</span>';
+      if (hasAlert) {
+        html += '<span class="dim-day-alert-msg">' + escapeHtml(issues.join(' · ')) + '</span>';
+      }
       html += '</td>';
       slots.forEach(function (time) {
         const val = day && day.slots ? (day.slots[time] || '') : '';
@@ -2537,7 +2560,6 @@
   global.dimToggleWeekMenu = dimToggleWeekMenu;
   global.dimSelectWeek = dimSelectWeek;
   global.dimGridZoom = dimGridZoom;
-  global.dimScrollGrid = dimScrollGrid;
   global.dimHighlightSlotInGrid = dimHighlightSlotInGrid;
   global.dimGoToSlot = dimGoToSlot;
   global.dimToggleHelp = dimToggleHelp;
