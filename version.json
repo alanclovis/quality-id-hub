@@ -1,5 +1,5 @@
 {
-  "commit": "de4feb6",
-  "message": "Bump version.json for dimensionamento redirect auth fix.",
-  "date": "2026-06-23 23:13:38 -0300"
+  "commit": "11b712a",
+  "message": "Populate dimensionamento slot dropdown from RAW_OPTIONS list.",
+  "date": "2026-06-23 23:24:06 -0300"
 }
