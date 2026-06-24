@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    
+    <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
+    
+    <?!= include('Estilos_Cores'); ?>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script>
+      window.onerror = function(message, source, lineno, colno, error) {
+        if (message && message.includes("ResizeObserver")) return;
+        var root = document.getElementById('root');
+        // Se der erro fatal e a tela estiver vazia, mostra aviso amigável
+        if (root && !root.innerHTML.includes("Dimensionamento")) {
+            root.innerHTML = `
+            <div style="font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #333;">
+                <h2 style="color: #c026d3;">O painel precisa de autorização</h2>
+                <p style="max-width: 400px; margin: 10px 0 20px;">Se é a primeira vez que você acessa após as férias, o Google precisa validar sua conta novamente.</p>
+                <a href="${getScriptUrl()}" target="_top" style="background: #c026d3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                   Clique aqui para Recarregar e Autorizar
+                </a>
+                <p style="font-size: 11px; margin-top: 30px; color: #999;">Erro técnico: ${message}</p>
+            </div>`;
+        }
+      };
+      
+      function getScriptUrl() {
+        return "https://script.google.com/a/macros/nubank.com.br/s/AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5/exec";
+      }
+    </script>
+
+    <?!= include('Config_Slots'); ?>
+    <?!= include('Comp_ControleSlots'); ?>
+    <?!= include('App_Logica'); ?>
+
+    <script type="text/babel">
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+  </body>
+</html>

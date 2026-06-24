@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quality ID Hub · Nubank</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="dimensionamento.css">
 <style>
 :root {
   --bg:#f5f5f7;--bg2:#ffffff;--bg3:#e8e8ed;
@@ -1192,6 +1193,9 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
       <label style="margin-top:10px">Gist ID</label>
       <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
+      <label style="margin-top:14px">URL ponte Dimensionamento (Apps Script)</label>
+      <input type="url" id="dimBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+      <p class="access-hint" style="margin-top:6px">Web App publicado com <code>?view=bridge</code>. Conecta o Hub à planilha Google Sheets.</p>
       <div id="packSharedTokenBox" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
         <p class="access-hint"><strong>Admin — token compartilhado:</strong> salvo no Gist (não no Git). Membros entram só com o código pessoal, sem colar token.</p>
         <label>Token do pack (para todos os membros)</label>
@@ -1215,6 +1219,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
         <div><label style="font-size:11px;color:var(--text3)">Nome</label><input type="text" id="accessNewName" placeholder="Ex: Alan Clovis"></div>
         <div><label style="font-size:11px;color:var(--text3)">Papel</label><select id="accessNewRole"><option value="member">Membro</option><option value="visitor">Visitante</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
         <div><label style="font-size:11px;color:var(--text3)">Nível (opc.)</label><select id="accessNewLevel"><option value="">—</option><option value="Assistant II">Assistant II</option><option value="Analyst I">Analyst I</option><option value="Analyst II">Analyst II</option><option value="Coordinator">Coordinator</option><option value="Associate Manager">Associate Manager</option></select></div>
+        <div><label style="font-size:11px;color:var(--text3)">E-mail Nubank</label><input type="email" id="accessNewEmail" placeholder="nome.sobrenome@nubank.com.br"></div>
         <button class="btn primary" onclick="adminAddAccessUser()"><i class="ti ti-plus"></i> Add</button>
       </div>
     </div>
@@ -1292,6 +1297,10 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <div class="sb-item" id="sbPrioridades" data-page="prioridades" onclick="showPage('prioridades')">
       <i class="ti ti-calendar-week"></i>
       <span class="sb-label">Prioridades</span>
+    </div>
+    <div class="sb-item" id="sbDimensionamento" data-page="dimensionamento" onclick="showPage('dimensionamento')">
+      <i class="ti ti-calendar-time"></i>
+      <span class="sb-label">Dimensionamento</span>
     </div>
   </div>
   <div class="sb-reorder-hint" id="sbReorderHint">Arraste para reordenar</div>
@@ -1494,11 +1503,11 @@ const DEFAULT_PACK_TOKEN='';
 let logoCb=null,logoSelected=null;
 let tooltipTimeout=null;
 
-const DEFAULT_PAGE_ORDER=['links','ferias','prioridades'];
-const SB_ID_MAP={links:'sbLinks',ferias:'sbFerias',prioridades:'sbPrioridades'};
+const DEFAULT_PAGE_ORDER=['links','ferias','prioridades','dimensionamento'];
+const SB_ID_MAP={links:'sbLinks',ferias:'sbFerias',prioridades:'sbPrioridades',dimensionamento:'sbDimensionamento'};
 
 const DEFAULT_DATA={
-  pageOrder:['links','ferias','prioridades'],
+  pageOrder:['links','ferias','prioridades','dimensionamento'],
   profiles:{},
   accessUsers:[],
   notice:{title:"Bem-vindos ao pack!",text:"Aqui você encontra todos os links úteis do dia a dia. Dúvidas? Chama no canal <strong>#quality-id</strong> no Slack."},
@@ -2361,9 +2370,10 @@ function renderAccessUsersPanel(){
     panel.innerHTML='<div class="access-empty">Nenhum usuário cadastrado. Adicione cada pessoa — um código de acesso será gerado para enviar no Slack.</div>';
     return;
   }
-  panel.innerHTML=`<table class="access-users-table"><thead><tr><th>Nome</th><th>Código</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>${
+  panel.innerHTML=`<table class="access-users-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Código</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>${
     users.map(u=>`<tr>
       <td>${escapeHtml(u.name)}</td>
+      <td style="font-size:12px">${escapeHtml(u.email||'—')}</td>
       <td style="white-space:nowrap;font-family:monospace;font-size:12px">${escapeHtml(u.inviteCode||'—')} ${u.inviteCode?`<button class="btn-sm" onclick="copyInviteCode('${u.id}')" title="Copiar código"><i class="ti ti-copy"></i></button><button class="btn-sm" onclick="adminRegenerateInviteCode('${u.id}')" title="Novo código"><i class="ti ti-refresh"></i></button>`:''}</td>
       <td>${`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','visitor','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
       <td><span class="access-role-pill ${u.status==='active'?u.role:u.status}">${u.status==='active'?ACCESS_ROLE_LABELS[u.role]:u.status==='revoked'?'Revogado':u.status}</span></td>
@@ -2374,6 +2384,7 @@ function renderAccessUsersPanel(){
 async function adminAddAccessUser(nameArg,roleArg){
   if(!canManageAccess()) return;
   const name=(nameArg||document.getElementById('accessNewName').value||'').trim();
+  const email=(document.getElementById('accessNewEmail')?.value||'').trim().toLowerCase();
   const role=roleArg||document.getElementById('accessNewRole').value||'member';
   const level=document.getElementById('accessNewLevel')?.value||'';
   if(!name){ alert('Informe o nome.'); return; }
@@ -2381,10 +2392,12 @@ async function adminAddAccessUser(nameArg,roleArg){
   let u=data.accessUsers.find(x=>namesMatch(x.name,name));
   if(u){
     u.name=name; u.role=role; u.status='active';
+    if(email) u.email=email;
     if(!u.inviteCode) u.inviteCode=generateInviteCode(name);
     u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin';
   }else{
     u={id:'u'+Date.now(),name,role,status:'active',inviteCode:generateInviteCode(name),joinedAt:new Date().toISOString(),approvedAt:new Date().toISOString(),approvedBy:getUserName()||'Admin'};
+    if(email) u.email=email;
     data.accessUsers.push(u);
   }
   if(level){
@@ -2393,6 +2406,7 @@ async function adminAddAccessUser(nameArg,roleArg){
     saveLocal();
   }
   document.getElementById('accessNewName').value='';
+  if(document.getElementById('accessNewEmail')) document.getElementById('accessNewEmail').value='';
   if(document.getElementById('accessNewLevel')) document.getElementById('accessNewLevel').value='';
   renderAccessUsersPanel();
   renderAccessStatusBox();
@@ -2454,8 +2468,13 @@ async function adminSaveSharedPackToken(){
 function saveConfig(){
   const t=document.getElementById('tokenInput').value.trim();
   const g=document.getElementById('gistIdInput').value.trim();
+  const dimUrl=document.getElementById('dimBridgeUrlInput')?.value.trim()||'';
   if(t)localStorage.setItem('qhub_token',t);
   if(g)localStorage.setItem('qhub_gist_id',g);
+  if(typeof dimSetBridgeUrl==='function') dimSetBridgeUrl(dimUrl);
+  else localStorage.setItem('qhub_dim_bridge_url',dimUrl);
+  ensureDimensionamentoData();
+  if(canWriteGist()&&getGistId()) saveToGist();
   syncTokenHolderRole();
   closeConfig();
   updateEditButtonVisibility();
@@ -2477,6 +2496,9 @@ function updateEditButtonVisibility(){
 function openConfig(){
   document.getElementById('tokenInput').value=localStorage.getItem('qhub_token')||'';
   document.getElementById('gistIdInput').value=getGistId();
+  ensureDimensionamentoData();
+  const dimInp=document.getElementById('dimBridgeUrlInput');
+  if(dimInp) dimInp.value=(typeof dimGetBridgeUrl==='function'?dimGetBridgeUrl():localStorage.getItem('qhub_dim_bridge_url'))||'';
   const packBox=document.getElementById('packSharedTokenBox');
   const packInp=document.getElementById('packSharedTokenInput');
   if(packBox) packBox.style.display=canManageAccess()?'block':'none';
@@ -2523,6 +2545,7 @@ function applyLoadedPackData(parsed,updatedAt){
   initKnownFeriasIds();
   ensurePageOrder();
   ensurePrioritiesData();
+  ensureDimensionamentoData();
   ensureProfilesData();
   ensureAccessUsers();
   migratePendingToActiveMembers();
@@ -3224,6 +3247,7 @@ function applyZoom(z){
   document.getElementById('zoomVal').textContent=currentZoom+'%';
   const zf=document.getElementById('zoomValFerias'); if(zf) zf.textContent=currentZoom+'%';
   const zp=document.getElementById('zoomValPrioridades'); if(zp) zp.textContent=currentZoom+'%';
+  const zd=document.getElementById('zoomValDimensionamento'); if(zd) zd.textContent=currentZoom+'%';
   localStorage.setItem('qhub_zoom',currentZoom);
 }
 function adjustZoom(delta){applyZoom(currentZoom+delta);}
@@ -3267,8 +3291,8 @@ let lastPage = 'links';
 const _origShowPage = typeof showPage === 'function' ? showPage : null;
 
 function showPageAnimated(page){
-  const pageMap={links:'pageLinks',ferias:'pageFerias',prioridades:'pagePrioridades'};
-  const sbMap={links:'sbLinks',ferias:'sbFerias',prioridades:'sbPrioridades'};
+  const pageMap={links:'pageLinks',ferias:'pageFerias',prioridades:'pagePrioridades',dimensionamento:'pageDimensionamento'};
+  const sbMap={links:'sbLinks',ferias:'sbFerias',prioridades:'sbPrioridades',dimensionamento:'sbDimensionamento'};
   Object.keys(pageMap).forEach(p=>{
     document.getElementById(pageMap[p])?.classList.toggle('active',page===p);
     document.getElementById(sbMap[p])?.classList.toggle('active',page===p);
@@ -3277,6 +3301,7 @@ function showPageAnimated(page){
   if(noticeEl) noticeEl.style.display=page==='links'?'':'none';
   if(page==='ferias'){ renderFerias(); renderFeriasLegend(); renderUpcoming(); }
   if(page==='prioridades') renderPriorities();
+  if(page==='dimensionamento'&&typeof dimInit==='function') dimInit();
   lastPage=page;
   localStorage.setItem('qhub_page',page);
 }
@@ -3330,7 +3355,15 @@ function showPage(page){
   showPageAnimated(page);
 }
 
+function ensureDimensionamentoData(){
+  if(!data.dimensionamento) data.dimensionamento={bridgeUrl:''};
+  if(data.dimensionamento.bridgeUrl==null) data.dimensionamento.bridgeUrl='';
+  const stored=localStorage.getItem('qhub_dim_bridge_url');
+  if(stored&&!data.dimensionamento.bridgeUrl) data.dimensionamento.bridgeUrl=stored;
+}
+
 function ensurePageOrder(){
+  ensureDimensionamentoData();
   if(!data.pageOrder||!Array.isArray(data.pageOrder)) data.pageOrder=[...DEFAULT_PAGE_ORDER];
   DEFAULT_PAGE_ORDER.forEach(p=>{ if(!data.pageOrder.includes(p)) data.pageOrder.push(p); });
   data.pageOrder=data.pageOrder.filter(p=>DEFAULT_PAGE_ORDER.includes(p));
@@ -5667,6 +5700,91 @@ window.addEventListener('DOMContentLoaded',()=>{
 </div><!-- end layout -->
 </div><!-- end pagePrioridades -->
 
+<div class="page" id="pageDimensionamento"><div class="layout">
+<div class="zoom-bar" id="zoomBarDimensionamento">
+  <span class="zoom-label"><i class="ti ti-zoom-in" style="font-size:13px;vertical-align:-2px"></i> Zoom</span>
+  <button class="btn-sm" onclick="adjustZoom(-10)"><i class="ti ti-minus"></i></button>
+  <span class="zoom-value" id="zoomValDimensionamento">100%</span>
+  <button class="btn-sm" onclick="adjustZoom(10)"><i class="ti ti-plus"></i></button>
+  <button class="btn-sm" onclick="resetZoom()">Reset</button>
+</div>
 
-</div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell --></body>
+<div class="dim-wrap">
+  <div class="dim-header">
+    <div class="dim-title">
+      <i class="ti ti-calendar-time" style="font-size:22px;color:#7c3aed"></i>
+      Dimensionamento
+    </div>
+    <div class="dim-header-actions">
+      <div class="dim-week-nav">
+        <button class="btn-sm" onclick="dimChangeWeek(-1)" title="Semana anterior"><i class="ti ti-chevron-left"></i></button>
+        <span class="dim-week-label" id="dimWeekLabel">Semana —</span>
+        <button class="btn-sm" onclick="dimChangeWeek(1)" title="Próxima semana"><i class="ti ti-chevron-right"></i></button>
+      </div>
+      <button class="btn-sm" onclick="dimGoCurrentWeek()">Hoje</button>
+      <button class="btn-sm" onclick="dimManualRefresh()" title="Atualizar da planilha"><i class="ti ti-refresh"></i> Atualizar</button>
+    </div>
+  </div>
+
+  <div class="dim-status pending" id="dimStatus"><span class="dim-saving-dot"></span><span>Aguardando conexão…</span></div>
+
+  <div class="dim-undo-bar" id="dimUndoBar">
+    <span class="dim-undo-label">Alteração salva</span>
+    <button type="button" class="btn-sm" onclick="dimUndoLast()"><i class="ti ti-arrow-back-up"></i> Desfazer</button>
+  </div>
+
+  <div class="dim-admin-bar" id="dimAdminBar">
+    <button type="button" class="btn-sm primary" onclick="dimRunAutoDim()"><i class="ti ti-wand"></i> Dim automático</button>
+    <button type="button" class="btn-sm" onclick="dimRunDeepDive()"><i class="ti ti-chart-dots"></i> DeepDive Slots</button>
+  </div>
+
+  <div class="dim-tabs">
+    <button type="button" class="dim-tab active" data-dim-tab="escala" onclick="dimSwitchTab('escala')">Escala Semanal</button>
+    <button type="button" class="dim-tab" data-dim-tab="ajustes" onclick="dimSwitchTab('ajustes')">Ajustes</button>
+    <button type="button" class="dim-tab" data-dim-tab="controle" onclick="dimSwitchTab('controle')">Controle de Slots</button>
+  </div>
+
+  <div class="dim-panel active" id="dimPanelEscala">
+    <div class="dim-grid-wrap" id="dimGridWrap">
+      <div class="dim-empty-state"><i class="ti ti-loader"></i><p>Carregando escala…</p></div>
+    </div>
+    <div class="dim-summary">
+      <h4><i class="ti ti-chart-bar" style="color:#7c3aed"></i> Resumo da semana</h4>
+      <div id="dimSummary"></div>
+    </div>
+  </div>
+
+  <div class="dim-panel" id="dimPanelAjustes">
+    <p class="access-hint" style="margin-bottom:12px">Slots detalhados (Planilha, Docs, Project Meet…) que ainda precisam de ação ou projeto.</p>
+    <div class="dim-ajustes-list" id="dimAjustesList"></div>
+  </div>
+
+  <div class="dim-panel" id="dimPanelControle">
+    <input type="search" class="dim-controle-search" id="dimControleSearch" placeholder="Buscar slot, tipo ou regra…" oninput="dimRenderControle()">
+    <div id="dimControleBody"></div>
+  </div>
+</div>
+</div><!-- end layout -->
+</div><!-- end pageDimensionamento -->
+
+<div class="dim-detail-modal-backdrop" id="dimDetailBackdrop" onclick="if(event.target===this)dimCloseDetailModal()">
+  <div class="dim-detail-modal">
+    <h3 id="dimDetailTitle">Detalhe do slot</h3>
+    <label>Ação realizada</label>
+    <input type="text" id="dimDetailAcao" placeholder="Descreva a ação">
+    <label>Projeto</label>
+    <input type="text" id="dimDetailProjeto" placeholder="Nome do projeto">
+    <label>Especificação (se Outro)</label>
+    <textarea id="dimDetailSpec" placeholder="Detalhes adicionais"></textarea>
+    <div class="dim-detail-actions">
+      <button type="button" class="btn" onclick="dimCloseDetailModal()">Cancelar</button>
+      <button type="button" class="btn primary" onclick="dimSaveDetail()"><i class="ti ti-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+
+</div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
+<script src="dimensionamento.js"></script>
+</body>
 </html>

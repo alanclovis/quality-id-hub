@@ -20,3 +20,5 @@ Quem tiver acesso:
 ## Tecnologia
 HTML/JS estático hospedado no GitHub Pages.
 Dados salvos em GitHub Gist (`quality-hub-data.json`). Sem backend, sem banco de dados.
+
+**Dimensionamento:** grade semanal conectada à planilha Google Sheets via Apps Script (`gas/` + ponte iframe). Ver [docs/RUNBOOK-Dimensionamento.md](docs/RUNBOOK-Dimensionamento.md).

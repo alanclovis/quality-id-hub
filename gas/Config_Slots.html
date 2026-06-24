@@ -1,0 +1,260 @@
+<script>
+  // === CONSTANTES GERAIS ===
+  const HOURS = [
+    "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", 
+    "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
+    "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", 
+    "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
+    "21:00", "21:30", "22:00", "22:30", "23:00", "23:30"
+  ];
+
+  const INITIAL_BREAK_HOURS = []; // Vazio para respeitar a planilha
+  const DAYS = ["segunda", "terça", "quarta", "quinta", "sexta"];
+
+  // === FUNÇÕES UTILITÁRIAS GLOBAIS ===
+  
+  function getCurrentWeekNumber() {
+    // AJUSTE: Como o DIM é 2026, iniciamos sempre na semana 1 para facilitar a visualização
+    return 1;
+  }
+
+  function normalizeTime(timeStr) {
+      if (!timeStr) return null;
+      let clean = timeStr.toString().trim().split(':').slice(0, 2).join(':');
+      if (clean.length === 4) clean = '0' + clean; 
+      return clean;
+  }
+
+  function getDatesForWeek(weekNumber) {
+    const simpleYear = 2026; 
+    
+    // Calcula a data baseada na semana escolhida
+    const d = new Date(simpleYear, 0, 1 + (weekNumber - 1) * 7);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); 
+    const monday = new Date(d.setDate(diff));
+    
+    const dateMap = {}; 
+    const visualMap = {}; 
+    for (let i = 0; i < 5; i++) {
+      const current = new Date(monday);
+      current.setDate(monday.getDate() + i);
+      
+      const dayName = DAYS[i]; 
+      const yyyy = current.getFullYear();
+      const mm = String(current.getMonth() + 1).padStart(2, '0');
+      const dd = String(current.getDate()).padStart(2, '0');
+      
+      dateMap[dayName] = `${yyyy}-${mm}-${dd}`;
+      visualMap[dayName] = `${dd}/${mm}`;
+    }
+    return { dateMap, visualMap };
+  }
+
+  function generateInitialData() {
+    const data = {};
+    for (let i = 1; i <= 53; i++) {
+      const weekKey = String(i);
+      data[weekKey] = {};
+      DAYS.forEach(day => {
+        data[weekKey][day] = {};
+      });
+    }
+    return data;
+  }
+
+  function parseDetails(detailsRaw) {
+    if (!detailsRaw) return {};
+    if (typeof detailsRaw === 'object') return detailsRaw;
+    try { return JSON.parse(detailsRaw); } catch (e) { return {}; }
+  }
+
+  // === LISTAS PADRÃO ===
+  const PROJECTS_DEFAULT = [
+    "Calibration", "Contingência", "Dimensionamento", "Drive", "Inv. Brain", "Insights Roda de conversa",  
+    "Jira (contestação/apontamento externo)", "Macros", "Métricas", 
+    "Onboarding", "NPS", "SPOT", "Query & Dashboards", "Scorecards", "Quality Engagement", "NMP (Projeto não mapeado)"
+  ];
+
+  // === OPÇÕES DE CADA SLOT ===
+  const PLANILHA_ACTIONS = ["Atualização de dados", "Atualização IDP", "Criação de nova planilha", "Estudo de dados", "Extração / Coleta de dados", "Dimensionamento", "Revisão de dados", "Script em Planilha", "Outro"];
+  const PLANILHA_PROJECTS = PROJECTS_DEFAULT;
+
+  const DEEPDIVE_ACTIONS = ["Investigação de caso", "Coleta e extração de dados", "Elaboração de resultados/insights", "Estudo de caso", "Criação de dashboard", "Revisão de Dados", "Outro"];
+  const DEEPDIVE_PROJECTS = PROJECTS_DEFAULT;
+
+  const DOCS_ACTIONS = ["Criação de novo documento", "Atualização de conteúdo existente", "Revisão / Comentários / Sugestões", "Tradução de conteúdo", "Outro"];
+  const DOCS_PROJECTS = PROJECTS_DEFAULT;
+
+  const PLAYBOOK_ACTIONS = ["Criação / Estruturação", "Revisão / Validação de Conteúdo", "Coleta / Incorporação de Feedback", "Tradução / Adaptação de Conteúdo", "Reformatação / Ajuste de Layout", "Outro"];
+  const PLAYBOOK_PROJECTS = PROJECTS_DEFAULT;
+
+  const RFC_ACTIONS = ["Escrita da proposta inicial", "Pesquisa de embasamento / dados", "Coleta de feedbacks", "Apresentação", "Documentação da versão final", "Outro"];
+  const RFC_PROJECTS = PROJECTS_DEFAULT;
+
+  const SLIDES_ACTIONS = ["Criação de nova apresentação", "Atualização de dados", "Ajuste de layout / Template", "Revisão de conteúdo", "Criação de material", "Preparação para reunião", "Outro"];
+  const SLIDES_PROJECTS = PROJECTS_DEFAULT;
+
+  const JIRA_ACTIONS = ["Ajuste de Formulário / Tipo de Solicitação", "Atualização de status", "Acompanhamento de Épico", "Criação / Ajuste de Automação", "Criação de tarefas", "Configuração de board (colunas, filtros)", "Descrição / Detalhamento de história", "Priorização de backlog", "Gestão de Sprint", "Criação de Dashboard no Jira", "Outro"];
+
+  const DRIVE_ACTIONS = ["Criação / Estruturação de novas pastas", "Reorganização / Movimentação de arquivos e pastas", "Ajuste / Gerenciamento de permissões de acesso", "Padronização de nomenclatura (pastas/arquivos)", "Upload / Inclusão de novos materiais", "Limpeza / Arquivamento de arquivos antigos", "Criação / Configuração de Drives Compartilhados", "Outro"];
+
+  const PROJECTMEET_ACTIONS = ["Apresentação de Resultados", "Reunião de alinhamento", "Reunião de Kick-off", "Reunião de Planejamento", "Reunião de Retrospectiva", "Reunião com outros times", "Reunião de Brainstorming", "Reunião de Resolução de Problemas", "Reunião de testes", "Outro"];
+  const PROJECTMEET_PROJECTS = PROJECTS_DEFAULT;
+
+  const DATABRICKS_ACTIONS = ["Criação de Notebook", "Manutenção de Notebook", "Análise de Dados", "Criação de Dashboard", "Treinamento", "Outro"];
+  const DATABRICKS_PROJECTS = PROJECTS_DEFAULT;
+
+  const QUICKSIGHT_ACTIONS = ["Criação de novo Dashboard", "Atualização / Manutenção de Dashboard existente", "Criação / Atualização de Conjunto de Dados (Dataset)", "Criação / Ajuste de Visual (Gráfico, Tabela)", "Validação de Dados / Consistência do Dashboard", "Análise exploratória na ferramenta", "Outro"];
+  const QUICKSIGHT_PROJECTS = PROJECTS_DEFAULT;
+
+  // === LISTA GERAL ===
+ const RAW_OPTIONS = [
+  "Break", "1:1", "AT", "AT-H", "AVLB", "AUS", "AI Agent", "Calibration", "Calibration Packs",
+  "CoffeeBreak", "Confluence", "CSAT", "ProjCSAT", "Databricks", "Deep Dive", "DEV", "Docs", "Drive",
+  "DTQ", "EDF", "ESCL", "Extraction", "FLG", "FLG-H", "FR", "FRDO", "GS - ID", "GS - VP",
+  "HUB", "ID", "Inv. Brain", "ITP",
+  "Jira/Atlassian", "JR - Contest ID", "JR - Contest VP",
+  "JR - Loss ID", "JR - Loss VP", "JR - Request",
+  "Mandatorios", "MEET-DT", "Mission Control", "Monthly", "Move Pratica", "Move Teoria",
+  "OCI", "Onb Qlt", "Playbook", "Playvox", "Planilha", "PlanilhaID", "PlanilhaVP",
+  "Pratica", "Project Meet", "Qulture Rocks",
+  "qlt", "qlt-HE", "Quality Monitoring", "Quicksight", "RFC", "Reuniao", "Reciclagem",
+  "RT", "Slides", "Shadowing Qlt", "Stk Talk", "Support", "Talk IC4", "Talk Quality", "Trainer", "TESTE-DT",
+  "VP", "Weekly", "Workflow (Slack)", "FLC", "Appeal Flow", "Pangaea", "Reversals", "CSAT-HE", "OBF",
+"FUP Legal", "Reativação OBF", "Triagem OBF", "Projeto Csat",
+"ProjFLC", "ProjAF", "ProjRVS", "ProjONB", "ProjOPS", "ProjQLT",
+"Doc Csat", "Reunião Csat", "Weekly Csat", "Sync RVS", "Sync Legal",
+"Sync OPS", "Sync FLC", "Sync AF", "Sync QLT", "Sync ONB",
+"OPS Projeção", "OPS Ajustes", "Onboarding", "Prática", "Buddy", "Quality", "RVS DD", "Legal DD", "OPS DD", "FLC DD",
+"AF DD", "QLT DD", "QR Csat", "UPDATES", "DIM_QLT", "DIM_Csat"
+
+];
+  
+  const WEEKS_2026 = Array.from({ length: 53 }, (_, i) => {
+    const weekNum = i + 1;
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const monthIndex = Math.floor((weekNum - 1) / 4.4); 
+    const month = months[Math.min(monthIndex, 11)];
+    return { id: String(weekNum), label: `${weekNum} (${month})` };
+  });
+
+const STATIC_SLOT_DATA = [
+  { atividade: "Core Job (Jira + Monitoria)", tipo: "CSAT", significado: "Monitorias de qualidade no método CSAT", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Core Job (Jira + Monitoria)", tipo: "ProjCSAT", significado: "Monitorias de projetos CSAT", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Core Job (Jira + Monitoria)", tipo: "GS - ID", significado: "Para monitorias no método GLOBAL em Identity Fraud", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Core Job (Jira + Monitoria)", tipo: "GS - VP", significado: "Para monitorias no método GLOBAL em Victim Prevention", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Core Job (Jira + Monitoria)", tipo: "JR - Contest ID", significado: "Tratativa de Jira de contestações", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Core Job (Jira + Monitoria)", tipo: "JR - Contest VP", significado: "Tratativa de Jira de contestações", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Core Job (Jira + Monitoria)", tipo: "JR - Loss ID", significado: "Tratativa de Jira de apontamentos externos", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Core Job (Jira + Monitoria)", tipo: "JR - Loss VP", significado: "Tratativa de Jira de apontamentos externos", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Core Job (Jira + Monitoria)", tipo: "JR - Request", significado: "Tratativa de Jira de solicitações", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Documentação/Análise de Dados", tipo: "Deep Dive", significado: "Utilizado para análises detalhadas sobre temas específicos", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Documentação/Análise de Dados", tipo: "Docs", significado: "Documentação envolvendo o pack que não seja playbook e RFC", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Documentação/Análise de Dados", tipo: "Inv. Brain", significado: "Para atualização dos documentos sobre os processos internos dentro do Inv. Brain", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Documentação/Análise de Dados", tipo: "Planilha", significado: "Execução de atividades diversas em planilhas relacionadas ao pack", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Documentação/Análise de Dados", tipo: "Playbook", significado: "Criação ou atualização de Playbooks", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Documentação/Análise de Dados", tipo: "RFC", significado: "Criação ou atualização de RFC", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Documentação/Análise de Dados", tipo: "Slides", significado: "Usado para criação ou revisão de apresentações", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Rituais", tipo: "Calibration", significado: "Calibração entre os qualiters e extração de dados", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Rituais", tipo: "Calibration Packs", significado: "Calibração dos qualiters com as packs e extração de dados", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Rituais", tipo: "Onb Qlt", significado: "Treinamento de novos qualiters/reonboarding", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Rituais", tipo: "Stk Talk", significado: "Roda de conversa com IC5 (roundtable)", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Rituais", tipo: "Shadowing Qlt", significado: "Shadowing com novos integrantes", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Reuniões", tipo: "HUB", significado: "Reuniões de projetos relacionados as antigas frentes", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Reuniões", tipo: "Mission Control", significado: "Reunião para organização do jira", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Reuniões", tipo: "Project Meet", significado: "Reuniões voltadas a projetos/assuntos relacionados a pack", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Reuniões", tipo: "Talk IC4", significado: "Reunião mensal com ic4 do time para alinhamentos", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Reuniões", tipo: "Talk Quality", significado: "Reuniões para apresentação de informações sobre Quality", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Reuniões", tipo: "Weekly", significado: "Para Unit Times, weekly do time", classificacao: "Uso geral", conversao: "Weekly" },
+  { atividade: "Ferramentas", tipo: "Drive", significado: "Para utilização e organização do Drive", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Ferramentas", tipo: "Confluence", significado: "Criação ou atualização de páginas no Confluence", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Ferramentas", tipo: "Jira/Atlassian", significado: "Para utilização da ferramenta Jira/Atlassian", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Ferramentas", tipo: "Databricks", significado: "Para utilização em geral no Databricks", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Ferramentas", tipo: "Quicksight", significado: "Para utilização em geral no Amazon Quicksight", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Ferramentas", tipo: "Workflow (Slack)", significado: "Utilizado para criação e manutenção de workflow no slack", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Ferramentas", tipo: "Playvox", significado: "Para utilização da ferramenta Playvox", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Extra", tipo: "AVLB", significado: "Disposição Operacional da pack de qualidade", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Extra", tipo: "DTQ", significado: "Atividades voltados para o desenvolvimento dos qualiters", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Extra", tipo: "Quality Monitoring", significado: "TQM - atividades específicas enviadas top-down", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "Extra", tipo: "Support", significado: "Apoio a ferramentas e auxílio no geral entre os qualiters", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "OPS", tipo: "AT", significado: "Atestado", classificacao: "Uso geral", conversao: "AT" },
+  { atividade: "OPS", tipo: "AT-H", significado: "Atestado de Horas", classificacao: "Uso geral", conversao: "AT-H" },
+  { atividade: "OPS", tipo: "AUS", significado: "Ausência (sem atestado ou doc de justificativa)", classificacao: "Uso geral", conversao: "AUS" },
+  { atividade: "OPS", tipo: "EDF", significado: "Escola de fraude", classificacao: "Uso geral", conversao: "EDF" },
+  { atividade: "OPS", tipo: "ESCL", significado: "Folga de Escala", classificacao: "Uso geral", conversao: "ESCL" },
+  { atividade: "OPS", tipo: "FLG", significado: "Folga", classificacao: "Uso geral", conversao: "FLG" },
+  { atividade: "OPS", tipo: "FLG-H", significado: "Folga utilizada através do banco de horas", classificacao: "Uso geral", conversao: "FLG-H" },
+  { atividade: "OPS", tipo: "FR", significado: "Férias", classificacao: "Uso geral", conversao: "FR" },
+  { atividade: "OPS", tipo: "ITP", significado: "Problema Técnico Pontual", classificacao: "Uso geral", conversao: "ITP" },
+  { atividade: "OPS", tipo: "RT", significado: "Problema Técnico Generalizado", classificacao: "Uso geral", conversao: "RT" },
+  { atividade: "OPS", tipo: "DEV", significado: "Treinamentos de Desenvolvimento", classificacao: "Uso geral", conversao: "DEV" },
+  { atividade: "OPS", tipo: "TESTE-DT", significado: "Para testes de processos dos distritos", classificacao: "Uso geral", conversao: "TESTE-DT" },
+  { atividade: "OPS", tipo: "OCI", significado: "Ociosidade Operacional", classificacao: "Uso geral", conversao: "OCI" },
+  { atividade: "OPS", tipo: "FRDO", significado: "Feriado", classificacao: "Uso geral", conversao: "FRDO" },
+  { atividade: "OPS", tipo: "Break", significado: "Break", classificacao: "Uso geral", conversao: "Break" },
+  { atividade: "OPS", tipo: "1:1", significado: "Reunião entre lider e liderado", classificacao: "Uso geral", conversao: "1:1" },
+  { atividade: "OPS", tipo: "MEET-DT", significado: "Para fóruns de alinhamento dos distritos", classificacao: "Uso geral", conversao: "MEET-DT" },
+  { atividade: "OPS", tipo: "Monthly", significado: "Para Monthlys de People ou do Distrito", classificacao: "Uso geral", conversao: "Monthly" },
+  { atividade: "OPS", tipo: "CoffeeBreak", significado: "Reunião Coffee Break", classificacao: "Uso geral", conversao: "CoffeeBreak" },
+  { atividade: "OPS", tipo: "Mandatorios", significado: "Realização de treinamentos obrigatórios", classificacao: "Uso geral", conversao: "Mandatorios" },
+  { atividade: "OPS", tipo: "Move Pratica", significado: "Treinamento/troca prática de distrito", classificacao: "Uso geral", conversao: "MovePratica" },
+  { atividade: "OPS", tipo: "Move Teoria", significado: "Treinamento/troca teórico de distrito", classificacao: "Uso geral", conversao: "MoveTeoria" },
+  { atividade: "OPS", tipo: "Pratica", significado: "Prática pós troca de distrito", classificacao: "Uso geral", conversao: "Pratica" },
+  { atividade: "OPS", tipo: "Reciclagem", significado: "Realização de treinamentos sobre mudanças nos processos", classificacao: "Uso geral", conversao: "Reciclagem" },
+  { atividade: "OPS", tipo: "Reuniao", significado: "Treinamento de CIPA, reunião de grupos de afinidade...", classificacao: "Uso geral", conversao: "Reuniao" },
+  { atividade: "OPS", tipo: "Qulture Rocks", significado: "Alterações no QR (atualizações e PC)", classificacao: "Uso geral", conversao: "" },
+  { atividade: "OPS", tipo: "qlt", significado: "Slot de qualidade", classificacao: "Exclusivo de quality", conversao: "qlt" },
+  { atividade: "OPS", tipo: "qlt-HE", significado: "Somente para demandas de Shifts e HE", classificacao: "Exclusivo de quality", conversao: "qlt-HE" },
+  { atividade: "OPS", tipo: "ID", significado: "JOBS DE ID", classificacao: "Uso geral", conversao: "ID" },
+  { atividade: "OPS", tipo: "VP", significado: "JOBS DE VP", classificacao: "Uso geral", conversao: "VP" },
+  { atividade: "OPS", tipo: "PlanilhaVP", significado: "Atividades de planilha de VP", classificacao: "Uso geral", conversao: "VP" },
+  { atividade: "OPS", tipo: "PlanilhaID", significado: "Atividades de planilha de ID", classificacao: "Uso geral", conversao: "ID" },
+  { atividade: "Ferramentas", tipo: "DIM_QLT", significado: "Slot específico para atividades relacionadas ao dimensionamento de Quality (ferramenta ou agendamento de slots)", classificacao: "Exclusivo de quality", conversao: "QLT" },
+  // CSAT
+{ atividade: "Core Job (CSAT)", tipo: "FLC", significado: "Slot destinado ao projeto de feedback loop center - Realizar a tratativa dos casos de acordo com o seu distrito", classificacao: "Exclusivo de quality", conversao: "CSAT" },
+{ atividade: "Core Job (CSAT)", tipo: "Appeal Flow", significado: "Slot destinado à ação efetiva em casos de appeal flow", classificacao: "Exclusivo de quality", conversao: "CSAT" },
+{ atividade: "Core Job (CSAT)", tipo: "Pangaea", significado: "Slot relacionado à ação efetiva em casos do pangaea para demandas gerais, reanálises e judorders", classificacao: "Exclusivo de quality", conversao: "CSAT" },
+{ atividade: "Core Job (CSAT)", tipo: "Reversals", significado: "Slot destinado à ação efetiva em casos de reversals e decisions", classificacao: "Exclusivo de quality", conversao: "CSAT" },
+{ atividade: "Core Job (CSAT)", tipo: "CSAT-HE", significado: "Slot destinado para Hora extra/Shift do time de Csat", classificacao: "Exclusivo de quality", conversao: "CSAT-HE" },
+{ atividade: "Core Job (CSAT)", tipo: "OBF", significado: "Slot relacionado à ação efetiva em casos de OBF (somente integrantes do projeto de Legal - OBF)", classificacao: "Exclusivo de quality", conversao: "CSAT" },
+// ProjCSAT
+{ atividade: "Projetos (CSAT)", tipo: "FUP Legal", significado: "Slot destinado para demandas gerais relacionadas ao projeto de legal - OBF", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Reativação OBF", significado: "Acompanhamento dos casos de Reativação de Legal (somente integrantes do projeto de Legal - OBF)", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Triagem OBF", significado: "Triagem das OBFs de Legal (somente integrantes do projeto de Legal - OBF)", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Projeto Csat", significado: "Slot destinado para projetos gerais de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "ProjFLC", significado: "Slot destinado para demandas gerais relacionadas ao projeto de FLC", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "ProjAF", significado: "Slot destinado para demandas gerais relacionadas ao projeto de Appeal Flow", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "ProjRVS", significado: "Slot destinado para demandas gerais relacionadas ao projeto de Reversals", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "ProjONB", significado: "Slot destinado para demandas gerais relacionadas ao projeto de Onboarding", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "ProjOPS", significado: "Slot para analista do time de OPS realizar as manutenções na planilha do DIM interno Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "ProjQLT", significado: "Slot destinado para demandas gerais relacionadas ao projeto de Quality", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Doc Csat", significado: "Slot destinado para criação das documentações de Csat - Playbooks, RFCs, Macros, Material de treinamento, etc", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Reunião Csat", significado: "Reunião do time de Csat para demandas extras", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Weekly Csat", significado: "Reunião semanal do time de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Sync RVS", significado: "Reunião com os analistas do projeto de Reversals", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Sync Legal", significado: "Reunião com os analistas do projeto de Legal E/OU reunião com o time jurídico para alinhamentos e reciclagem - OBF", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Sync OPS", significado: "Reunião com os analistas do projeto de OPS", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Sync FLC", significado: "Reunião com os analistas do projeto de FLC", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Sync AF", significado: "Reunião com os analistas do projeto de Appeal Flow", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Sync QLT", significado: "Reunião com os analistas do projeto de Quality", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Sync ONB", significado: "Reunião com os analistas do projeto de Onboarding", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "OPS Projeção", significado: "Slots para analista do time de OPS Csat - Projeção semana futura", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "OPS Ajustes", significado: "Slot para analista do time de OPS Csat realizar os ajustes diários do Workflow", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Onboarding", significado: "Treinamento para os novos integrantes do time de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Prática", significado: "Prática assistida com os novos integrantes referentes as atividades de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Buddy", significado: "Acompanhamento da execução das atividades dos novos integrantes de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Reciclagem", significado: "Reciclagem interna de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Quality", significado: "Slot destinado para o projeto de quality interno", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "RVS DD", significado: "Levantamento dos dados e criação do Deep Dive de Reversals de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "Legal DD", significado: "Levantamento dos dados e criação do Deep Dive dos casos de Legal - OBFs", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "OPS DD", significado: "Levantamento dos dados e criação do Deep Dive do dimensionamento de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "FLC DD", significado: "Levantamento dos dados e criação do Deep Dive do FLC de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "AF DD", significado: "Levantamento dos dados e criação do Deep Dive de Appeal Flow de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "QLT DD", significado: "Levantamento dos dados e criação do Deep Dive de Quality de Csat", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "QR Csat", significado: "Slot para atividades relacionadas a feedbacks e performance do time de Csat no Qulture Rocks", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Projetos (CSAT)", tipo: "UPDATES", significado: "Slot destinado para leitura de comunicados e alinhamentos pós-período de férias", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+{ atividade: "Ferramentas", tipo: "DIM_Csat", significado: "Slot específico para atividades relacionadas ao dimensionamento de Csat (ferramenta ou agendamento de slots)", classificacao: "Exclusivo de quality", conversao: "ProjCSAT" },
+];
+</script>

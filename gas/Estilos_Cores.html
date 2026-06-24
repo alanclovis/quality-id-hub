@@ -1,0 +1,101 @@
+<style>
+  .pattern-diagonal-lines {
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, #e5e7eb 5px, #e5e7eb 10px);
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #f1f1f1; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  
+  .sticky-header-fix {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  
+  #root:empty::before {
+    content: 'Carregando sistema...';
+    display: block;
+    text-align: center;
+    margin-top: 50px;
+    color: #666;
+    font-family: sans-serif;
+  }
+
+  @keyframes slideUpFade {
+    from { opacity: 0; transform: translate(-50%, 20px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+  .toast-enter {
+    animation: slideUpFade 0.3s ease-out forwards;
+  }
+</style>
+
+<script>
+  const getColor = (label) => {
+    if (!label) return 'bg-white border-dashed border-gray-200';
+    const l = label.toLowerCase();
+
+    // === 1. EDF PERSONALIZADO ===
+    if (l === 'edf') return 'bg-[#11734b] text-white border-[#0e5c3a]';
+
+    // === 2. MA - CR PERSONALIZADO ===
+    if (l === 'ma - cr') return 'bg-[#ffcfc9] text-[#b10202] border-[#ff9e94]';
+
+    // === 3. BREAK ===
+    if (l === 'break') return 'bg-gray-800 text-white border-black border-2';
+
+    // 4. GRUPO ESCURO
+    if (['avlb', 'dtq', 'quality monitoring', 'support', 'qlt', 'qlt-he'].includes(l)) {
+        return 'bg-[#5C5C5C] text-white border-[#0f514c]';
+    }
+
+    // 5. GRUPO VERMELHO ESCURO (JR)
+    if (l.startsWith('jr -')) return 'bg-[#991b1b] text-white border-[#7f1d1d]';
+
+    // 6. GRUPO ROXO VIVO (GM)
+    if (l === 'gm' || l === 'gs - gm' || l === 'planilhagm') return 'bg-[#8b5cf6] text-white border-[#7c3aed]';
+
+    // 7. GRUPO CINZA
+    const grayGroup = ['at', 'at-h', 'aus', 'escl', 'flg', 'flg-h', 'fr', 'itp', 'rt', 'oci', 'frdo'];
+    if (grayGroup.includes(l)) return 'bg-gray-300 text-gray-800 border-gray-400';
+
+    // 8. GRUPO AMARELO (NMP)
+    //if (l === 'nmp') return 'bg-[#fde047] text-yellow-900 border-[#facc15]';
+
+    // 9. GRUPO BEGE/LARANJA CLARO
+    const beigeGroup = ['deep dive', 'docs', 'inv. brain', 'planilha', 'playbook', 'rfc', 'slides'];
+    if (beigeGroup.includes(l)) return 'bg-[#ffedd5] text-orange-900 border-[#fed7aa]';
+
+    // 10. GRUPO ROSA CLARO
+    const pinkGroup = ['1:1', 'meet-dt', 'monthly', 'mandatorios', 'move pratica', 'move teoria', 'pratica', 'reciclagem', 'reuniao', 'qulture rocks', 'hub', 'mission control', 'project meet', 'talk ic4', 'talk quality', 'weekly', 'dev', 'coffeebreak', 'teste-dt', 'trainer'];
+    if (pinkGroup.includes(l)) return 'bg-[#fbcfe8] text-pink-900 border-[#f9a8d4]';
+
+    // 11. GRUPO ROXO CLARO/LILÁS
+    const lilacGroup = ['drive', 'confluence', 'jira/atlassian', 'databricks', 'quicksight', 'workflow (slack)', 'playvox', 'calibration', 'calibration packs', 'onb qlt', 'stk talk', 'extraction', 'shadowing qlt','ai agent' ];
+    if (lilacGroup.includes(l)) return 'bg-[#e9d5ff] text-purple-900 border-[#d8b4fe]';
+
+    // 12. CORES ESPECÍFICAS POR SIGLA
+    if (l === 'csat') return 'bg-[#34d399] text-green-900 border-[#10b981]';
+if (l === 'projcsat') return 'bg-[#6ee7b7] text-green-900 border-[#34d399]';
+if (l === 'id' || l === 'gs - id' || l === 'planilhaid') return 'bg-[#bbf7d0] text-green-900 border-[#86efac]';
+if (l === 'vp' || l === 'gs - vp' || l === 'planilhavp') return 'bg-[#7dd3fc] text-sky-900 border-[#38bdf8]';
+
+    return 'bg-blue-50 text-blue-800 border-blue-200';
+    // CSAT (azul)
+const csatGroup = ['flc', 'appeal flow', 'pangaea', 'reversals', 'obf', 'csat-he'];
+if (csatGroup.includes(l)) return 'bg-[#93c5fd] text-blue-900 border-[#60a5fa]';
+if (l === 'dim_qlt') return 'bg-[#e9d5ff] text-purple-900 border-[#d8b4fe]';
+if (l === 'dim_csat') return 'bg-[#bfdbfe] text-blue-900 border-[#93c5fd]';
+
+// ProjCSAT (azul claro)
+const projCsatGroup = ['fup legal', 'reativação obf', 'triagem obf', 'projeto csat', 
+  'projflc', 'projaf', 'projrvs', 'projonb', 'projops', 'projqlt', 'doc csat', 
+  'reunião csat', 'weekly csat', 'sync rvs', 'sync legal', 'sync ops', 'sync flc', 
+  'sync af', 'sync qlt', 'sync onb', 'ops projeção', 'ops ajustes', 'onboarding', 
+  'prática', 'buddy', 'reciclagem', 'quality', 'rvs dd', 'legal dd', 'ops dd', 
+  'flc dd', 'af dd', 'qlt dd', 'qr csat', 'updates'];
+if (projCsatGroup.includes(l)) return 'bg-[#bfdbfe] text-blue-900 border-[#93c5fd]';
+  };
+</script>
