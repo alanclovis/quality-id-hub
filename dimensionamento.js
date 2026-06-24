@@ -661,7 +661,7 @@
       if (dimIsDimPageActive()) {
         const wk = dimState.week || dimGetIsoWeek();
         if (!dimTryInstantWeek(wk)) {
-          dimLoadWeek(wk).catch(function () {});
+          dimLoadWeek(wk, { silent: !!dimReadWeekCache(wk) }).catch(function () {});
         } else {
           dimRefreshWeekInBackground(wk);
         }
@@ -762,30 +762,33 @@
     });
   }
 
+  function dimCallTimeoutFor(action) {
+    if (action === 'getUserSchedule') return 90000;
+    if (action === 'saveBatchData' || action === 'saveDetail') return 45000;
+    if (action === 'getPendingDetails' || action === 'getSlotDictionary') return 45000;
+    return 30000;
+  }
+
   function dimCall(action, payload, timeoutMs) {
-    timeoutMs = timeoutMs || 20000;
+    timeoutMs = timeoutMs || dimCallTimeoutFor(action);
     const url = dimGetBridgeUrl();
     if (!url) {
       return Promise.reject(new Error('URL da ponte não configurada. Admin: Configuração → Técnico → URL Dimensionamento.'));
     }
     dimEnsureIframe();
-    const fastMs = 6000;
+    const hopMs = Math.min(12000, timeoutMs);
 
     function viaBridge() {
-      return dimWaitForBridgeTarget(3500).then(function (target) {
+      return dimWaitForBridgeTarget(6000).then(function (target) {
         if (!target) throw new Error('Bridge indisponível');
         return dimCallViaPostMessage(action, payload, timeoutMs);
       });
     }
 
-    if (dimGetBridgeTarget() && dimState.bridgeReady) {
-      return dimCallViaPostMessage(action, payload, timeoutMs);
-    }
-
     return dimFirstResolved([
       viaBridge(),
-      dimJsonpApi(action, payload, fastMs),
-      dimFetchApi(action, payload, fastMs)
+      dimJsonpApi(action, payload, hopMs),
+      dimFetchApi(action, payload, hopMs)
     ]);
   }
 
@@ -1568,7 +1571,16 @@
       if (silent) dimUpdateStatus();
     } catch (e) {
       if (loadId !== dimState.loadWeekSeq) return;
-      if (!silent) dimRenderError(String(e.message || e));
+      if (!silent) {
+        const cached = dimReadWeekCache(week);
+        if (dimState.schedule || cached) {
+          if (cached && !dimState.schedule) dimTryInstantWeek(week);
+          else if (dimState.schedule) dimRenderAll();
+          dimShowToast('Atualização demorou — exibindo última versão salva', true);
+        } else {
+          dimRenderError(String(e.message || e));
+        }
+      }
     } finally {
       if (!silent) {
         dimSetWeekLoading(false);
