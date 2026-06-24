@@ -181,7 +181,8 @@ function hubGetUserSchedule_(payload) {
     weekData,
     userEmail,
     config.detailSlots || [],
-    config.timeSlots || []
+    config.timeSlots || [],
+    dateByDayName
   );
 
   return {
@@ -426,8 +427,8 @@ function hubFormatVisualDate_(dateIso) {
   return p[2] + '/' + p[1];
 }
 
-function hubBuildAdjustmentsFromWeekData_(weekKey, weekData, userEmail, detailTypes, timeSlots) {
-  var dateByDayName = hubGetWeekDateMap_(weekKey, userEmail);
+function hubBuildAdjustmentsFromWeekData_(weekKey, weekData, userEmail, detailTypes, timeSlots, dateByDayNameOpt) {
+  var dateByDayName = dateByDayNameOpt || hubGetWeekDateMap_(weekKey, userEmail);
   var groups = hubGetGroupedRecords_(weekData, timeSlots, null);
   var records = [];
   var pending = [];

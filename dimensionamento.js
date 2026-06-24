@@ -317,6 +317,15 @@
     }
   }
 
+  function dimInferNubankEmail(nameOrKey) {
+    const raw = String(nameOrKey || '').trim().toLowerCase();
+    if (!raw) return '';
+    if (raw.indexOf('@') >= 0) return raw;
+    const key = raw.replace(/\s+/g, '.').replace(/[^a-z0-9._-]/g, '');
+    if (!key || key.indexOf('.') < 0) return '';
+    return key + '@nubank.com.br';
+  }
+
   function dimGetCacheEmail() {
     if (dimState.session && dimState.session.email) {
       return dimState.session.email.toLowerCase();
@@ -331,6 +340,10 @@
     if (typeof getUserName === 'function' && typeof findProfile === 'function') {
       const profile = findProfile(getUserName());
       if (profile && profile.email) return String(profile.email).toLowerCase();
+    }
+    if (typeof getUserName === 'function') {
+      const inferred = dimInferNubankEmail(getUserName());
+      if (inferred) return inferred;
     }
     return '';
   }
@@ -917,6 +930,10 @@
       });
     }
 
+    if (action === 'getUserSchedule' && !callPayload.userEmail && typeof getUserName === 'function') {
+      const inferred = dimInferNubankEmail(getUserName());
+      if (inferred) callPayload.userEmail = inferred;
+    }
     if (action === 'getUserSchedule' && !callPayload.userEmail) {
       return Promise.reject(new Error('E-mail não identificado. Atualize seu cadastro no Hub ou conecte à planilha.'));
     }

@@ -101,13 +101,20 @@ function getUserSchedule(payload) {
 
     if (!matchMeta.length) return { schedule: {}, userEmail: userEmail };
 
+    let slotBlock = [];
+    let slotBlockMinRow = 0;
+    if (slotColCount > 0 && matchMeta.length) {
+      const rowNumbers = matchMeta.map(function (m) { return m.sheetRow; });
+      slotBlockMinRow = Math.min.apply(null, rowNumbers);
+      const maxRow = Math.max.apply(null, rowNumbers);
+      slotBlock = sheet.getRange(slotBlockMinRow, slotStart + 1, maxRow - slotBlockMinRow + 1, slotColCount).getDisplayValues();
+    }
+
     matchMeta.forEach(function (meta) {
       if (!result[meta.weekNum]) result[meta.weekNum] = {};
       if (!result[meta.weekNum][meta.dayName]) result[meta.weekNum][meta.dayName] = {};
 
-      const slotRow = slotColCount > 0
-        ? sheet.getRange(meta.sheetRow, slotStart + 1, 1, slotColCount).getDisplayValues()[0]
-        : [];
+      const slotRow = slotBlock.length ? (slotBlock[meta.sheetRow - slotBlockMinRow] || []) : [];
 
       for (let h = 0; h < slotRow.length; h++) {
         const hdrIdx = slotStart + h;
