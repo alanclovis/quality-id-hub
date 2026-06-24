@@ -58,12 +58,94 @@
       frame.id = 'dimBridgeFrame';
       frame.className = 'dim-bridge-frame';
       frame.title = 'Dimensionamento bridge';
+      frame.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
       document.body.appendChild(frame);
-      window.addEventListener('message', dimOnBridgeMessage);
+      if (!window.__dimBridgeListener) {
+        window.addEventListener('message', dimOnBridgeMessage);
+        window.__dimBridgeListener = true;
+      }
     }
     const url = dimBridgeBaseUrl();
-    if (url && frame.src !== url) frame.src = url;
+    if (!url) return frame;
+    const current = frame.src || '';
+    if (!current || current.indexOf('view=bridge') < 0) {
+      dimState.bridgeReady = false;
+      frame.src = url;
+    }
     return frame;
+  }
+
+  function dimWaitForBridgeReady(timeoutMs) {
+    timeoutMs = timeoutMs || 90000;
+    dimEnsureIframe();
+    if (dimState.bridgeReady && dimState.session) {
+      return Promise.resolve();
+    }
+    return new Promise(function (resolve, reject) {
+      const deadline = Date.now() + timeoutMs;
+      let settled = false;
+
+      function done() {
+        if (settled) return;
+        settled = true;
+        resolve();
+      }
+
+      function fail(msg) {
+        if (settled) return;
+        settled = true;
+        reject(new Error(msg));
+      }
+
+      const onReady = function (ev) {
+        const msg = ev.data;
+        if (!msg || msg.source !== 'dim-bridge') return;
+        if (msg.event === 'ready') dimState.bridgeReady = true;
+        if (msg.event === 'session' && msg.data) dimState.session = msg.data;
+        if (dimState.bridgeReady) {
+          window.removeEventListener('message', onReady);
+          done();
+        }
+      };
+      window.addEventListener('message', onReady);
+
+      function tryPing() {
+        if (settled) return;
+        if (dimState.bridgeReady) { done(); return; }
+        dimCall('ping', {}, 10000).then(function () {
+          dimState.bridgeReady = true;
+          window.removeEventListener('message', onReady);
+          done();
+        }).catch(function () {
+          if (Date.now() > deadline) {
+            window.removeEventListener('message', onReady);
+            fail('Ponte não respondeu. Clique em "Conectar ponte" e faça login Google @nubank.com.br.');
+          } else {
+            setTimeout(tryPing, 2000);
+          }
+        });
+      }
+
+      const frame = document.getElementById('dimBridgeFrame');
+      if (frame) {
+        frame.addEventListener('load', function () { setTimeout(tryPing, 800); }, { once: true });
+        if (frame.contentDocument || frame.contentWindow) {
+          setTimeout(tryPing, 1500);
+        }
+      } else {
+        setTimeout(tryPing, 1500);
+      }
+    });
+  }
+
+  function dimConnectBridge() {
+    const url = dimBridgeBaseUrl();
+    if (!url) {
+      dimShowToast('Configure a URL da ponte em Configuração → Técnico', true);
+      return;
+    }
+    window.open(url, 'dimBridgeAuth', 'width=520,height=360');
+    dimShowToast('Faça login Google na janela que abriu, depois clique Atualizar aqui.');
   }
 
   let dimCallSeq = 0;
@@ -187,7 +269,10 @@
       return;
     }
     try {
-      dimState.session = await dimCall('getSessionInfo', {});
+      await dimWaitForBridgeReady();
+      if (!dimState.session) {
+        dimState.session = await dimCall('getSessionInfo', {}, 30000);
+      }
       await dimLoadWeek(dimState.week);
       dimStartReloadTimer();
     } catch (e) {
@@ -205,7 +290,12 @@
   function dimRenderError(msg) {
     const grid = document.getElementById('dimGridWrap');
     if (grid) {
-      grid.innerHTML = '<div class="dim-empty-state"><i class="ti ti-alert-circle"></i><p>' + escapeHtml(msg) + '</p><p style="margin-top:10px;font-size:12px">Verifique login Google @nubank.com.br e deploy do Web App com <code>?view=bridge</code></p></div>';
+      grid.innerHTML = '<div class="dim-empty-state"><i class="ti ti-alert-circle"></i><p>' + escapeHtml(msg) + '</p>' +
+        '<p style="margin-top:10px;font-size:12px">O Hub fala com a planilha via iframe. Se o navegador bloquear cookies de terceiros, use o botão abaixo.</p>' +
+        '<p style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
+        '<button type="button" class="btn primary" onclick="dimConnectBridge()"><i class="ti ti-plug"></i> Conectar ponte</button>' +
+        '<button type="button" class="btn" onclick="dimManualRefresh()"><i class="ti ti-refresh"></i> Atualizar</button>' +
+        '</p></div>';
     }
     const el = document.getElementById('dimStatus');
     if (el) {
@@ -656,6 +746,7 @@
   global.dimRenderControle = dimRenderControle;
   global.dimRunAutoDim = dimRunAutoDim;
   global.dimRunDeepDive = dimRunDeepDive;
+  global.dimConnectBridge = dimConnectBridge;
   global.dimManualRefresh = dimManualRefresh;
   global.dimGetBridgeUrl = dimGetBridgeUrl;
   global.dimSetBridgeUrl = dimSetBridgeUrl;

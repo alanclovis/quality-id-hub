@@ -19,6 +19,8 @@ function dimApiCall(action, payloadJson) {
 
 function hubHandleAction_(action, payload) {
   switch (action) {
+    case 'ping':
+      return { pong: true };
     case 'getSessionInfo':
       return hubGetSessionInfo_();
     case 'getUserSchedule':
