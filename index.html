@@ -3327,7 +3327,8 @@ function showPageAnimated(page){
   if(page==='dimensionamento'){
     document.body.classList.add('dim-page-active');
     document.getElementById('hubBuildFooter')?.classList.add('dim-footer-hidden');
-    if(typeof dimInit==='function') dimInit();
+    const dimOk=typeof updateDimensionamentoAccess==='function'&&updateDimensionamentoAccess();
+    if(dimOk&&typeof dimInit==='function') dimInit();
   } else {
     document.body.classList.remove('dim-page-active');
     document.getElementById('hubBuildFooter')?.classList.remove('dim-footer-hidden');
@@ -3555,6 +3556,37 @@ function formatProfileSummary(profile){
     parts.push('Não operacional');
   }
   return parts.join(' — ');
+}
+
+const DIM_OPERATIONAL_AREAS=['id','vp','csat'];
+
+function hasOperationalProfile(name){
+  if(isVisitor()) return false;
+  name=name||getUserName();
+  if(!name||!hasClaimedIdentity()) return false;
+  const profile=findProfile(name)||{};
+  const areas=Array.isArray(profile.areas)?profile.areas.map(a=>String(a).toLowerCase()):[];
+  return areas.some(a=>DIM_OPERATIONAL_AREAS.includes(a));
+}
+
+function getDimensionamentoGateHint(){
+  if(isVisitor()){
+    return 'Como visitante, use Links e Prioridades para acompanhar o pack. Dimensionamento é exclusivo de quem atua em filas.';
+  }
+  return 'No seu perfil consta como não operacional. Se você atua em filas, abra seu perfil e marque ID, VP ou CSAT em Área de atuação.';
+}
+
+function updateDimensionamentoAccess(){
+  const operational=hasOperationalProfile();
+  const gate=document.getElementById('dimNonOperationalGate');
+  const app=document.getElementById('dimAppContent');
+  const hint=document.getElementById('dimNonOpHint');
+  const profileBtn=document.getElementById('dimNonOpProfileBtn');
+  if(gate) gate.hidden=operational;
+  if(app) app.hidden=!operational;
+  if(hint) hint.textContent=getDimensionamentoGateHint();
+  if(profileBtn) profileBtn.style.display=isVisitor()?'none':'';
+  return operational;
 }
 
 function ensureProfilesData(){
@@ -3834,6 +3866,10 @@ async function saveProfile(){
   if(document.getElementById('configPanelUsers')?.classList.contains('active')) renderAccessUsersPanel();
   saveLocal();
   if(canSyncProfileToGist()) await syncOwnProfileToGist(val,oldName);
+  if(document.getElementById('pageDimensionamento')?.classList.contains('active')){
+    const dimOk=updateDimensionamentoAccess();
+    if(dimOk&&typeof dimInit==='function') dimInit();
+  }
   if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
 }
 function openNameModal(){
@@ -5766,6 +5802,21 @@ window.addEventListener('DOMContentLoaded',()=>{
 <div class="page" id="pageDimensionamento"><div class="layout">
 
 <div class="dim-wrap">
+  <div class="dim-nonop-gate" id="dimNonOperationalGate" hidden>
+    <div class="dim-nonop-card">
+      <div class="dim-nonop-icon"><i class="ti ti-calendar-off"></i></div>
+      <h2>Dimensionamento</h2>
+      <p class="dim-nonop-lead">Dimensionamento é só para quem atua em filas <strong>(ID, VP ou CSAT)</strong>.</p>
+      <p class="dim-nonop-sub" id="dimNonOpHint"></p>
+      <div class="dim-nonop-actions">
+        <button type="button" class="btn primary" onclick="showPage('prioridades')"><i class="ti ti-calendar-week"></i> Ver Prioridades</button>
+        <button type="button" class="btn" onclick="showPage('links')"><i class="ti ti-layout-grid"></i> Ver Links</button>
+        <button type="button" class="btn" id="dimNonOpProfileBtn" onclick="openNameModal()"><i class="ti ti-user"></i> Atualizar perfil</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dimAppContent">
   <div class="dim-header">
     <div class="dim-title">
       <i class="ti ti-calendar-time" style="font-size:22px;color:#820ad1"></i>
@@ -5832,6 +5883,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     </div>
     <div id="dimControleBody"></div>
   </div>
+  </div><!-- end dimAppContent -->
 </div>
 </div><!-- end layout -->
 </div><!-- end pageDimensionamento -->
@@ -5949,6 +6001,6 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=19"></script>
+<script src="dimensionamento.js?v=20"></script>
 </body>
 </html>

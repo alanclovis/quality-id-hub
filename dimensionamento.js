@@ -1041,6 +1041,7 @@
   }
 
   async function dimInit() {
+    if (typeof hasOperationalProfile === 'function' && !hasOperationalProfile()) return;
     dimBindGridSelection();
     dimBindKeyboard();
     dimBindWeekMenuClose();
