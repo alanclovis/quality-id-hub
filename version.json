@@ -1,5 +1,5 @@
 {
-  "commit": "4490a60",
-  "message": "Bump version.json for dimensionamento bridge fix deploy.",
-  "date": "2026-06-23 23:01:24 -0300"
+  "commit": "26cc0d7",
+  "message": "Fix dimensionamento auth via hub redirect callback and JSONP API.",
+  "date": "2026-06-23 23:13:37 -0300"
 }
