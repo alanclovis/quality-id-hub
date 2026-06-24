@@ -25,8 +25,56 @@
     dropdown: null,
     pendingList: [],
     detailDraft: null,
-    bridgePopup: null
+    bridgePopup: null,
+    slotOptionsFallback: null
   };
+
+  function dimLoadSlotOptionsFallback() {
+    if (dimState.slotOptionsFallback) {
+      return Promise.resolve(dimState.slotOptionsFallback);
+    }
+    return fetch('dim-slot-options.json?_=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('fetch failed');
+        return r.json();
+      })
+      .then(function (list) {
+        dimState.slotOptionsFallback = Array.isArray(list) ? list : [];
+        return dimState.slotOptionsFallback;
+      })
+      .catch(function () {
+        dimState.slotOptionsFallback = [];
+        return dimState.slotOptionsFallback;
+      });
+  }
+
+  function dimGetSlotOptions() {
+    const fromConfig = (dimState.schedule && dimState.schedule.config && dimState.schedule.config.slotOptions) || [];
+    if (fromConfig.length) return fromConfig.slice();
+    if (dimState.slotOptionsFallback && dimState.slotOptionsFallback.length) {
+      return dimState.slotOptionsFallback.slice();
+    }
+    if (dimState.dictionary && dimState.dictionary.items) {
+      const seen = {};
+      const out = [];
+      dimState.dictionary.items.forEach(function (it) {
+        const t = it.tipoSlot || it.atividade;
+        if (t && !seen[t]) {
+          seen[t] = true;
+          out.push(t);
+        }
+      });
+      if (out.length) return out;
+    }
+    return [];
+  }
+
+  function dimEnsureSlotOptions(schedule) {
+    if (!schedule.config) schedule.config = {};
+    if (!schedule.config.slotOptions || !schedule.config.slotOptions.length) {
+      schedule.config.slotOptions = dimGetSlotOptions();
+    }
+  }
 
   function dimGetBridgeTarget() {
     const frame = document.getElementById('dimBridgeFrame');
@@ -519,10 +567,12 @@
     try {
       const [schedule, dictionary] = await Promise.all([
         dimCall('getUserSchedule', { week: week }),
-        dimState.dictionary ? Promise.resolve(dimState.dictionary) : dimCall('getSlotDictionary', {})
+        dimState.dictionary ? Promise.resolve(dimState.dictionary) : dimCall('getSlotDictionary', {}),
+        dimLoadSlotOptionsFallback()
       ]);
       dimState.schedule = schedule;
       dimState.dictionary = dictionary;
+      dimEnsureSlotOptions(schedule);
       if (schedule.identity) dimState.session = schedule.identity;
       dimUpdateStatus();
       dimRenderAll();
@@ -654,7 +704,7 @@
     dd.style.top = Math.min(rect.bottom + 4, window.innerHeight - 320) + 'px';
     dd.style.left = Math.min(rect.left, window.innerWidth - 340) + 'px';
 
-    const options = (dimState.schedule.config.slotOptions || []).slice();
+    const options = dimGetSlotOptions();
     dd.innerHTML =
       '<div class="dim-dropdown-search"><input type="text" placeholder="Buscar slot…" id="dimDropdownSearch"></div>' +
       '<div class="dim-dropdown-list" id="dimDropdownList"></div>' +

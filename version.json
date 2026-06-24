@@ -1,5 +1,5 @@
 {
-  "commit": "26cc0d7",
-  "message": "Fix dimensionamento auth via hub redirect callback and JSONP API.",
-  "date": "2026-06-23 23:13:37 -0300"
+  "commit": "de4feb6",
+  "message": "Bump version.json for dimensionamento redirect auth fix.",
+  "date": "2026-06-23 23:13:38 -0300"
 }

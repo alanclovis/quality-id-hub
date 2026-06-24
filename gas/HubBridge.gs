@@ -205,6 +205,47 @@ function hubGetSlotDictionary_() {
   return { items: items, categories: [] };
 }
 
+/** Mesma lista RAW_OPTIONS do Config_Slots.html (dropdown da escala) */
+function hubRawSlotOptions_() {
+  return [
+    'Break', '1:1', 'AT', 'AT-H', 'AVLB', 'AUS', 'AI Agent', 'Calibration', 'Calibration Packs',
+    'CoffeeBreak', 'Confluence', 'CSAT', 'ProjCSAT', 'Databricks', 'Deep Dive', 'DEV', 'Docs', 'Drive',
+    'DTQ', 'EDF', 'ESCL', 'Extraction', 'FLG', 'FLG-H', 'FR', 'FRDO', 'GS - ID', 'GS - VP',
+    'HUB', 'ID', 'Inv. Brain', 'ITP',
+    'Jira/Atlassian', 'JR - Contest ID', 'JR - Contest VP',
+    'JR - Loss ID', 'JR - Loss VP', 'JR - Request',
+    'Mandatorios', 'MEET-DT', 'Mission Control', 'Monthly', 'Move Pratica', 'Move Teoria',
+    'OCI', 'Onb Qlt', 'Playbook', 'Playvox', 'Planilha', 'PlanilhaID', 'PlanilhaVP',
+    'Pratica', 'Project Meet', 'Qulture Rocks',
+    'qlt', 'qlt-HE', 'Quality Monitoring', 'Quicksight', 'RFC', 'Reuniao', 'Reciclagem',
+    'RT', 'Slides', 'Shadowing Qlt', 'Stk Talk', 'Support', 'Talk IC4', 'Talk Quality', 'Trainer', 'TESTE-DT',
+    'VP', 'Weekly', 'Workflow (Slack)', 'FLC', 'Appeal Flow', 'Pangaea', 'Reversals', 'CSAT-HE', 'OBF',
+    'FUP Legal', 'Reativação OBF', 'Triagem OBF', 'Projeto Csat',
+    'ProjFLC', 'ProjAF', 'ProjRVS', 'ProjONB', 'ProjOPS', 'ProjQLT',
+    'Doc Csat', 'Reunião Csat', 'Weekly Csat', 'Sync RVS', 'Sync Legal',
+    'Sync OPS', 'Sync FLC', 'Sync AF', 'Sync QLT', 'Sync ONB',
+    'OPS Projeção', 'OPS Ajustes', 'Onboarding', 'Prática', 'Buddy', 'Quality', 'RVS DD', 'Legal DD', 'OPS DD', 'FLC DD',
+    'AF DD', 'QLT DD', 'QR Csat', 'UPDATES', 'DIM_QLT', 'DIM_Csat'
+  ];
+}
+
+function hubGetSlotOptions_() {
+  var dict = hubGetSlotDictionary_();
+  var seen = {};
+  var fromSheet = [];
+  (dict.items || []).forEach(function (it) {
+    var t = String(it.tipoSlot || '').trim();
+    if (t && !seen[t]) {
+      seen[t] = true;
+      fromSheet.push(t);
+    }
+  });
+  if (fromSheet.length >= 20) {
+    return fromSheet.sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); });
+  }
+  return hubRawSlotOptions_();
+}
+
 function hubGetSlotColors_() {
   return {};
 }
@@ -218,7 +259,7 @@ function hubGetConfig_() {
   return {
     timeSlots: slots,
     days: ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira'],
-    slotOptions: [],
+    slotOptions: hubGetSlotOptions_(),
     detailSlots: ['Planilha', 'Deep Dive', 'Docs', 'Playbook', 'RFC', 'Slides', 'Jira/Atlassian', 'Drive', 'Project Meet', 'Databricks', 'Quicksight'],
     minSlotsAlert: 18
   };
