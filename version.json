@@ -1,5 +1,5 @@
 {
-  "commit": "082be4f",
-  "message": "Bump version.json for dimensionamento save fix.",
-  "date": "2026-06-23 23:29:04 -0300"
+  "commit": "57ac804",
+  "message": "Fix dimensionamento grid time columns to match spreadsheet headers.",
+  "date": "2026-06-23 23:38:11 -0300"
 }
