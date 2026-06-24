@@ -1,5 +1,5 @@
 {
-  "commit": "11b712a",
-  "message": "Populate dimensionamento slot dropdown from RAW_OPTIONS list.",
+  "commit": "0ff429a",
+  "message": "Bump version.json for slot dropdown fix.",
   "date": "2026-06-23 23:24:06 -0300"
 }

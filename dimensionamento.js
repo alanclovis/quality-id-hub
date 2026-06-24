@@ -605,9 +605,84 @@
     return (dimState.schedule && dimState.schedule.colors) || {};
   }
 
+  /** Porta getColor() de gas/Estilos_Cores.html para hex (bg/text/border) */
+  function dimSlotColorFromLabel(label) {
+    const l = String(label).toLowerCase();
+
+    if (l === 'edf') return { bg: '#11734b', text: '#ffffff', border: '#0e5c3a' };
+    if (l === 'ma - cr') return { bg: '#ffcfc9', text: '#b10202', border: '#ff9e94' };
+    if (l === 'break') return { bg: '#1f2937', text: '#ffffff', border: '#000000', borderWidth: '2px' };
+
+    const darkGroup = ['avlb', 'dtq', 'quality monitoring', 'support', 'qlt', 'qlt-he'];
+    if (darkGroup.indexOf(l) >= 0) return { bg: '#5C5C5C', text: '#ffffff', border: '#0f514c' };
+
+    if (l.indexOf('jr -') === 0) return { bg: '#991b1b', text: '#ffffff', border: '#7f1d1d' };
+
+    if (l === 'gm' || l === 'gs - gm' || l === 'planilhagm') {
+      return { bg: '#8b5cf6', text: '#ffffff', border: '#7c3aed' };
+    }
+
+    const grayGroup = ['at', 'at-h', 'aus', 'escl', 'flg', 'flg-h', 'fr', 'itp', 'rt', 'oci', 'frdo'];
+    if (grayGroup.indexOf(l) >= 0) return { bg: '#d1d5db', text: '#1f2937', border: '#9ca3af' };
+
+    const beigeGroup = ['deep dive', 'docs', 'inv. brain', 'planilha', 'playbook', 'rfc', 'slides'];
+    if (beigeGroup.indexOf(l) >= 0) return { bg: '#ffedd5', text: '#7c2d12', border: '#fed7aa' };
+
+    const pinkGroup = [
+      '1:1', 'meet-dt', 'monthly', 'mandatorios', 'move pratica', 'move teoria', 'pratica',
+      'reciclagem', 'reuniao', 'qulture rocks', 'hub', 'mission control', 'project meet',
+      'talk ic4', 'talk quality', 'weekly', 'dev', 'coffeebreak', 'teste-dt', 'trainer'
+    ];
+    if (pinkGroup.indexOf(l) >= 0) return { bg: '#fbcfe8', text: '#831843', border: '#f9a8d4' };
+
+    const lilacGroup = [
+      'drive', 'confluence', 'jira/atlassian', 'databricks', 'quicksight', 'workflow (slack)',
+      'playvox', 'calibration', 'calibration packs', 'onb qlt', 'stk talk', 'extraction',
+      'shadowing qlt', 'ai agent'
+    ];
+    if (lilacGroup.indexOf(l) >= 0) return { bg: '#e9d5ff', text: '#581c87', border: '#d8b4fe' };
+
+    if (l === 'csat') return { bg: '#34d399', text: '#14532d', border: '#10b981' };
+    if (l === 'projcsat') return { bg: '#6ee7b7', text: '#14532d', border: '#34d399' };
+    if (l === 'id' || l === 'gs - id' || l === 'planilhaid') {
+      return { bg: '#bbf7d0', text: '#14532d', border: '#86efac' };
+    }
+    if (l === 'vp' || l === 'gs - vp' || l === 'planilhavp') {
+      return { bg: '#7dd3fc', text: '#0c4a6e', border: '#38bdf8' };
+    }
+
+    const csatGroup = ['flc', 'appeal flow', 'pangaea', 'reversals', 'obf', 'csat-he'];
+    if (csatGroup.indexOf(l) >= 0) return { bg: '#93c5fd', text: '#1e3a8a', border: '#60a5fa' };
+
+    if (l === 'dim_qlt') return { bg: '#e9d5ff', text: '#581c87', border: '#d8b4fe' };
+    if (l === 'dim_csat') return { bg: '#bfdbfe', text: '#1e3a8a', border: '#93c5fd' };
+
+    const projCsatGroup = [
+      'fup legal', 'reativação obf', 'triagem obf', 'projeto csat', 'projflc', 'projaf', 'projrvs',
+      'projonb', 'projops', 'projqlt', 'doc csat', 'reunião csat', 'weekly csat', 'sync rvs',
+      'sync legal', 'sync ops', 'sync flc', 'sync af', 'sync qlt', 'sync onb', 'ops projeção',
+      'ops ajustes', 'onboarding', 'prática', 'buddy', 'quality', 'rvs dd', 'legal dd', 'ops dd',
+      'flc dd', 'af dd', 'qlt dd', 'qr csat', 'updates'
+    ];
+    if (projCsatGroup.indexOf(l) >= 0) return { bg: '#bfdbfe', text: '#1e3a8a', border: '#93c5fd' };
+
+    return { bg: '#eff6ff', text: '#1e40af', border: '#bfdbfe' };
+  }
+
   function dimColorFor(slot) {
-    const c = dimGetColors()[slot];
-    return c || { bg: '#f3f4f6', text: '#374151', category: '' };
+    if (!slot) return { bg: '#fafafa', text: '#9ca3af', border: '#e5e7eb' };
+    const fromApi = dimGetColors()[slot];
+    if (fromApi && fromApi.bg) return fromApi;
+    return dimSlotColorFromLabel(slot);
+  }
+
+  function dimCellStyle(col) {
+    let s = 'background:' + col.bg + ';color:' + col.text;
+    if (col.border) {
+      s += ';border-style:solid;border-color:' + col.border;
+      s += ';border-width:' + (col.borderWidth || '1px');
+    }
+    return s;
   }
 
   function dimRenderAll() {
@@ -647,7 +722,7 @@
         const col = dimColorFor(val);
         const cls = 'dim-slot' + (val ? '' : ' empty');
         html += '<td class="' + cls + '" data-day="' + dayKey + '" data-time="' + escapeHtml(time) + '"';
-        html += ' style="background:' + col.bg + ';color:' + col.text + '"';
+        html += ' style="' + dimCellStyle(col) + '"';
         html += ' title="' + escapeHtml(val || 'Vazio') + '" onclick="dimOnSlotClick(this)">';
         html += escapeHtml(val || '·');
         html += '</td>';
@@ -670,7 +745,7 @@
     let html = '<div class="dim-summary-chips">';
     keys.forEach(function (k) {
       const col = dimColorFor(k);
-      html += '<span class="dim-summary-chip" style="background:' + col.bg + ';color:' + col.text + '">';
+      html += '<span class="dim-summary-chip" style="' + dimCellStyle(col) + '">';
       html += escapeHtml(k) + ' <strong>' + summary[k] + '</strong></span>';
     });
     html += '</div>';
@@ -721,7 +796,7 @@
       list.innerHTML = items.map(function (opt) {
         const col = dimColorFor(opt);
         return '<div class="dim-dropdown-item" data-val="' + escapeHtml(opt) + '" onclick="dimApplySlot(this.dataset.val)">' +
-          '<span class="dim-dropdown-swatch" style="background:' + col.bg + '"></span>' +
+          '<span class="dim-dropdown-swatch" style="background:' + col.bg + ';border:1px solid ' + (col.border || '#ddd') + '"></span>' +
           escapeHtml(opt) + '</div>';
       }).join('');
     }
@@ -954,7 +1029,8 @@
       html += '<div class="dim-controle-group"><h4>' + escapeHtml(cat) + '</h4>';
       html += '<table class="dim-controle-table"><thead><tr><th>Slot</th><th>Significado</th><th>Conversão</th></tr></thead><tbody>';
       groups[cat].forEach(function (it) {
-        html += '<tr><td><span class="dim-dropdown-swatch" style="background:' + (it.color && it.color.bg || '#eee') + ';display:inline-block;vertical-align:middle;margin-right:6px"></span>' +
+        const col = dimColorFor(it.tipoSlot);
+        html += '<tr><td><span class="dim-dropdown-swatch" style="background:' + col.bg + ';border:1px solid ' + (col.border || '#ddd') + ';display:inline-block;vertical-align:middle;margin-right:6px"></span>' +
           escapeHtml(it.tipoSlot) + '</td><td>' + escapeHtml(it.significado || '—') + '</td><td>' + escapeHtml(it.conversao || '—') + '</td></tr>';
       });
       html += '</tbody></table></div>';
