@@ -162,15 +162,26 @@ function hubGetUserSchedule_(week) {
   var order = ['seg', 'ter', 'qua', 'qui', 'sex'];
   days.sort(function (a, b) { return order.indexOf(a.day) - order.indexOf(b.day); });
 
+  var config = hubGetConfig_();
+  var adjustments = hubBuildAdjustmentsFromWeekData_(
+    weekKey,
+    weekData,
+    userEmail,
+    config.detailSlots || [],
+    config.timeSlots || []
+  );
+
   return {
     week: Number(weekKey),
     sheetName: typeof MAIN_TAB_NAME !== 'undefined' ? MAIN_TAB_NAME : 'H1.2026',
     identity: hubGetSessionInfo_(),
-    config: hubGetConfig_(),
+    config: config,
     colors: hubGetSlotColors_(),
     days: days,
     summary: summary,
-    rawSchedule: raw.schedule
+    rawSchedule: raw.schedule,
+    adjustments: adjustments.records,
+    pendingCount: adjustments.pendingCount
   };
 }
 
@@ -264,9 +275,38 @@ function hubNormalizeDetailsForComparison_(details) {
   return JSON.stringify({ action: d.action, project: d.project, otherSpec: d.otherSpec });
 }
 
+function hubHourToIndex_(timeStr) {
+  var parts = String(timeStr || '').split(':');
+  var hh = parseInt(parts[0], 10);
+  var mm = parseInt(String(parts[1] || '0').replace(/\D/g, ''), 10);
+  if (isNaN(hh)) return 0;
+  if (isNaN(mm)) mm = 0;
+  return hh * 2 + (mm >= 30 ? 1 : 0);
+}
+
+/** Garante timeSlots cobrindo todos os horários presentes na semana */
+function hubEnsureTimeSlotsForWeek_(weekData, timeSlots) {
+  var slots = (timeSlots || []).slice().map(hubNormalizeTime_).filter(Boolean);
+  var seen = {};
+  slots.forEach(function (s) { seen[s] = true; });
+  var days = ['segunda', 'terça', 'quarta', 'quinta', 'sexta'];
+  days.forEach(function (day) {
+    Object.keys(weekData[day] || {}).forEach(function (h) {
+      var n = hubNormalizeTime_(h);
+      if (n && !seen[n]) {
+        seen[n] = true;
+        slots.push(n);
+      }
+    });
+  });
+  slots.sort(function (a, b) { return hubHourToIndex_(a) - hubHourToIndex_(b); });
+  return slots;
+}
+
 /** Espelha getGroupedRecords() de App_Logica.html — agrupa slots consecutivos com herança de detalhes */
 function hubGetGroupedRecords_(weekData, timeSlots, filterTask) {
   var days = ['segunda', 'terça', 'quarta', 'quinta', 'sexta'];
+  timeSlots = hubEnsureTimeSlotsForWeek_(weekData, timeSlots);
   var flatRecords = [];
 
   days.forEach(function (day) {
@@ -279,7 +319,7 @@ function hubGetGroupedRecords_(weekData, timeSlots, filterTask) {
       if (filterTask && taskName !== filterTask) return;
       var normHour = hubNormalizeTime_(hour);
       var hourIndex = timeSlots.indexOf(normHour);
-      if (hourIndex < 0) return;
+      if (hourIndex < 0) hourIndex = hubHourToIndex_(normHour);
       flatRecords.push({
         day: day,
         hour: normHour,
@@ -371,18 +411,9 @@ function hubFormatVisualDate_(dateIso) {
   return p[2] + '/' + p[1];
 }
 
-function hubGetAdjustments_(week) {
-  var raw = getUserSchedule();
-  if (raw.error) throw new Error(raw.error);
-
-  var weekKey = String(week != null ? week : hubGetCurrentWeek_());
-  var weekData = (raw.schedule && raw.schedule[weekKey]) || {};
-  var userEmail = raw.userEmail || Session.getActiveUser().getEmail().toLowerCase().trim();
+function hubBuildAdjustmentsFromWeekData_(weekKey, weekData, userEmail, detailTypes, timeSlots) {
   var dateByDayName = hubGetWeekDateMap_(weekKey, userEmail);
-  var detailTypes = hubGetConfig_().detailSlots || [];
-  var timeSlots = hubGetConfig_().timeSlots || [];
   var groups = hubGetGroupedRecords_(weekData, timeSlots, null);
-
   var records = [];
   var pending = [];
 
@@ -419,6 +450,23 @@ function hubGetAdjustments_(week) {
     pendingCount: pending.length,
     week: Number(weekKey)
   };
+}
+
+function hubGetAdjustments_(week) {
+  var raw = getUserSchedule();
+  if (raw.error) throw new Error(raw.error);
+
+  var weekKey = String(week != null ? week : hubGetCurrentWeek_());
+  var weekData = (raw.schedule && raw.schedule[weekKey]) || {};
+  var userEmail = raw.userEmail || Session.getActiveUser().getEmail().toLowerCase().trim();
+  var config = hubGetConfig_();
+  return hubBuildAdjustmentsFromWeekData_(
+    weekKey,
+    weekData,
+    userEmail,
+    config.detailSlots || [],
+    config.timeSlots || []
+  );
 }
 
 function hubGetPendingDetails_(week) {

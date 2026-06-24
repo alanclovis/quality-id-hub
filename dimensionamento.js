@@ -6,6 +6,12 @@
 
   const DIM_DAY_KEYS = ['seg', 'ter', 'qua', 'qui', 'sex'];
   const DIM_DAY_LABELS = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex' };
+  const DIM_FULL_DAY_NAMES = ['segunda', 'terça', 'quarta', 'quinta', 'sexta'];
+  const DIM_KEY_TO_FULL = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta' };
+  const DIM_DETAIL_REQUIRES_PROJECT = {
+    'Planilha': true, 'Deep Dive': true, 'Docs': true, 'Playbook': true, 'RFC': true, 'Slides': true,
+    'Project Meet': true, 'Databricks': true, 'Quicksight': true
+  };
 
   /** Espelha Config_Slots.html — slots que exigem personalização em Base_Detalhes */
   const DIM_DETAIL_SLOTS = [
@@ -970,9 +976,231 @@
   async function dimRefreshPendingBadge() {
     if (!dimState.schedule) return;
     try {
-      const res = await dimCall('getAdjustments', { week: dimState.week });
+      const res = await dimFetchAdjustmentsData();
       dimUpdateAjustesBadge(res.pendingCount != null ? res.pendingCount : (res.pending || []).length);
     } catch (e) { /* ignore */ }
+  }
+
+  function dimParseCellDetails(detailsRaw) {
+    if (!detailsRaw) return { action: '', project: '', otherSpec: '' };
+    if (typeof detailsRaw === 'object') {
+      return {
+        action: String(detailsRaw.action || '').trim(),
+        project: String(detailsRaw.project || '').trim(),
+        otherSpec: String(detailsRaw.otherSpec || detailsRaw.other || '').trim()
+      };
+    }
+    try {
+      return dimParseCellDetails(JSON.parse(String(detailsRaw)));
+    } catch (e) {
+      return { action: '', project: '', otherSpec: '' };
+    }
+  }
+
+  function dimNormalizeDetailsForComparison(details) {
+    const d = dimParseCellDetails(details);
+    return JSON.stringify({ action: d.action, project: d.project, otherSpec: d.otherSpec });
+  }
+
+  function dimIsDetailIncomplete(slot, details) {
+    const d = dimParseCellDetails(details);
+    if (!d.action) return true;
+    if (DIM_DETAIL_REQUIRES_PROJECT[slot] && !d.project) return true;
+    if (dimDetailRequiresSpec(d.action, d.project) && !d.otherSpec) return true;
+    return false;
+  }
+
+  function dimHourToIndex(timeStr) {
+    const parts = String(timeStr || '').split(':');
+    const hh = parseInt(parts[0], 10);
+    const mm = parseInt(String(parts[1] || '0').replace(/\D/g, ''), 10);
+    if (isNaN(hh)) return 0;
+    return hh * 2 + ((isNaN(mm) ? 0 : mm) >= 30 ? 1 : 0);
+  }
+
+  function dimEnsureTimeSlotsForWeek(weekData, timeSlots) {
+    const slots = (timeSlots || []).slice().map(dimNormalizeTime).filter(Boolean);
+    const seen = {};
+    slots.forEach(function (s) { seen[s] = true; });
+    DIM_FULL_DAY_NAMES.forEach(function (day) {
+      Object.keys(weekData[day] || {}).forEach(function (h) {
+        const n = dimNormalizeTime(h);
+        if (n && !seen[n]) {
+          seen[n] = true;
+          slots.push(n);
+        }
+      });
+    });
+    slots.sort(function (a, b) { return dimHourToIndex(a) - dimHourToIndex(b); });
+    return slots;
+  }
+
+  function dimGetGroupedRecords(weekData, timeSlots) {
+    timeSlots = dimEnsureTimeSlotsForWeek(weekData, timeSlots);
+    const flatRecords = [];
+
+    DIM_FULL_DAY_NAMES.forEach(function (day) {
+      const daySlots = weekData[day];
+      if (!daySlots) return;
+      Object.keys(daySlots).forEach(function (hour) {
+        const data = daySlots[hour];
+        const taskName = (typeof data === 'string') ? data : (data && data.task);
+        if (!taskName || taskName === 'Break') return;
+        const normHour = dimNormalizeTime(hour);
+        let hourIndex = timeSlots.indexOf(normHour);
+        if (hourIndex < 0) hourIndex = dimHourToIndex(normHour);
+        flatRecords.push({
+          day: day,
+          hour: normHour,
+          hourIndex: hourIndex,
+          data: (typeof data === 'string') ? { task: data } : data,
+          taskName: taskName
+        });
+      });
+    });
+
+    flatRecords.sort(function (a, b) {
+      const dayDiff = DIM_FULL_DAY_NAMES.indexOf(a.day) - DIM_FULL_DAY_NAMES.indexOf(b.day);
+      return dayDiff !== 0 ? dayDiff : a.hourIndex - b.hourIndex;
+    });
+
+    if (!flatRecords.length) return [];
+
+    const emptyJson = '{"action":"","project":"","otherSpec":""}';
+    const groups = [];
+    let currentGroup = Object.assign({}, flatRecords[0], {
+      count: 1,
+      endHourIndex: flatRecords[0].hourIndex
+    });
+
+    for (let i = 1; i < flatRecords.length; i++) {
+      const rec = flatRecords[i];
+      const prev = currentGroup;
+      const isSameDay = rec.day === prev.day;
+      const isSameTask = rec.taskName === prev.taskName;
+      const recStr = dimNormalizeDetailsForComparison(rec.data && rec.data.details);
+      const prevStr = dimNormalizeDetailsForComparison(prev.data && prev.data.details);
+      const isRecEmpty = recStr === emptyJson;
+      const isPrevFull = prevStr !== emptyJson;
+      let isSameDetails = recStr === prevStr;
+      if (isSameTask && isSameDay && isRecEmpty && isPrevFull) isSameDetails = true;
+
+      const gap = rec.hourIndex - prev.endHourIndex;
+      let isConsecutiveLogic = gap === 1;
+      if (gap > 1 && isSameDay) {
+        const breaks = Object.keys(weekData[rec.day] || {}).filter(function (h) {
+          const c = weekData[rec.day][h];
+          const t = (typeof c === 'string') ? c : (c && c.task);
+          return t === 'Break';
+        }).map(dimNormalizeTime);
+        isConsecutiveLogic = true;
+        for (let k = prev.endHourIndex + 1; k < rec.hourIndex; k++) {
+          const slotTime = timeSlots[k];
+          if (slotTime && breaks.indexOf(slotTime) < 0) {
+            isConsecutiveLogic = false;
+            break;
+          }
+        }
+      }
+
+      if (isSameDay && isSameTask && isConsecutiveLogic && isSameDetails) {
+        currentGroup.count++;
+        currentGroup.endHourIndex = rec.hourIndex;
+      } else {
+        groups.push(currentGroup);
+        currentGroup = Object.assign({}, rec, { count: 1, endHourIndex: rec.hourIndex });
+      }
+    }
+    groups.push(currentGroup);
+    return groups;
+  }
+
+  function dimWeekDataFromHubDays(days) {
+    const weekData = {};
+    (days || []).forEach(function (d) {
+      const full = d.dayLabel || DIM_KEY_TO_FULL[d.day] || d.day;
+      if (!full) return;
+      weekData[full] = weekData[full] || {};
+      Object.keys(d.slots || {}).forEach(function (t) {
+        weekData[full][dimNormalizeTime(t)] = { task: d.slots[t], details: null };
+      });
+    });
+    return weekData;
+  }
+
+  function dimBuildAdjustmentsLocal(week) {
+    const schedule = dimState.schedule;
+    if (!schedule) return { records: [], pending: [], pendingCount: 0 };
+
+    const weekKey = String(week != null ? week : schedule.week || dimGetIsoWeek());
+    let weekData = null;
+    if (schedule.rawSchedule && schedule.rawSchedule[weekKey]) {
+      weekData = schedule.rawSchedule[weekKey];
+    } else if (schedule.days) {
+      weekData = dimWeekDataFromHubDays(schedule.days);
+    } else {
+      return { records: [], pending: [], pendingCount: 0 };
+    }
+
+    const detailTypes = (schedule.config && schedule.config.detailSlots) || DIM_DETAIL_SLOTS;
+    const timeSlots = (schedule.config && schedule.config.timeSlots) || [];
+    const dateFallback = dimDatesForWeek(Number(weekKey) || dimGetIsoWeek());
+    const groups = dimGetGroupedRecords(weekData, timeSlots);
+    const records = [];
+    const pending = [];
+
+    groups.forEach(function (g) {
+      if (detailTypes.indexOf(g.taskName) < 0) return;
+      const dayKey = g.day.substring(0, 3);
+      const dateIso = (schedule.days || []).find(function (d) { return d.day === dayKey || d.dayLabel === g.day; });
+      const resolvedDate = (dateIso && dateIso.date) || dateFallback[dayKey] || '';
+      const details = dimParseCellDetails(g.data && g.data.details);
+      const isPending = dimIsDetailIncomplete(g.taskName, details);
+      const record = {
+        slot: g.taskName,
+        day: dayKey,
+        dayLabel: g.day,
+        date: resolvedDate,
+        dateVisual: resolvedDate.length >= 10 ? resolvedDate.slice(8, 10) + '/' + resolvedDate.slice(5, 7) : '',
+        time: g.hour,
+        count: g.count,
+        durationHours: g.count * 0.5,
+        acao: details.action,
+        projeto: details.project,
+        especificacao: details.otherSpec,
+        pending: isPending
+      };
+      records.push(record);
+      if (isPending) pending.push(record);
+    });
+
+    return { records: records, pending: pending, pendingCount: pending.length, week: Number(weekKey) };
+  }
+
+  async function dimFetchAdjustmentsData() {
+    const week = dimState.week || dimGetIsoWeek();
+    const schedule = dimState.schedule;
+
+    if (schedule && schedule.adjustments && schedule.adjustments.length &&
+        String(schedule.week) === String(week)) {
+      const records = schedule.adjustments;
+      return {
+        records: records,
+        pending: records.filter(function (r) { return r.pending; }),
+        pendingCount: schedule.pendingCount != null ? schedule.pendingCount : records.filter(function (r) { return r.pending; }).length,
+        week: schedule.week
+      };
+    }
+
+    const local = dimBuildAdjustmentsLocal(week);
+    if (local.records.length) return local;
+
+    try {
+      const api = await dimCall('getAdjustments', { week: week });
+      if ((api.records || []).length) return api;
+    } catch (e) { /* API may be unavailable on older deploy */ }
+
+    return dimBuildAdjustmentsLocal(week);
   }
 
   function dimGetSlotGroups() {
@@ -993,6 +1221,66 @@
       groups[act].push(opt);
     });
     return { groups: groups, order: order };
+  }
+
+  function dimRenderAjustesTable(el, res) {
+    const records = res.records || [];
+    dimState.adjustmentsList = records;
+    dimState.pendingList = res.pending || records.filter(function (r) { return r.pending; });
+    dimUpdateAjustesBadge(res.pendingCount != null ? res.pendingCount : dimState.pendingList.length);
+
+    const q = (dimState.ajustesSearch || '').toLowerCase().trim();
+    const filtered = records.filter(function (r) {
+      if (!q) return true;
+      const dayLabel = (DIM_DAY_LABELS[r.day] || r.dayLabel || r.day || '').toLowerCase();
+      return String(r.slot || '').toLowerCase().indexOf(q) >= 0 ||
+        dayLabel.indexOf(q) >= 0 ||
+        String(r.date || '').indexOf(q) >= 0;
+    });
+
+    if (!filtered.length) {
+      el.innerHTML = '<p style="color:var(--text3);font-size:14px">' +
+        (records.length ? 'Nenhum slot encontrado para esta busca.' : 'Nenhum slot detalhado nesta semana.') +
+        '</p>';
+      return;
+    }
+
+    let html = '<div class="dim-ajustes-table-wrap"><table class="dim-ajustes-table"><thead><tr>' +
+      '<th>Slot / Tipo</th><th>Data / Início</th><th>Duração</th><th>Ação Realizada</th>' +
+      '<th>Qual o projeto?</th><th>Outro</th><th>Ação</th></tr></thead><tbody>';
+
+    filtered.forEach(function (r, idx) {
+      const dayLabel = DIM_DAY_LABELS[r.day] || r.dayLabel || r.day || '—';
+      const dateVisual = r.dateVisual || (r.date && r.date.length >= 10 ? r.date.slice(8, 10) + '/' + r.date.slice(5, 7) : '');
+      const safeTime = escapeHtml(r.time).replace(/'/g, "\\'");
+      const safeDay = escapeHtml(r.day || '').replace(/'/g, "\\'");
+      const slotColors = dimSlotColorFromLabel(r.slot);
+      const slotStyle = 'background:' + slotColors.bg + ';color:' + slotColors.text + ';border:1px solid ' + slotColors.border;
+
+      html += '<tr>';
+      html += '<td><span class="dim-ajuste-slot-badge" style="' + slotStyle + '">' + escapeHtml(r.slot) + '</span></td>';
+      html += '<td><div class="dim-ajuste-day">' + escapeHtml(dayLabel) +
+        (dateVisual ? ' · ' + escapeHtml(dateVisual) : '') + '</div>' +
+        '<div class="dim-ajuste-time">' + escapeHtml(r.time) + '</div></td>';
+      html += '<td><span class="dim-ajuste-duration">' + (r.durationHours || (r.count * 0.5)) + 'h (' +
+        (r.count || 1) + ' slots)</span></td>';
+      html += '<td>' + (r.acao
+        ? '<span class="dim-ajuste-value">' + escapeHtml(r.acao) + '</span>'
+        : '<span class="dim-ajuste-pending-label">Pendente</span>') + '</td>';
+      html += '<td>' + (r.projeto
+        ? '<span class="dim-ajuste-value">' + escapeHtml(r.projeto) + '</span>'
+        : '<span class="dim-ajuste-muted">—</span>') + '</td>';
+      html += '<td>' + (r.especificacao
+        ? '<span class="dim-ajuste-spec">' + escapeHtml(r.especificacao) + '</span>'
+        : '<span class="dim-ajuste-muted">—</span>') + '</td>';
+      html += '<td class="dim-ajustes-actions">';
+      html += '<button type="button" class="btn-sm" onclick="dimGoToSlot(\'' + safeDay + '\',\'' + safeTime + '\')" title="Ir para slot na grade"><i class="ti ti-arrow-right"></i></button>';
+      html += '<button type="button" class="btn-sm primary" onclick="dimEditAdjustmentByIndex(' + idx + ')"><i class="ti ti-pencil"></i> ' +
+        (r.pending ? 'Preencher' : 'Editar') + '</button>';
+      html += '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
   }
 
   function dimCountBreaks(day) {
@@ -2826,65 +3114,14 @@
   async function dimRenderAjustes() {
     const el = document.getElementById('dimAjustesList');
     if (!el) return;
+    if (!dimState.schedule) {
+      el.innerHTML = '<p style="color:var(--text3);font-size:14px">Carregue a escala semanal primeiro.</p>';
+      return;
+    }
+    el.innerHTML = '<div class="dim-controle-empty"><span class="dim-saving-dot"></span> Carregando ajustes…</div>';
     try {
-      const res = await dimCall('getAdjustments', { week: dimState.week });
-      const records = res.records || [];
-      dimState.adjustmentsList = records;
-      dimState.pendingList = res.pending || records.filter(function (r) { return r.pending; });
-      dimUpdateAjustesBadge(res.pendingCount != null ? res.pendingCount : dimState.pendingList.length);
-
-      const q = (dimState.ajustesSearch || '').toLowerCase().trim();
-      const filtered = records.filter(function (r) {
-        if (!q) return true;
-        const dayLabel = (DIM_DAY_LABELS[r.day] || r.dayLabel || r.day || '').toLowerCase();
-        return String(r.slot || '').toLowerCase().indexOf(q) >= 0 ||
-          dayLabel.indexOf(q) >= 0 ||
-          String(r.date || '').indexOf(q) >= 0;
-      });
-
-      if (!filtered.length) {
-        el.innerHTML = '<p style="color:var(--text3);font-size:14px">' +
-          (records.length ? 'Nenhum slot encontrado para esta busca.' : 'Nenhum slot detalhado nesta semana.') +
-          '</p>';
-        return;
-      }
-
-      let html = '<div class="dim-ajustes-table-wrap"><table class="dim-ajustes-table"><thead><tr>' +
-        '<th>Slot / Tipo</th><th>Data / Início</th><th>Duração</th><th>Ação Realizada</th>' +
-        '<th>Qual o projeto?</th><th>Outro</th><th>Ação</th></tr></thead><tbody>';
-
-      filtered.forEach(function (r, idx) {
-        const dayLabel = DIM_DAY_LABELS[r.day] || r.dayLabel || r.day || '—';
-        const dateVisual = r.dateVisual || (r.date && r.date.length >= 10 ? r.date.slice(8, 10) + '/' + r.date.slice(5, 7) : '');
-        const safeTime = escapeHtml(r.time).replace(/'/g, "\\'");
-        const safeDay = escapeHtml(r.day || '').replace(/'/g, "\\'");
-        const slotColors = dimSlotColorFromLabel(r.slot);
-        const slotStyle = 'background:' + slotColors.bg + ';color:' + slotColors.text + ';border:1px solid ' + slotColors.border;
-
-        html += '<tr>';
-        html += '<td><span class="dim-ajuste-slot-badge" style="' + slotStyle + '">' + escapeHtml(r.slot) + '</span></td>';
-        html += '<td><div class="dim-ajuste-day">' + escapeHtml(dayLabel) +
-          (dateVisual ? ' · ' + escapeHtml(dateVisual) : '') + '</div>' +
-          '<div class="dim-ajuste-time">' + escapeHtml(r.time) + '</div></td>';
-        html += '<td><span class="dim-ajuste-duration">' + (r.durationHours || (r.count * 0.5)) + 'h (' +
-          (r.count || 1) + ' slots)</span></td>';
-        html += '<td>' + (r.acao
-          ? '<span class="dim-ajuste-value">' + escapeHtml(r.acao) + '</span>'
-          : '<span class="dim-ajuste-pending-label">Pendente</span>') + '</td>';
-        html += '<td>' + (r.projeto
-          ? '<span class="dim-ajuste-value">' + escapeHtml(r.projeto) + '</span>'
-          : '<span class="dim-ajuste-muted">—</span>') + '</td>';
-        html += '<td>' + (r.especificacao
-          ? '<span class="dim-ajuste-spec">' + escapeHtml(r.especificacao) + '</span>'
-          : '<span class="dim-ajuste-muted">—</span>') + '</td>';
-        html += '<td class="dim-ajustes-actions">';
-        html += '<button type="button" class="btn-sm" onclick="dimGoToSlot(\'' + safeDay + '\',\'' + safeTime + '\')" title="Ir para slot na grade"><i class="ti ti-arrow-right"></i></button>';
-        html += '<button type="button" class="btn-sm primary" onclick="dimEditAdjustmentByIndex(' + idx + ')"><i class="ti ti-pencil"></i> ' +
-          (r.pending ? 'Preencher' : 'Editar') + '</button>';
-        html += '</td></tr>';
-      });
-      html += '</tbody></table></div>';
-      el.innerHTML = html;
+      const res = await dimFetchAdjustmentsData();
+      dimRenderAjustesTable(el, res);
     } catch (e) {
       el.innerHTML = '<p class="dim-status err">' + escapeHtml(e.message) + '</p>';
     }
