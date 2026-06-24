@@ -29,11 +29,15 @@
   };
 
   function dimGetBridgeTarget() {
+    const frame = document.getElementById('dimBridgeFrame');
+    if (frame && frame.src && frame.src.indexOf('view=bridge') >= 0) {
+      try {
+        if (frame.contentWindow) return frame.contentWindow;
+      } catch (e) { /* cross-origin */ }
+    }
     if (dimState.bridgePopup && !dimState.bridgePopup.closed) {
       return dimState.bridgePopup;
     }
-    const frame = document.getElementById('dimBridgeFrame');
-    if (frame && frame.contentWindow) return frame.contentWindow;
     return null;
   }
 
@@ -96,13 +100,57 @@
     return frame;
   }
 
-  function dimWaitForPopupReady(ms) {
+  function dimReloadBridgeIframe() {
+    const frame = dimEnsureIframe();
+    const url = dimBridgeBaseUrl();
+    dimState.bridgeReady = false;
+    if (frame && url) frame.src = url;
+    return frame;
+  }
+
+  function dimExecBaseUrl() {
+    const raw = dimGetBridgeUrl();
+    if (!raw) return '';
+    return raw
+      .replace(/([?&])view=bridge(&|$)/g, function (m, p1, p2) { return p2 === '&' ? p1 : ''; })
+      .replace(/[?&]$/, '');
+  }
+
+  function dimFetchApi(action, payload, timeoutMs) {
+    timeoutMs = timeoutMs || 45000;
+    const base = dimExecBaseUrl();
+    if (!base) return Promise.reject(new Error('URL da ponte não configurada.'));
+    const sep = base.indexOf('?') >= 0 ? '&' : '?';
+    const url = base + sep + 'api=' + encodeURIComponent(action) + '&payload=' + encodeURIComponent(JSON.stringify(payload || {}));
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+    return fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      mode: 'cors',
+      cache: 'no-store',
+      signal: controller.signal
+    }).then(function (r) {
+      return r.text().then(function (text) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var res;
+        try { res = JSON.parse(text); } catch (e) { throw new Error('Resposta inválida da ponte'); }
+        if (!res.ok) throw new Error(res.error || 'Erro na ponte');
+        return res.data;
+      });
+    }).finally(function () { clearTimeout(timer); });
+  }
+
+  function dimWaitForBridgeReady(ms) {
     ms = ms || 60000;
     return new Promise(function (resolve, reject) {
       let settled = false;
-      function done() { if (!settled) { settled = true; resolve(); } }
-      function fail(msg) { if (!settled) { settled = true; reject(new Error(msg)); } }
-      const deadline = Date.now() + ms;
+      function finish(err) {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener('message', onMsg);
+        if (err) reject(err); else resolve();
+      }
 
       const onMsg = function (ev) {
         const m = ev.data;
@@ -111,38 +159,43 @@
         if (m.event === 'session' && m.data) {
           dimState.session = m.data;
           dimState.bridgeReady = true;
-          window.removeEventListener('message', onMsg);
-          done();
+          finish();
         }
       };
       window.addEventListener('message', onMsg);
 
-      function poll() {
+      const deadline = Date.now() + ms;
+
+      function attempt() {
         if (settled) return;
         if (Date.now() > deadline) {
-          window.removeEventListener('message', onMsg);
-          fail('Não conectou. Mantenha a janela Dim Bridge aberta (Ponte ativa) e tente de novo.');
+          finish(new Error('Não conectou. Mantenha a janela Dim Bridge aberta e clique em Atualizar.'));
           return;
         }
-        if (!dimGetBridgeTarget()) {
-          setTimeout(poll, 800);
-          return;
-        }
-        dimCall('ping', {}, 6000).then(function () {
+        dimFetchApi('ping', {}, 8000).then(function () {
           dimState.bridgeReady = true;
-          if (dimState.session) {
-            window.removeEventListener('message', onMsg);
-            done();
-            return;
-          }
-          dimCall('getSessionInfo', {}, 15000).then(function (s) {
-            dimState.session = s;
-            window.removeEventListener('message', onMsg);
-            done();
-          }).catch(function () { setTimeout(poll, 1200); });
-        }).catch(function () { setTimeout(poll, 1200); });
+          if (dimState.session) { finish(); return; }
+          return dimFetchApi('getSessionInfo', {}, 20000);
+        }).then(function (s) {
+          if (settled) return;
+          if (s) dimState.session = s;
+          if (dimState.session) { dimUpdateStatus(); finish(); }
+          else setTimeout(attempt, 1200);
+        }).catch(function () {
+          dimCallViaPostMessage('ping', {}, 6000).then(function () {
+            dimState.bridgeReady = true;
+            if (dimState.session) { finish(); return; }
+            return dimCallViaPostMessage('getSessionInfo', {}, 20000);
+          }).then(function (s) {
+            if (settled) return;
+            if (s) dimState.session = s;
+            if (dimState.session) { dimUpdateStatus(); finish(); }
+            else setTimeout(attempt, 1200);
+          }).catch(function () { setTimeout(attempt, 1200); });
+        });
       }
-      setTimeout(poll, 1500);
+
+      setTimeout(attempt, 2000);
     });
   }
 
@@ -157,13 +210,14 @@
       dimRenderError('Pop-up bloqueado. No Chrome: ícone à direita da barra de endereço → sempre permitir pop-ups neste site.');
       return;
     }
+    dimReloadBridgeIframe();
     const grid = document.getElementById('dimGridWrap');
     if (grid) {
       grid.innerHTML = '<div class="dim-empty-state"><span class="dim-saving-dot"></span><p>Conectando…<br>Mantenha a janela <strong>Dim Bridge</strong> aberta.</p></div>';
     }
     dimUpdateStatus();
     try {
-      await dimWaitForPopupReady(90000);
+      await dimWaitForBridgeReady(90000);
       await dimLoadWeek(dimState.week || dimGetIsoWeek());
       dimStartReloadTimer();
     } catch (e) {
@@ -199,15 +253,9 @@
     }
   }
 
-  function dimCall(action, payload, timeoutMs) {
+  function dimCallViaPostMessage(action, payload, timeoutMs) {
     return new Promise(function (resolve, reject) {
-      const url = dimBridgeBaseUrl();
-      if (!url) {
-        reject(new Error('URL da ponte não configurada. Admin: Configuração → Técnico → URL Dimensionamento.'));
-        return;
-      }
       dimEnsureIframe();
-      dimOpenBridgePopup();
       const id = 'dim-' + (++dimCallSeq) + '-' + Date.now();
       const timer = setTimeout(function () {
         delete dimCallWaiters[id];
@@ -224,7 +272,7 @@
       if (!target) {
         clearTimeout(timer);
         delete dimCallWaiters[id];
-        reject(new Error('Ponte indisponível. Clique em Conectar ponte.'));
+        reject(new Error('Ponte indisponível. Clique em Conectar à planilha.'));
         return;
       }
       target.postMessage({
@@ -233,6 +281,16 @@
         action: action,
         payload: payload || {}
       }, '*');
+    });
+  }
+
+  function dimCall(action, payload, timeoutMs) {
+    const url = dimGetBridgeUrl();
+    if (!url) {
+      return Promise.reject(new Error('URL da ponte não configurada. Admin: Configuração → Técnico → URL Dimensionamento.'));
+    }
+    return dimFetchApi(action, payload, timeoutMs).catch(function () {
+      return dimCallViaPostMessage(action, payload, timeoutMs);
     });
   }
 

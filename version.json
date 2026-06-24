@@ -1,5 +1,5 @@
 {
-  "commit": "495d08f",
-  "message": "Add commit version footer to Hub for deploy tracking.",
-  "date": "2026-06-23 22:56:13 -0300"
+  "commit": "a31fcbd",
+  "message": "Bump version.json to match latest commit for footer display.",
+  "date": "2026-06-23 22:56:14 -0300"
 }
