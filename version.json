@@ -1,5 +1,5 @@
 {
-  "commit": "5e4cbfd",
-  "message": "Refactor GAS dimensionamento menu and fix Hub fallback footer copy.",
-  "date": "2026-06-24 09:07:14 -0300"
+  "commit": "33f7abc",
+  "message": "Fix Hub dimensionamento save silently failing for some analysts.",
+  "date": "2026-06-24 09:45:04 -0300"
 }
