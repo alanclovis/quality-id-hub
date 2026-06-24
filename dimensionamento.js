@@ -92,6 +92,8 @@
     activeTab: 'escala',
     dropdown: null,
     pendingList: [],
+    adjustmentsList: [],
+    ajustesSearch: '',
     detailDraft: null,
     clearDraft: null,
     applyDraft: null,
@@ -813,7 +815,7 @@
   function dimCallTimeoutFor(action) {
     if (action === 'getUserSchedule') return 90000;
     if (action === 'saveBatchData' || action === 'saveDetail') return 45000;
-    if (action === 'getPendingDetails' || action === 'getSlotDictionary') return 45000;
+    if (action === 'getPendingDetails' || action === 'getAdjustments' || action === 'getSlotDictionary') return 45000;
     return 30000;
   }
 
@@ -968,8 +970,8 @@
   async function dimRefreshPendingBadge() {
     if (!dimState.schedule) return;
     try {
-      const res = await dimCall('getPendingDetails', { week: dimState.week });
-      dimUpdateAjustesBadge((res.pending || []).length);
+      const res = await dimCall('getAdjustments', { week: dimState.week });
+      dimUpdateAjustesBadge(res.pendingCount != null ? res.pendingCount : (res.pending || []).length);
     } catch (e) { /* ignore */ }
   }
 
@@ -2825,28 +2827,60 @@
     const el = document.getElementById('dimAjustesList');
     if (!el) return;
     try {
-      const res = await dimCall('getPendingDetails', { week: dimState.week });
-      const pending = res.pending || [];
-      dimState.pendingList = pending;
-      dimUpdateAjustesBadge(pending.length);
-      if (!pending.length) {
-        el.innerHTML = '<p style="color:var(--text3);font-size:14px">Nenhum detalhe pendente nesta semana.</p>';
+      const res = await dimCall('getAdjustments', { week: dimState.week });
+      const records = res.records || [];
+      dimState.adjustmentsList = records;
+      dimState.pendingList = res.pending || records.filter(function (r) { return r.pending; });
+      dimUpdateAjustesBadge(res.pendingCount != null ? res.pendingCount : dimState.pendingList.length);
+
+      const q = (dimState.ajustesSearch || '').toLowerCase().trim();
+      const filtered = records.filter(function (r) {
+        if (!q) return true;
+        const dayLabel = (DIM_DAY_LABELS[r.day] || r.dayLabel || r.day || '').toLowerCase();
+        return String(r.slot || '').toLowerCase().indexOf(q) >= 0 ||
+          dayLabel.indexOf(q) >= 0 ||
+          String(r.date || '').indexOf(q) >= 0;
+      });
+
+      if (!filtered.length) {
+        el.innerHTML = '<p style="color:var(--text3);font-size:14px">' +
+          (records.length ? 'Nenhum slot encontrado para esta busca.' : 'Nenhum slot detalhado nesta semana.') +
+          '</p>';
         return;
       }
+
       let html = '<div class="dim-ajustes-table-wrap"><table class="dim-ajustes-table"><thead><tr>' +
-        '<th>Slot</th><th>Data</th><th>Horário</th><th>Status</th><th></th></tr></thead><tbody>';
-      pending.forEach(function (p, idx) {
-        const dayLabel = DIM_DAY_LABELS[p.day] || p.day || '—';
-        const safeTime = escapeHtml(p.time).replace(/'/g, "\\'");
-        const safeDay = escapeHtml(p.day || '').replace(/'/g, "\\'");
+        '<th>Slot / Tipo</th><th>Data / Início</th><th>Duração</th><th>Ação Realizada</th>' +
+        '<th>Qual o projeto?</th><th>Outro</th><th>Ação</th></tr></thead><tbody>';
+
+      filtered.forEach(function (r, idx) {
+        const dayLabel = DIM_DAY_LABELS[r.day] || r.dayLabel || r.day || '—';
+        const dateVisual = r.dateVisual || (r.date && r.date.length >= 10 ? r.date.slice(8, 10) + '/' + r.date.slice(5, 7) : '');
+        const safeTime = escapeHtml(r.time).replace(/'/g, "\\'");
+        const safeDay = escapeHtml(r.day || '').replace(/'/g, "\\'");
+        const slotColors = dimSlotColorFromLabel(r.slot);
+        const slotStyle = 'background:' + slotColors.bg + ';color:' + slotColors.text + ';border:1px solid ' + slotColors.border;
+
         html += '<tr>';
-        html += '<td><strong>' + escapeHtml(p.slot) + '</strong></td>';
-        html += '<td>' + escapeHtml(p.date || dayLabel) + '</td>';
-        html += '<td style="font-family:ui-monospace,monospace">' + escapeHtml(p.time) + '</td>';
-        html += '<td><span class="dim-ajuste-item pending" style="display:inline-block;padding:4px 8px;margin:0">Pendente</span></td>';
+        html += '<td><span class="dim-ajuste-slot-badge" style="' + slotStyle + '">' + escapeHtml(r.slot) + '</span></td>';
+        html += '<td><div class="dim-ajuste-day">' + escapeHtml(dayLabel) +
+          (dateVisual ? ' · ' + escapeHtml(dateVisual) : '') + '</div>' +
+          '<div class="dim-ajuste-time">' + escapeHtml(r.time) + '</div></td>';
+        html += '<td><span class="dim-ajuste-duration">' + (r.durationHours || (r.count * 0.5)) + 'h (' +
+          (r.count || 1) + ' slots)</span></td>';
+        html += '<td>' + (r.acao
+          ? '<span class="dim-ajuste-value">' + escapeHtml(r.acao) + '</span>'
+          : '<span class="dim-ajuste-pending-label">Pendente</span>') + '</td>';
+        html += '<td>' + (r.projeto
+          ? '<span class="dim-ajuste-value">' + escapeHtml(r.projeto) + '</span>'
+          : '<span class="dim-ajuste-muted">—</span>') + '</td>';
+        html += '<td>' + (r.especificacao
+          ? '<span class="dim-ajuste-spec">' + escapeHtml(r.especificacao) + '</span>'
+          : '<span class="dim-ajuste-muted">—</span>') + '</td>';
         html += '<td class="dim-ajustes-actions">';
         html += '<button type="button" class="btn-sm" onclick="dimGoToSlot(\'' + safeDay + '\',\'' + safeTime + '\')" title="Ir para slot na grade"><i class="ti ti-arrow-right"></i></button>';
-        html += '<button type="button" class="btn-sm primary" onclick="dimEditPendingByIndex(' + idx + ')"><i class="ti ti-pencil"></i> Preencher</button>';
+        html += '<button type="button" class="btn-sm primary" onclick="dimEditAdjustmentByIndex(' + idx + ')"><i class="ti ti-pencil"></i> ' +
+          (r.pending ? 'Preencher' : 'Editar') + '</button>';
         html += '</td></tr>';
       });
       html += '</tbody></table></div>';
@@ -2854,6 +2888,26 @@
     } catch (e) {
       el.innerHTML = '<p class="dim-status err">' + escapeHtml(e.message) + '</p>';
     }
+  }
+
+  function dimOnAjustesSearch(value) {
+    dimState.ajustesSearch = value || '';
+    dimRenderAjustes();
+  }
+
+  function dimEditAdjustmentByIndex(idx) {
+    const list = dimState.adjustmentsList || [];
+    const q = (dimState.ajustesSearch || '').toLowerCase().trim();
+    const filtered = list.filter(function (r) {
+      if (!q) return true;
+      const dayLabel = (DIM_DAY_LABELS[r.day] || r.dayLabel || r.day || '').toLowerCase();
+      return String(r.slot || '').toLowerCase().indexOf(q) >= 0 ||
+        dayLabel.indexOf(q) >= 0 ||
+        String(r.date || '').indexOf(q) >= 0;
+    });
+    const r = filtered[idx];
+    if (!r) return;
+    dimEditPending(r);
   }
 
   function dimEditPendingByIndex(idx) {
@@ -2868,6 +2922,7 @@
       date: p.date,
       time: p.time,
       day: p.day,
+      quantidade: p.count || 1,
       acao: p.acao,
       projeto: p.projeto,
       especificacao: p.especificacao
@@ -2953,6 +3008,8 @@
   global.dimDetailQtyDelta = dimDetailQtyDelta;
   global.dimEditPending = dimEditPending;
   global.dimEditPendingByIndex = dimEditPendingByIndex;
+  global.dimEditAdjustmentByIndex = dimEditAdjustmentByIndex;
+  global.dimOnAjustesSearch = dimOnAjustesSearch;
   global.dimRenderControle = dimRenderControle;
   global.dimOnClearSlotClick = dimOnClearSlotClick;
   global.dimCloseClearModal = dimCloseClearModal;

@@ -269,6 +269,29 @@
 .dim-apply-modal h3 { color: #820ad1; }
 
 .dim-ajustes-list { display: flex; flex-direction: column; gap: 8px; }
+.dim-ajustes-header {
+  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 12px;
+}
+.dim-ajustes-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
+.dim-ajustes-search {
+  min-width: 220px; max-width: 280px; padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: 13px; background: var(--bg2); color: var(--text);
+}
+.dim-ajuste-slot-badge {
+  display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 700;
+}
+.dim-ajuste-day { font-size: 13px; font-weight: 700; color: var(--text); }
+.dim-ajuste-time { font-size: 11px; font-family: ui-monospace, monospace; color: var(--text3); margin-top: 2px; }
+.dim-ajuste-duration {
+  display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  background: var(--bg3); color: var(--text2); border: 1px solid var(--border);
+}
+.dim-ajuste-value { font-size: 13px; color: var(--text2); font-weight: 500; }
+.dim-ajuste-spec { font-size: 12px; color: var(--text3); font-style: italic; }
+.dim-ajuste-muted { color: var(--text3); }
+.dim-ajuste-pending-label { font-size: 12px; color: #f87171; font-style: italic; }
 .dim-ajuste-item {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   padding: 12px 14px; background: var(--bg2); border-radius: var(--r);

@@ -5925,7 +5925,13 @@ window.addEventListener('DOMContentLoaded',()=>{
   </div>
 
   <div class="dim-panel" id="dimPanelAjustes">
-    <p class="access-hint" style="margin-bottom:12px">Slots detalhados (Planilha, Docs, Project Meet…) que ainda precisam de ação ou projeto.</p>
+    <div class="dim-ajustes-header">
+      <div>
+        <h3 class="dim-ajustes-title">Detalhamento de Slots</h3>
+        <p class="access-hint" style="margin:4px 0 0">Todos os slots detalhados da semana — preencha ação e projeto quando pendente.</p>
+      </div>
+      <input type="search" class="dim-ajustes-search" id="dimAjustesSearch" placeholder="Digite aqui o nome do slot…" oninput="dimOnAjustesSearch(this.value)">
+    </div>
     <div class="dim-ajustes-list" id="dimAjustesList"></div>
   </div>
 
@@ -6057,6 +6063,6 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=28"></script>
+<script src="dimensionamento.js?v=29"></script>
 </body>
 </html>

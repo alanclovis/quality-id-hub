@@ -29,6 +29,8 @@ function hubHandleAction_(action, payload) {
       return hubSaveBatchData_(payload || {});
     case 'getPendingDetails':
       return hubGetPendingDetails_(payload && payload.week);
+    case 'getAdjustments':
+      return hubGetAdjustments_(payload && payload.week);
     case 'saveDetail':
       return hubSaveDetail_(payload || {});
     case 'getSlotDictionary':
@@ -257,7 +259,119 @@ function hubIsDetailIncomplete_(slot, details) {
   return false;
 }
 
-function hubGetPendingDetails_(week) {
+function hubNormalizeDetailsForComparison_(details) {
+  var d = hubParseCellDetails_(details);
+  return JSON.stringify({ action: d.action, project: d.project, otherSpec: d.otherSpec });
+}
+
+/** Espelha getGroupedRecords() de App_Logica.html — agrupa slots consecutivos com herança de detalhes */
+function hubGetGroupedRecords_(weekData, timeSlots, filterTask) {
+  var days = ['segunda', 'terça', 'quarta', 'quinta', 'sexta'];
+  var flatRecords = [];
+
+  days.forEach(function (day) {
+    var daySlots = weekData[day];
+    if (!daySlots) return;
+    Object.keys(daySlots).forEach(function (hour) {
+      var data = daySlots[hour];
+      var taskName = (typeof data === 'string') ? data : (data && data.task);
+      if (!taskName || taskName === 'Break') return;
+      if (filterTask && taskName !== filterTask) return;
+      var normHour = hubNormalizeTime_(hour);
+      var hourIndex = timeSlots.indexOf(normHour);
+      if (hourIndex < 0) return;
+      flatRecords.push({
+        day: day,
+        hour: normHour,
+        hourIndex: hourIndex,
+        data: (typeof data === 'string') ? { task: data } : data,
+        taskName: taskName
+      });
+    });
+  });
+
+  flatRecords.sort(function (a, b) {
+    var dayDiff = days.indexOf(a.day) - days.indexOf(b.day);
+    return dayDiff !== 0 ? dayDiff : a.hourIndex - b.hourIndex;
+  });
+
+  if (!flatRecords.length) return [];
+
+  var emptyJson = '{"action":"","project":"","otherSpec":""}';
+  var groups = [];
+  var currentGroup = {
+    day: flatRecords[0].day,
+    hour: flatRecords[0].hour,
+    hourIndex: flatRecords[0].hourIndex,
+    data: flatRecords[0].data,
+    taskName: flatRecords[0].taskName,
+    count: 1,
+    endHourIndex: flatRecords[0].hourIndex
+  };
+
+  for (var i = 1; i < flatRecords.length; i++) {
+    var rec = flatRecords[i];
+    var prev = currentGroup;
+
+    var isSameDay = rec.day === prev.day;
+    var isSameTask = rec.taskName === prev.taskName;
+
+    var recStr = hubNormalizeDetailsForComparison_(rec.data && rec.data.details);
+    var prevStr = hubNormalizeDetailsForComparison_(prev.data && prev.data.details);
+    var isRecEmpty = recStr === emptyJson;
+    var isPrevFull = prevStr !== emptyJson;
+
+    var isSameDetails = recStr === prevStr;
+    if (isSameTask && isSameDay && isRecEmpty && isPrevFull) isSameDetails = true;
+    if (isSameTask && isSameDay && !isRecEmpty && isPrevFull && isRecEmpty) isSameDetails = true;
+
+    var gap = rec.hourIndex - prev.endHourIndex;
+    var isConsecutiveLogic = false;
+    if (gap === 1) {
+      isConsecutiveLogic = true;
+    } else if (gap > 1 && isSameDay) {
+      var currentDayBreaks = Object.keys(weekData[rec.day] || {}).filter(function (h) {
+        var c = weekData[rec.day][h];
+        var t = (typeof c === 'string') ? c : (c && c.task);
+        return t === 'Break';
+      }).map(hubNormalizeTime_);
+      var allBreaksInGap = true;
+      for (var k = prev.endHourIndex + 1; k < rec.hourIndex; k++) {
+        if (timeSlots[k] && currentDayBreaks.indexOf(timeSlots[k]) < 0) {
+          allBreaksInGap = false;
+          break;
+        }
+      }
+      isConsecutiveLogic = allBreaksInGap;
+    }
+
+    if (isSameDay && isSameTask && isConsecutiveLogic && isSameDetails) {
+      currentGroup.count++;
+      currentGroup.endHourIndex = rec.hourIndex;
+    } else {
+      groups.push(currentGroup);
+      currentGroup = {
+        day: rec.day,
+        hour: rec.hour,
+        hourIndex: rec.hourIndex,
+        data: rec.data,
+        taskName: rec.taskName,
+        count: 1,
+        endHourIndex: rec.hourIndex
+      };
+    }
+  }
+  groups.push(currentGroup);
+  return groups;
+}
+
+function hubFormatVisualDate_(dateIso) {
+  if (!dateIso || String(dateIso).indexOf('-') < 0) return '';
+  var p = String(dateIso).split('-');
+  return p[2] + '/' + p[1];
+}
+
+function hubGetAdjustments_(week) {
   var raw = getUserSchedule();
   if (raw.error) throw new Error(raw.error);
 
@@ -266,41 +380,54 @@ function hubGetPendingDetails_(week) {
   var userEmail = raw.userEmail || Session.getActiveUser().getEmail().toLowerCase().trim();
   var dateByDayName = hubGetWeekDateMap_(weekKey, userEmail);
   var detailTypes = hubGetConfig_().detailSlots || [];
+  var timeSlots = hubGetConfig_().timeSlots || [];
+  var groups = hubGetGroupedRecords_(weekData, timeSlots, null);
+
+  var records = [];
   var pending = [];
 
-  Object.keys(weekData).forEach(function (dayName) {
-    var dayKey = HUB_DAY_MAP_[dayName] || String(dayName).substring(0, 3);
-    var daySlots = weekData[dayName] || {};
-    var dateIso = dateByDayName[dayName] || hubComputeDateForWeekDay_(weekKey, dayKey);
+  groups.forEach(function (g) {
+    if (detailTypes.indexOf(g.taskName) < 0) return;
 
-    Object.keys(daySlots).forEach(function (time) {
-      var cell = daySlots[time];
-      var slot = cell && cell.task ? String(cell.task) : '';
-      if (!slot || detailTypes.indexOf(slot) < 0) return;
+    var dayKey = HUB_DAY_MAP_[g.day] || String(g.day).substring(0, 3);
+    var dateIso = dateByDayName[g.day] || hubComputeDateForWeekDay_(weekKey, dayKey);
+    var details = hubParseCellDetails_(g.data && g.data.details);
+    var isPending = hubIsDetailIncomplete_(g.taskName, details);
 
-      var details = hubParseCellDetails_(cell && cell.details);
-      if (!hubIsDetailIncomplete_(slot, details)) return;
+    var record = {
+      slot: g.taskName,
+      day: dayKey,
+      dayLabel: g.day,
+      date: dateIso,
+      dateVisual: hubFormatVisualDate_(dateIso),
+      time: g.hour,
+      count: g.count,
+      durationHours: g.count * 0.5,
+      acao: details.action,
+      projeto: details.project,
+      especificacao: details.otherSpec,
+      pending: isPending
+    };
 
-      pending.push({
-        date: dateIso,
-        day: dayKey,
-        time: hubNormalizeTime_(time),
-        slot: slot,
-        acao: details.action,
-        projeto: details.project,
-        especificacao: details.otherSpec
-      });
-    });
+    records.push(record);
+    if (isPending) pending.push(record);
   });
 
-  pending.sort(function (a, b) {
-    var dayOrder = ['seg', 'ter', 'qua', 'qui', 'sex'];
-    var dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
-    if (dayDiff !== 0) return dayDiff;
-    return String(a.time).localeCompare(String(b.time));
-  });
+  return {
+    records: records,
+    pending: pending,
+    pendingCount: pending.length,
+    week: Number(weekKey)
+  };
+}
 
-  return { pending: pending, week: Number(weekKey) };
+function hubGetPendingDetails_(week) {
+  var adj = hubGetAdjustments_(week);
+  return {
+    pending: adj.pending,
+    pendingCount: adj.pendingCount,
+    week: adj.week
+  };
 }
 
 function hubSaveDetail_(payload) {
