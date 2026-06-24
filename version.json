@@ -1,5 +1,5 @@
 {
-  "commit": "a0ec4d2",
-  "message": "Fix empty Ajustes tab with local grouping fallback.",
-  "date": "2026-06-24 01:50:47 -0300"
+  "commit": "11fe1ed",
+  "message": "Sync Hub footer commit from GitHub API with version.json fallback.",
+  "date": "2026-06-24 01:53:59 -0300"
 }
