@@ -127,6 +127,7 @@
 .dim-ajuste-meta strong { display: block; font-size: 14px; }
 .dim-ajuste-meta span { color: var(--text3); font-size: 12px; }
 
+.dim-controle-meta { font-size: 11px; color: var(--text3); margin: 0 0 14px; }
 .dim-controle-header {
   display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
   gap: 12px 20px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 2px solid var(--text);

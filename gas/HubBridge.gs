@@ -253,12 +253,12 @@ function hubSaveDetail_(payload) {
   return { ok: true };
 }
 
-function hubGetSlotDictionary_() {
+function hubReadSlotDictionaryFromSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('Controle de Slots');
-  if (!sh || sh.getLastRow() < 2) return { items: [], categories: [] };
+  if (!sh || sh.getLastRow() < 2) return [];
   var values = sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(sh.getLastColumn(), 5)).getValues();
-  var items = values.map(function (row) {
+  return values.map(function (row) {
     return {
       atividade: String(row[0] || ''),
       tipoSlot: String(row[1] || row[0] || ''),
@@ -267,8 +267,36 @@ function hubGetSlotDictionary_() {
       conversao: String(row[4] || '')
     };
   }).filter(function (x) { return x.tipoSlot; });
-  if (items.length >= 5) return { items: items, categories: [] };
-  return { items: [], categories: [] };
+}
+
+/** Mescla planilha (customizações) sobre STATIC_SLOT_DATA do Config_Slots.html */
+function hubMergeSlotDictionaries_(sheetItems, staticItems) {
+  var map = {};
+  (staticItems || []).forEach(function (it) {
+    var key = String(it.tipoSlot || '').toLowerCase();
+    if (key) map[key] = it;
+  });
+  (sheetItems || []).forEach(function (it) {
+    var key = String(it.tipoSlot || '').toLowerCase();
+    if (key) map[key] = it;
+  });
+  var merged = Object.keys(map).map(function (k) { return map[k]; });
+  merged.sort(function (a, b) {
+    var act = String(a.atividade || '').localeCompare(String(b.atividade || ''), 'pt-BR');
+    if (act !== 0) return act;
+    return String(a.tipoSlot || '').localeCompare(String(b.tipoSlot || ''), 'pt-BR');
+  });
+  return merged;
+}
+
+function hubGetSlotDictionary_() {
+  var staticData = hubGetStaticSlotDictionary_();
+  var staticItems = (staticData && staticData.items) || [];
+  var sheetItems = hubReadSlotDictionaryFromSheet_();
+  return {
+    items: hubMergeSlotDictionaries_(sheetItems, staticItems),
+    categories: []
+  };
 }
 
 /** Mesma lista RAW_OPTIONS do Config_Slots.html (dropdown da escala) */

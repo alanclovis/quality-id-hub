@@ -49,24 +49,34 @@
       });
   }
 
+  function dimMergeDictionary(apiItems, staticItems) {
+    const map = new Map();
+    (staticItems || []).forEach(function (it) {
+      const key = String(it.tipoSlot || '').toLowerCase();
+      if (key) map.set(key, it);
+    });
+    (apiItems || []).forEach(function (it) {
+      const key = String(it.tipoSlot || '').toLowerCase();
+      if (key) map.set(key, it);
+    });
+    const items = Array.from(map.values());
+    items.sort(function (a, b) {
+      const act = String(a.atividade || '').localeCompare(String(b.atividade || ''), 'pt-BR');
+      if (act !== 0) return act;
+      return String(a.tipoSlot || '').localeCompare(String(b.tipoSlot || ''), 'pt-BR');
+    });
+    return { items: items, categories: [] };
+  }
+
   function dimEnsureDictionary() {
-    if (dimState.dictionary && dimState.dictionary.items && dimState.dictionary.items.length >= 5) {
-      return Promise.resolve(dimState.dictionary);
-    }
-    return dimCall('getSlotDictionary', {}).then(function (d) {
-      if (d && d.items && d.items.length >= 5) {
-        dimState.dictionary = d;
-        return d;
-      }
-      return dimLoadDictionaryFallback().then(function (fb) {
-        dimState.dictionary = fb;
-        return fb;
-      });
-    }).catch(function () {
-      return dimLoadDictionaryFallback().then(function (fb) {
-        dimState.dictionary = fb;
-        return fb;
-      });
+    return Promise.all([
+      dimLoadDictionaryFallback(),
+      dimCall('getSlotDictionary', {}).catch(function () { return { items: [] }; })
+    ]).then(function (results) {
+      const fbItems = (results[0] && results[0].items) || [];
+      const apiItems = (results[1] && results[1].items) || [];
+      dimState.dictionary = dimMergeDictionary(apiItems, fbItems);
+      return dimState.dictionary;
     });
   }
 
@@ -705,6 +715,7 @@
     });
     if (tab === 'ajustes') dimRenderAjustes();
     if (tab === 'controle') {
+      dimState.dictionary = null;
       dimEnsureDictionary().then(function () { dimRenderControle(); });
     }
   }
@@ -1159,7 +1170,7 @@
       el.innerHTML = '<div class="dim-controle-empty"><p>Nenhum resultado encontrado.</p><p class="dim-controle-empty-sub">Tente buscar por outro termo.</p></div>';
       return;
     }
-    let html = '';
+    let html = '<p class="dim-controle-meta">' + items.length + ' slots · ' + order.length + ' grupos</p>';
     order.forEach(function (atividade) {
       const rows = groups[atividade];
       html += '<section class="dim-controle-block">';
