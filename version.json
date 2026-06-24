@@ -1,5 +1,5 @@
 {
-  "commit": "69e8427",
-  "message": "Fix dimensionamento connect hang when bridge popup cannot postMessage back.",
+  "commit": "4490a60",
+  "message": "Bump version.json for dimensionamento bridge fix deploy.",
   "date": "2026-06-23 23:01:24 -0300"
 }

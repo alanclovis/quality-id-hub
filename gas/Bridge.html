@@ -36,7 +36,19 @@
     });
   }
 
-  var pending = {};
+  function deliverSession(sessionData) {
+    var params = new URLSearchParams(window.location.search);
+    var hubReturn = params.get('hubReturn');
+    if (hubReturn && window.opener && !window.opener.closed) {
+      document.getElementById('status').textContent = 'Conectando ao Hub…';
+      var token = btoa(unescape(encodeURIComponent(JSON.stringify({ session: sessionData, ts: Date.now() }))));
+      var sep = hubReturn.indexOf('?') >= 0 ? '&' : '?';
+      window.location.replace(hubReturn + sep + 'dimBridge=1#dimSession=' + encodeURIComponent(token));
+      return;
+    }
+    notifyReady();
+    postToHub({ source: 'dim-bridge', event: 'session', data: sessionData });
+  }
 
   window.addEventListener('message', function (ev) {
     if (!isAllowedOrigin(ev.origin)) return;
@@ -71,11 +83,12 @@
 
   google.script.run
     .withSuccessHandler(function (json) {
-      notifyReady();
       try {
         var res = JSON.parse(json);
-        postToHub({ source: 'dim-bridge', event: 'session', data: res.data });
-      } catch (e) { /* ignore */ }
+        deliverSession(res.data);
+      } catch (e) {
+        notifyReady();
+      }
     })
     .withFailureHandler(notifyReady)
     .dimApiCall('getSessionInfo', '{}');

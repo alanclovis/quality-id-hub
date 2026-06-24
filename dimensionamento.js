@@ -69,12 +69,62 @@
     }
   }
 
+  function dimHubReturnUrl() {
+    return global.location.origin + global.location.pathname;
+  }
+
   function dimBridgeBaseUrl() {
     const raw = dimGetBridgeUrl();
     if (!raw) return '';
-    if (raw.indexOf('view=bridge') >= 0) return raw;
-    return raw + (raw.indexOf('?') >= 0 ? '&' : '?') + 'view=bridge';
+    let url = raw;
+    if (url.indexOf('view=bridge') < 0) {
+      url += (url.indexOf('?') >= 0 ? '&' : '?') + 'view=bridge';
+    }
+    if (url.indexOf('hubReturn=') < 0) {
+      url += '&hubReturn=' + encodeURIComponent(dimHubReturnUrl());
+    }
+    return url;
   }
+
+  function dimSaveSession(session) {
+    try {
+      localStorage.setItem('qhub_dim_session', JSON.stringify({ session: session, ts: Date.now() }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function dimReadStoredSession() {
+    try {
+      const raw = localStorage.getItem('qhub_dim_session');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.session) return null;
+      if (parsed.ts && Date.now() - parsed.ts > 3600000) return null;
+      return parsed.session;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function dimHandleBridgeCallback() {
+    if (!/\bdimBridge=1\b/.test(global.location.search)) return false;
+    const match = global.location.hash.match(/#dimSession=([^&]+)/);
+    if (!match) return false;
+    try {
+      const parsed = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(match[1])))));
+      if (!parsed || !parsed.session) return false;
+      dimSaveSession(parsed.session);
+      if (global.opener && !global.opener.closed) {
+        global.opener.postMessage({ source: 'dim-bridge', event: 'session', data: parsed.session }, global.location.origin);
+      }
+      document.body.innerHTML = '<p style="font-family:sans-serif;padding:20px;text-align:center">Conectado! Esta janela vai fechar…</p>';
+      setTimeout(function () { global.close(); }, 500);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  if (dimHandleBridgeCallback()) return;
 
   function dimEnsureIframe() {
     let frame = document.getElementById('dimBridgeFrame');
@@ -116,6 +166,42 @@
       .replace(/[?&]$/, '');
   }
 
+  function dimJsonpApi(action, payload, timeoutMs) {
+    timeoutMs = timeoutMs || 45000;
+    const base = dimExecBaseUrl();
+    if (!base) return Promise.reject(new Error('URL da ponte não configurada.'));
+    return new Promise(function (resolve, reject) {
+      const cb = 'dimCb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+      let timer;
+      let script;
+      function cleanup() {
+        if (timer) clearTimeout(timer);
+        try { delete global[cb]; } catch (e) { global[cb] = undefined; }
+        if (script && script.parentNode) script.parentNode.removeChild(script);
+      }
+      timer = setTimeout(function () {
+        cleanup();
+        reject(new Error('Timeout ao comunicar com Apps Script'));
+      }, timeoutMs);
+      global[cb] = function (res) {
+        cleanup();
+        if (res && res.ok) resolve(res.data);
+        else reject(new Error((res && res.error) || 'Erro na ponte'));
+      };
+      const sep = base.indexOf('?') >= 0 ? '&' : '?';
+      script = document.createElement('script');
+      script.src = base + sep +
+        'api=' + encodeURIComponent(action) +
+        '&payload=' + encodeURIComponent(JSON.stringify(payload || {})) +
+        '&callback=' + encodeURIComponent(cb);
+      script.onerror = function () {
+        cleanup();
+        reject(new Error('Falha na comunicação com Apps Script'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
   function dimFetchApi(action, payload, timeoutMs) {
     timeoutMs = timeoutMs || 45000;
     const base = dimExecBaseUrl();
@@ -145,10 +231,12 @@
     ms = ms || 60000;
     return new Promise(function (resolve, reject) {
       let settled = false;
+      let storedPoll;
       function finish(err) {
         if (settled) return;
         settled = true;
         window.removeEventListener('message', onMsg);
+        if (storedPoll) clearInterval(storedPoll);
         if (err) reject(err); else resolve();
       }
 
@@ -158,44 +246,46 @@
         if (m.event === 'ready') dimState.bridgeReady = true;
         if (m.event === 'session' && m.data) {
           dimState.session = m.data;
+          dimSaveSession(m.data);
           dimState.bridgeReady = true;
+          dimUpdateStatus();
           finish();
         }
       };
       window.addEventListener('message', onMsg);
 
+      storedPoll = setInterval(function () {
+        if (settled) return;
+        const s = dimReadStoredSession();
+        if (s) {
+          dimState.session = s;
+          dimState.bridgeReady = true;
+          dimUpdateStatus();
+          finish();
+        }
+      }, 400);
+
       const deadline = Date.now() + ms;
 
-      function attempt() {
+      function tryJsonp() {
         if (settled) return;
         if (Date.now() > deadline) {
-          finish(new Error('Não conectou. Mantenha a janela Dim Bridge aberta e clique em Atualizar.'));
+          finish(new Error('Não conectou. Permita pop-ups, clique em Conectar e aguarde o popup fechar sozinho.'));
           return;
         }
-        dimFetchApi('ping', {}, 8000).then(function () {
-          dimState.bridgeReady = true;
-          if (dimState.session) { finish(); return; }
-          return dimFetchApi('getSessionInfo', {}, 20000);
-        }).then(function (s) {
+        dimJsonpApi('getSessionInfo', {}, 20000).then(function (s) {
           if (settled) return;
-          if (s) dimState.session = s;
-          if (dimState.session) { dimUpdateStatus(); finish(); }
-          else setTimeout(attempt, 1200);
+          dimState.session = s;
+          dimSaveSession(s);
+          dimState.bridgeReady = true;
+          dimUpdateStatus();
+          finish();
         }).catch(function () {
-          dimCallViaPostMessage('ping', {}, 6000).then(function () {
-            dimState.bridgeReady = true;
-            if (dimState.session) { finish(); return; }
-            return dimCallViaPostMessage('getSessionInfo', {}, 20000);
-          }).then(function (s) {
-            if (settled) return;
-            if (s) dimState.session = s;
-            if (dimState.session) { dimUpdateStatus(); finish(); }
-            else setTimeout(attempt, 1200);
-          }).catch(function () { setTimeout(attempt, 1200); });
+          setTimeout(tryJsonp, 2500);
         });
       }
 
-      setTimeout(attempt, 2000);
+      setTimeout(tryJsonp, 6000);
     });
   }
 
@@ -213,7 +303,7 @@
     dimReloadBridgeIframe();
     const grid = document.getElementById('dimGridWrap');
     if (grid) {
-      grid.innerHTML = '<div class="dim-empty-state"><span class="dim-saving-dot"></span><p>Conectando…<br>Mantenha a janela <strong>Dim Bridge</strong> aberta.</p></div>';
+      grid.innerHTML = '<div class="dim-empty-state"><span class="dim-saving-dot"></span><p>Conectando…<br>O popup vai redirecionar e fechar sozinho.</p></div>';
     }
     dimUpdateStatus();
     try {
@@ -239,6 +329,7 @@
     }
     if (msg.event === 'session' && msg.data) {
       dimState.session = msg.data;
+      dimSaveSession(msg.data);
       dimState.bridgeReady = true;
       dimUpdateStatus();
       if (document.getElementById('pageDimensionamento')?.classList.contains('active')) {
@@ -289,8 +380,10 @@
     if (!url) {
       return Promise.reject(new Error('URL da ponte não configurada. Admin: Configuração → Técnico → URL Dimensionamento.'));
     }
-    return dimFetchApi(action, payload, timeoutMs).catch(function () {
-      return dimCallViaPostMessage(action, payload, timeoutMs);
+    return dimJsonpApi(action, payload, timeoutMs).catch(function () {
+      return dimFetchApi(action, payload, timeoutMs).catch(function () {
+        return dimCallViaPostMessage(action, payload, timeoutMs);
+      });
     });
   }
 
@@ -355,12 +448,19 @@
       return;
     }
     dimUpdateStatus();
-    if (dimState.session && dimState.bridgePopup && !dimState.bridgePopup.closed) {
+    const stored = dimReadStoredSession();
+    if (stored) {
+      dimState.session = stored;
+      dimState.bridgeReady = true;
+    }
+    if (dimState.session) {
       try {
         await dimLoadWeek(dimState.week);
         dimStartReloadTimer();
       } catch (e) {
-        dimRenderError(String(e.message || e));
+        dimState.session = null;
+        try { localStorage.removeItem('qhub_dim_session'); } catch (err) { /* ignore */ }
+        dimRenderConnectPrompt();
       }
       return;
     }
