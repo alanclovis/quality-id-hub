@@ -1,5 +1,5 @@
 {
-  "commit": "a31fcbd",
-  "message": "Bump version.json to match latest commit for footer display.",
-  "date": "2026-06-23 22:56:14 -0300"
+  "commit": "69e8427",
+  "message": "Fix dimensionamento connect hang when bridge popup cannot postMessage back.",
+  "date": "2026-06-23 23:01:24 -0300"
 }
