@@ -111,14 +111,19 @@
     detailConfirmOvertime: false,
     keyboardBound: false,
     gridScrollBound: false,
-    weekMenuBound: false
+    weekMenuBound: false,
+    warming: false,
+    warmupDone: false,
+    refreshingWeek: false
   };
+
+  const DIM_WEEK_CACHE_TTL = 21600000; // 6h
 
   function dimLoadDictionaryFallback() {
     if (dimState.dictionaryFallback) {
       return Promise.resolve(dimState.dictionaryFallback);
     }
-    return fetch('dim-slot-dictionary.json?_=' + Date.now(), { cache: 'no-store' })
+    return fetch('dim-slot-dictionary.json')
       .then(function (r) {
         if (!r.ok) throw new Error('fetch failed');
         return r.json();
@@ -179,7 +184,7 @@
     if (dimState.slotOptionsFallback) {
       return Promise.resolve(dimState.slotOptionsFallback);
     }
-    return fetch('dim-slot-options.json?_=' + Date.now(), { cache: 'no-store' })
+    return fetch('dim-slot-options.json')
       .then(function (r) {
         if (!r.ok) throw new Error('fetch failed');
         return r.json();
@@ -297,6 +302,49 @@
     } catch (e) {
       return null;
     }
+  }
+
+  function dimGetCacheEmail() {
+    if (dimState.session && dimState.session.email) {
+      return dimState.session.email.toLowerCase();
+    }
+    const stored = dimReadStoredSession();
+    if (stored && stored.email) return stored.email.toLowerCase();
+    const uid = localStorage.getItem('qhub_user_id');
+    if (uid && typeof getAccessUserById === 'function') {
+      const u = getAccessUserById(uid);
+      if (u && u.email) return u.email.toLowerCase();
+    }
+    return '';
+  }
+
+  function dimWeekCacheKey(week) {
+    const email = dimGetCacheEmail();
+    if (!email) return null;
+    return 'qhub_dim_week_' + week + '_' + email.replace(/[^a-z0-9@._-]/gi, '_');
+  }
+
+  function dimReadWeekCache(week) {
+    const key = dimWeekCacheKey(week);
+    if (!key) return null;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.schedule) return null;
+      if (parsed.ts && Date.now() - parsed.ts > DIM_WEEK_CACHE_TTL) return null;
+      return parsed.schedule;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function dimSaveWeekCache(week, schedule) {
+    const key = dimWeekCacheKey(week);
+    if (!key || !schedule) return;
+    try {
+      localStorage.setItem(key, JSON.stringify({ schedule: schedule, ts: Date.now() }));
+    } catch (e) { /* ignore */ }
   }
 
   function dimHandleBridgeCallback() {
@@ -526,6 +574,7 @@
       dimSaveSession(msg.data);
       dimState.bridgeReady = true;
       dimUpdateStatus();
+      dimWarmup();
       if (document.getElementById('pageDimensionamento')?.classList.contains('active') &&
           !dimState.schedule) {
         const wk = dimState.week || dimGetIsoWeek();
@@ -588,15 +637,6 @@
     t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
     const ys = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
     return Math.ceil((((t - ys) / 86400000) + 1) / 7);
-  }
-
-  function dimEmailMismatch() {
-    if (!dimState.session || !dimState.session.email) return false;
-    const uid = localStorage.getItem('qhub_user_id');
-    if (!uid || typeof getAccessUserById !== 'function') return false;
-    const u = getAccessUserById(uid);
-    if (!u || !u.email) return false;
-    return u.email.toLowerCase() !== dimState.session.email.toLowerCase();
   }
 
   function dimEmailMismatch() {
@@ -991,6 +1031,12 @@
     dimUpdateStatus();
   }
 
+  function dimSetWeekRefreshing(refreshing) {
+    dimState.refreshingWeek = refreshing;
+    document.getElementById('dimWeekLabel')?.classList.toggle('is-refreshing', refreshing);
+    dimUpdateStatus();
+  }
+
   function dimUpdateStatus() {
     const el = document.getElementById('dimStatus');
     const badge = document.getElementById('dimHeaderBadge');
@@ -1031,6 +1077,12 @@
       setBadge('pending', '<span class="dim-saving-dot"></span> Carregando…', true);
       showBar('pending', '<span class="dim-saving-dot"></span><span>Carregando semana <strong>' +
         escapeHtml(String(dimState.week)) + '</strong>…</span>');
+      return;
+    }
+
+    if (dimState.refreshingWeek) {
+      setBadge('pending', '<span class="dim-saving-dot"></span> Atualizando…', true);
+      hideBar();
       return;
     }
 
@@ -1090,7 +1142,26 @@
     }
     if (dimState.session) {
       try {
-        await dimLoadWeek(dimState.week);
+        const week = dimState.week;
+        if (dimState.schedule && dimState.week === week) {
+          dimRenderAll();
+          dimStartReloadTimer();
+          dimRefreshPendingBadge();
+          dimMaybeShowOnboarding();
+          dimLoadWeek(week, { silent: true }).catch(function () {});
+          return;
+        }
+        const cached = dimReadWeekCache(week);
+        if (cached) {
+          dimApplySchedule(cached);
+          dimSetLastUpdate();
+          dimStartReloadTimer();
+          dimRefreshPendingBadge();
+          dimMaybeShowOnboarding();
+          dimLoadWeek(week, { silent: true }).catch(function () {});
+          return;
+        }
+        await dimLoadWeek(week);
         dimStartReloadTimer();
         dimRefreshPendingBadge();
         dimMaybeShowOnboarding();
@@ -1102,6 +1173,47 @@
       return;
     }
     dimRenderConnectPrompt();
+  }
+
+  function dimScheduleWarmup() {
+    setTimeout(function () {
+      dimWarmup();
+    }, 0);
+  }
+
+  function dimWarmup() {
+    if (typeof hasOperationalProfile === 'function' && !hasOperationalProfile()) return;
+    if (!dimGetBridgeUrl()) return;
+    const stored = dimReadStoredSession();
+    if (!stored) return;
+    if (dimState.warming || dimState.warmupDone) return;
+
+    dimState.warming = true;
+    dimState.session = stored;
+    dimState.bridgeReady = true;
+
+    dimEnsureIframe();
+    dimLoadSlotOptionsFallback();
+    dimEnsureDictionary().catch(function () { /* ignore */ });
+
+    const week = dimState.week || dimGetIsoWeek();
+    dimState.week = week;
+
+    const cached = dimReadWeekCache(week);
+    if (cached) {
+      dimApplySchedule(cached, { render: false });
+    }
+
+    dimLoadWeek(week, { silent: true })
+      .then(function () {
+        dimState.warmupDone = true;
+      })
+      .catch(function () { /* ignore */ })
+      .finally(function () {
+        dimState.warming = false;
+      });
+
+    if (!dimState.reloadTimer) dimStartReloadTimer();
   }
 
   function dimRenderConnectPrompt() {
@@ -1203,6 +1315,19 @@
     });
   }
 
+  function dimApplySchedule(schedule, options) {
+    options = options || {};
+    dimState.schedule = schedule;
+    dimEnsureSlotOptions(schedule);
+    dimEnsureDayDates(schedule);
+    dimNormalizeScheduleTimes(schedule);
+    if (schedule.identity) {
+      dimState.session = schedule.identity;
+      dimSaveSession(schedule.identity);
+    }
+    if (options.render !== false) dimRenderAll();
+  }
+
   function dimResolveDayDate(day) {
     if (!day) return '';
     if (day.date) return day.date;
@@ -1216,28 +1341,45 @@
     const loadId = ++dimState.loadWeekSeq;
     dimState.week = week;
     dimUpdateWeekLabel();
-    if (!silent) dimSetWeekLoading(true);
+
+    if (!silent) {
+      if (!options.skipCacheCheck) {
+        const cached = dimReadWeekCache(week);
+        if (cached) {
+          dimApplySchedule(cached);
+          dimSetLastUpdate();
+          dimLoadWeek(week, { silent: true, skipCacheCheck: true }).catch(function () {});
+          return;
+        }
+      }
+      dimSetWeekLoading(true);
+    } else {
+      dimSetWeekRefreshing(true);
+    }
+
     try {
-      const [schedule] = await Promise.all([
-        dimCall('getUserSchedule', { week: week }),
-        dimLoadSlotOptionsFallback(),
-        dimEnsureDictionary()
-      ]);
+      const schedule = await dimCall('getUserSchedule', { week: week });
       if (loadId !== dimState.loadWeekSeq) return;
-      dimState.schedule = schedule;
-      dimEnsureSlotOptions(schedule);
-      dimEnsureDayDates(schedule);
-      dimNormalizeScheduleTimes(schedule);
-      if (schedule.identity) dimState.session = schedule.identity;
-      dimRenderAll();
+      dimApplySchedule(schedule);
+      dimSaveWeekCache(week, schedule);
       dimSetLastUpdate();
       dimRefreshPendingBadge();
+
+      dimLoadSlotOptionsFallback().then(function () {
+        if (loadId !== dimState.loadWeekSeq || !dimState.schedule) return;
+        dimEnsureSlotOptions(dimState.schedule);
+      });
+      dimEnsureDictionary().catch(function () { /* ignore */ });
+
       if (silent) dimUpdateStatus();
     } catch (e) {
       if (loadId !== dimState.loadWeekSeq) return;
       if (!silent) dimRenderError(String(e.message || e));
     } finally {
-      if (loadId === dimState.loadWeekSeq && !silent) dimSetWeekLoading(false);
+      if (loadId === dimState.loadWeekSeq) {
+        if (!silent) dimSetWeekLoading(false);
+        else dimSetWeekRefreshing(false);
+      }
     }
   }
 
@@ -2538,6 +2680,8 @@
 
   // Export globals
   global.dimInit = dimInit;
+  global.dimWarmup = dimWarmup;
+  global.dimScheduleWarmup = dimScheduleWarmup;
   global.dimChangeWeek = dimChangeWeek;
   global.dimGoCurrentWeek = dimGoCurrentWeek;
   global.dimSwitchTab = dimSwitchTab;

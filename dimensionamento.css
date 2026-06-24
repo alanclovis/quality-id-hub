@@ -139,6 +139,13 @@
 }
 @keyframes dim-spin { to { transform: rotate(360deg); } }
 .dim-week-label.is-loading { color: var(--text3); }
+.dim-week-label.is-refreshing::after {
+  content: '';
+  display: inline-block;
+  width: 10px; height: 10px; margin-left: 6px; vertical-align: -1px;
+  border: 2px solid #e0e7ff; border-top-color: #820ad1; border-radius: 50%;
+  animation: dim-spin .7s linear infinite;
+}
 .dim-week-nav button:disabled,
 .dim-header-actions .btn-sm:disabled { opacity: 0.45; cursor: not-allowed; }
 .dim-grid {

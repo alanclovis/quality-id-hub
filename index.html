@@ -2604,6 +2604,7 @@ function applyLoadedPackData(parsed,updatedAt){
   }
   maybeShowOnboarding();
   refreshAuthAdminPanel();
+  if(typeof dimScheduleWarmup==='function') dimScheduleWarmup();
   return roleSynced;
 }
 async function refreshPackData(opts={}){
@@ -3339,6 +3340,7 @@ function showPageAnimated(page){
   } else {
     document.body.classList.remove('dim-page-active');
     document.getElementById('hubBuildFooter')?.classList.remove('dim-footer-hidden');
+    _dimAccessSnap=null;
   }
   lastPage=page;
   localStorage.setItem('qhub_page',page);
@@ -5678,6 +5680,7 @@ async function loadHubBuildFooter(){
 }
 window.addEventListener('DOMContentLoaded',()=>{
   loadLocal();
+  if(typeof dimScheduleWarmup==='function') dimScheduleWarmup();
   initProfileForm();
   initTagFilterUI();
   const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
@@ -6051,6 +6054,6 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=21"></script>
+<script src="dimensionamento.js?v=22"></script>
 </body>
 </html>
