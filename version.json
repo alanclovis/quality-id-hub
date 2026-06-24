@@ -1,5 +1,5 @@
 {
-  "commit": "77786d1",
-  "message": "Bump version.json for dimensionamento color scale.",
-  "date": "2026-06-23 23:26:02 -0300"
+  "commit": "877ed21",
+  "message": "Fix dimensionamento save by resolving day ISO dates for sheet rows.",
+  "date": "2026-06-23 23:29:04 -0300"
 }
