@@ -5827,12 +5827,33 @@ window.addEventListener('DOMContentLoaded',()=>{
 <div class="dim-detail-modal-backdrop" id="dimDetailBackdrop" onclick="if(event.target===this)dimCloseDetailModal()">
   <div class="dim-detail-modal">
     <h3 id="dimDetailTitle">Detalhe do slot</h3>
-    <label>Ação realizada</label>
-    <input type="text" id="dimDetailAcao" placeholder="Descreva a ação">
-    <label>Projeto</label>
-    <input type="text" id="dimDetailProjeto" placeholder="Nome do projeto">
-    <label>Especificação (se Outro)</label>
-    <textarea id="dimDetailSpec" placeholder="Detalhes adicionais"></textarea>
+    <p class="dim-detail-meta" id="dimDetailMeta"></p>
+    <div class="dim-detail-duration" id="dimDetailDurationBlock">
+      <div class="dim-detail-duration-head">
+        <div>
+          <label class="dim-detail-duration-label">Duração da atividade</label>
+          <p class="dim-detail-hint">Cada slot tem 30 minutos</p>
+        </div>
+        <div class="dim-detail-stepper">
+          <button type="button" class="dim-detail-stepper-btn" onclick="dimDetailQtyDelta(-1)" aria-label="Diminuir">−</button>
+          <input type="number" id="dimDetailQty" min="1" max="20" value="1" class="dim-detail-stepper-input">
+          <button type="button" class="dim-detail-stepper-btn" onclick="dimDetailQtyDelta(1)" aria-label="Aumentar">+</button>
+        </div>
+      </div>
+      <p class="dim-detail-qty-hint" id="dimDetailQtyHint" style="display:none"></p>
+    </div>
+    <div id="dimDetailFieldsBlock">
+      <label>Ação Realizada <span class="dim-req">*</span></label>
+      <select id="dimDetailAcao" onchange="dimDetailFieldChange()"></select>
+      <div id="dimDetailProjetoWrap">
+        <label>Qual o projeto? <span class="dim-req">*</span></label>
+        <select id="dimDetailProjeto" onchange="dimDetailFieldChange()"></select>
+      </div>
+      <div id="dimDetailSpecWrap" style="display:none">
+        <label>Se &quot;Outro&quot;, especificar <span class="dim-req">*</span></label>
+        <textarea id="dimDetailSpec" placeholder="Detalhes adicionais…"></textarea>
+      </div>
+    </div>
     <div class="dim-detail-actions">
       <button type="button" class="btn" onclick="dimCloseDetailModal()">Cancelar</button>
       <button type="button" class="btn primary" onclick="dimSaveDetail()"><i class="ti ti-check"></i> Salvar</button>
@@ -5843,6 +5864,6 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=12"></script>
+<script src="dimensionamento.js?v=13"></script>
 </body>
 </html>

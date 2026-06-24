@@ -7,6 +7,74 @@
   const DIM_DAY_KEYS = ['seg', 'ter', 'qua', 'qui', 'sex'];
   const DIM_DAY_LABELS = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex' };
 
+  /** Espelha Config_Slots.html — slots que exigem personalização em Base_Detalhes */
+  const DIM_DETAIL_SLOTS = [
+    'Planilha', 'Deep Dive', 'Docs', 'Playbook', 'RFC', 'Slides',
+    'Jira/Atlassian', 'Drive', 'Project Meet', 'Databricks', 'Quicksight'
+  ];
+
+  const DIM_PROJECTS_DEFAULT = [
+    'Calibration', 'Contingência', 'Dimensionamento', 'Drive', 'Inv. Brain', 'Insights Roda de conversa',
+    'Jira (contestação/apontamento externo)', 'Macros', 'Métricas',
+    'Onboarding', 'NPS', 'SPOT', 'Query & Dashboards', 'Scorecards', 'Quality Engagement', 'NMP (Projeto não mapeado)'
+  ];
+
+  const DIM_SLOT_DETAIL_CONFIG = {
+    'Planilha': {
+      actions: ['Atualização de dados', 'Atualização IDP', 'Criação de nova planilha', 'Estudo de dados', 'Extração / Coleta de dados', 'Dimensionamento', 'Revisão de dados', 'Script em Planilha', 'Outro'],
+      projects: DIM_PROJECTS_DEFAULT,
+      hasProjectField: true
+    },
+    'Deep Dive': {
+      actions: ['Investigação de caso', 'Coleta e extração de dados', 'Elaboração de resultados/insights', 'Estudo de caso', 'Criação de dashboard', 'Revisão de Dados', 'Outro'],
+      projects: DIM_PROJECTS_DEFAULT,
+      hasProjectField: true
+    },
+    'Docs': {
+      actions: ['Criação de novo documento', 'Atualização de conteúdo existente', 'Revisão / Comentários / Sugestões', 'Tradução de conteúdo', 'Outro'],
+      projects: DIM_PROJECTS_DEFAULT,
+      hasProjectField: true
+    },
+    'Playbook': {
+      actions: ['Criação / Estruturação', 'Revisão / Validação de Conteúdo', 'Coleta / Incorporação de Feedback', 'Tradução / Adaptação de Conteúdo', 'Reformatação / Ajuste de Layout', 'Outro'],
+      projects: DIM_PROJECTS_DEFAULT,
+      hasProjectField: true
+    },
+    'RFC': {
+      actions: ['Escrita da proposta inicial', 'Pesquisa de embasamento / dados', 'Coleta de feedbacks', 'Apresentação', 'Documentação da versão final', 'Outro'],
+      projects: DIM_PROJECTS_DEFAULT,
+      hasProjectField: true
+    },
+    'Slides': {
+      actions: ['Criação de nova apresentação', 'Atualização de dados', 'Ajuste de layout / Template', 'Revisão de conteúdo', 'Criação de material', 'Preparação para reunião', 'Outro'],
+      projects: DIM_PROJECTS_DEFAULT,
+      hasProjectField: true
+    },
+    'Jira/Atlassian': {
+      actions: ['Ajuste de Formulário / Tipo de Solicitação', 'Atualização de status', 'Acompanhamento de Épico', 'Criação / Ajuste de Automação', 'Criação de tarefas', 'Configuração de board (colunas, filtros)', 'Descrição / Detalhamento de história', 'Priorização de backlog', 'Gestão de Sprint', 'Criação de Dashboard no Jira', 'Outro'],
+      hasProjectField: false
+    },
+    'Drive': {
+      actions: ['Criação / Estruturação de novas pastas', 'Reorganização / Movimentação de arquivos e pastas', 'Ajuste / Gerenciamento de permissões de acesso', 'Padronização de nomenclatura (pastas/arquivos)', 'Upload / Inclusão de novos materiais', 'Limpeza / Arquivamento de arquivos antigos', 'Criação / Configuração de Drives Compartilhados', 'Outro'],
+      hasProjectField: false
+    },
+    'Project Meet': {
+      actions: ['Apresentação de Resultados', 'Reunião de alinhamento', 'Reunião de Kick-off', 'Reunião de Planejamento', 'Reunião de Retrospectiva', 'Reunião com outros times', 'Reunião de Brainstorming', 'Reunião de Resolução de Problemas', 'Reunião de testes', 'Outro'],
+      projects: DIM_PROJECTS_DEFAULT,
+      hasProjectField: true
+    },
+    'Databricks': {
+      actions: ['Criação de Notebook', 'Manutenção de Notebook', 'Análise de Dados', 'Criação de Dashboard', 'Treinamento', 'Outro'],
+      projects: DIM_PROJECTS_DEFAULT,
+      hasProjectField: true
+    },
+    'Quicksight': {
+      actions: ['Criação de novo Dashboard', 'Atualização / Manutenção de Dashboard existente', 'Criação / Atualização de Conjunto de Dados (Dataset)', 'Criação / Ajuste de Visual (Gráfico, Tabela)', 'Validação de Dados / Consistência do Dashboard', 'Análise exploratória na ferramenta', 'Outro'],
+      projects: DIM_PROJECTS_DEFAULT,
+      hasProjectField: true
+    }
+  };
+
   const dimState = {
     week: null,
     schedule: null,
@@ -936,7 +1004,14 @@
     const { day, time, current } = dimState.dropdown;
     const newVal = value ? String(value) : '';
     dimCloseDropdown();
-    if (newVal === current) return;
+    if (newVal === current) {
+      const detailSlots = dimState.schedule.config.detailSlots || DIM_DETAIL_SLOTS;
+      if (newVal && detailSlots.indexOf(newVal) >= 0) {
+        const dateIso = dimResolveDayDate(day);
+        dimOpenDetailModal({ slot: newVal, date: dateIso, time: time, day: day.day });
+      }
+      return;
+    }
 
     dimPushUndo({ day: day.day, date: day.date, time: time, prev: current, next: newVal });
 
@@ -961,7 +1036,7 @@
     dimRenderSummary();
     dimQueueSave(dateIso, dimNormalizeTime(time), newVal, day.day);
 
-    const detailSlots = dimState.schedule.config.detailSlots || [];
+    const detailSlots = dimState.schedule.config.detailSlots || DIM_DETAIL_SLOTS;
     if (detailSlots.indexOf(newVal) >= 0) {
       dimOpenDetailModal({ slot: newVal, date: dateIso, time: time, day: day.day });
     }
@@ -1055,15 +1130,152 @@
     }, 60000);
   }
 
+  function dimGetSlotDetailConfig(slot) {
+    return DIM_SLOT_DETAIL_CONFIG[slot] || null;
+  }
+
+  function dimDetailRequiresSpec(action, project) {
+    return action === 'Outro' || project === 'Outro' ||
+      project === 'MMP (Projeto não mapeado)' || project === 'NMP (Projeto não mapeado)';
+  }
+
+  function dimPopulateDetailSelect(el, options, selected) {
+    if (!el) return;
+    const opts = options || [];
+    let html = '<option value="" disabled' + (selected ? '' : ' selected') + '>Selecione...</option>';
+    opts.forEach(function (opt) {
+      html += '<option value="' + escapeHtml(opt) + '"' + (opt === selected ? ' selected' : '') + '>' +
+        escapeHtml(opt) + '</option>';
+    });
+    el.innerHTML = html;
+  }
+
+  function dimCountConsecutiveSlots(day, time, slotName) {
+    const times = (dimState.schedule && dimState.schedule.config && dimState.schedule.config.timeSlots) || [];
+    const startIdx = times.indexOf(dimNormalizeTime(time));
+    if (startIdx < 0) return 1;
+    let count = 0;
+    for (let i = 0; i < 20; i++) {
+      const h = times[startIdx + i];
+      if (!h) break;
+      if ((day.slots[h] || '') === slotName) count++;
+      else break;
+    }
+    return count || 1;
+  }
+
+  function dimDetailFieldChange() {
+    const acao = document.getElementById('dimDetailAcao')?.value || '';
+    const projeto = document.getElementById('dimDetailProjeto')?.value || '';
+    const specWrap = document.getElementById('dimDetailSpecWrap');
+    if (specWrap) specWrap.style.display = dimDetailRequiresSpec(acao, projeto) ? 'block' : 'none';
+  }
+
+  function dimDetailQtyDelta(delta) {
+    const inp = document.getElementById('dimDetailQty');
+    if (!inp) return;
+    const cur = parseInt(inp.value, 10) || 1;
+    const next = Math.max(1, Math.min(20, cur + delta));
+    inp.value = String(next);
+    dimDetailUpdateQtyHint();
+  }
+
+  function dimDetailUpdateQtyHint() {
+    const hint = document.getElementById('dimDetailQtyHint');
+    const draft = dimState.detailDraft;
+    if (!hint || !draft) return;
+    const qty = parseInt(document.getElementById('dimDetailQty')?.value, 10) || 1;
+    const initial = draft.initialQuantity || 1;
+    if (qty < initial) {
+      hint.style.display = 'block';
+      hint.textContent = 'Os slots excedentes (' + (initial - qty) + ') virarão AVLB.';
+    } else {
+      hint.style.display = 'none';
+      hint.textContent = '';
+    }
+  }
+
+  function dimApplyDetailDuration(day, startTime, slotName, quantity, initialQuantity) {
+    const times = (dimState.schedule && dimState.schedule.config && dimState.schedule.config.timeSlots) || [];
+    const startIdx = times.indexOf(dimNormalizeTime(startTime));
+    const slotUpdates = {};
+    const maxSpan = Math.max(quantity, initialQuantity || 1);
+
+    for (let i = 0; i < maxSpan; i++) {
+      const h = times[startIdx + i];
+      if (!h) break;
+      const prev = day.slots[h] || '';
+      let next;
+      if (i < quantity) next = slotName;
+      else if (i < (initialQuantity || 0)) next = 'AVLB';
+      else continue;
+
+      if (prev === next) continue;
+      day.slots[h] = next;
+      slotUpdates[h] = next;
+
+      if (dimState.schedule.summary) {
+        if (prev) {
+          dimState.schedule.summary[prev] = (dimState.schedule.summary[prev] || 0) - 1;
+          if (dimState.schedule.summary[prev] <= 0) delete dimState.schedule.summary[prev];
+        }
+        if (next) {
+          dimState.schedule.summary[next] = (dimState.schedule.summary[next] || 0) + 1;
+        }
+      }
+    }
+
+    day.filledCount = Object.keys(day.slots).filter(function (k) { return day.slots[k]; }).length;
+    return slotUpdates;
+  }
+
   function dimOpenDetailModal(ctx) {
     dimState.modalOpen = true;
-    dimState.detailDraft = ctx;
+    const config = dimGetSlotDetailConfig(ctx.slot);
+    const day = ctx.day ? dimFindDay(ctx.day) : null;
+    const initialQuantity = ctx.quantidade || (day ? dimCountConsecutiveSlots(day, ctx.time, ctx.slot) : 1);
+
+    dimState.detailDraft = Object.assign({}, ctx, {
+      initialQuantity: initialQuantity,
+      detailConfig: config
+    });
+
     const bd = document.getElementById('dimDetailBackdrop');
     if (!bd) return;
-    document.getElementById('dimDetailTitle').textContent = ctx.slot + ' — ' + ctx.date + ' ' + ctx.time;
-    document.getElementById('dimDetailAcao').value = ctx.acao || '';
-    document.getElementById('dimDetailProjeto').value = ctx.projeto || '';
-    document.getElementById('dimDetailSpec').value = ctx.especificacao || '';
+
+    document.getElementById('dimDetailTitle').textContent = ctx.slot;
+    const meta = document.getElementById('dimDetailMeta');
+    if (meta) meta.textContent = 'Início: ' + ctx.time + ' • ' + (ctx.day || '');
+
+    const qtyInp = document.getElementById('dimDetailQty');
+    if (qtyInp) qtyInp.value = String(initialQuantity);
+
+    const fieldsBlock = document.getElementById('dimDetailFieldsBlock');
+    const durationBlock = document.getElementById('dimDetailDurationBlock');
+    if (config) {
+      if (fieldsBlock) fieldsBlock.style.display = 'block';
+      if (durationBlock) durationBlock.style.display = 'block';
+
+      dimPopulateDetailSelect(document.getElementById('dimDetailAcao'), config.actions, ctx.acao || '');
+      const projetoWrap = document.getElementById('dimDetailProjetoWrap');
+      if (config.hasProjectField) {
+        if (projetoWrap) projetoWrap.style.display = 'block';
+        dimPopulateDetailSelect(document.getElementById('dimDetailProjeto'), config.projects, ctx.projeto || '');
+      } else if (projetoWrap) {
+        projetoWrap.style.display = 'none';
+        const projEl = document.getElementById('dimDetailProjeto');
+        if (projEl) projEl.innerHTML = '<option value=""></option>';
+      }
+
+      const specEl = document.getElementById('dimDetailSpec');
+      if (specEl) specEl.value = ctx.especificacao || '';
+      dimDetailFieldChange();
+    } else {
+      if (fieldsBlock) fieldsBlock.style.display = 'none';
+      if (durationBlock) durationBlock.style.display = 'none';
+    }
+
+    dimDetailUpdateQtyHint();
     bd.classList.add('active');
   }
 
@@ -1076,21 +1288,64 @@
   async function dimSaveDetail() {
     const ctx = dimState.detailDraft;
     if (!ctx) return;
+
+    const config = ctx.detailConfig || dimGetSlotDetailConfig(ctx.slot);
+    const acao = document.getElementById('dimDetailAcao')?.value || '';
+    const projeto = config && config.hasProjectField ? (document.getElementById('dimDetailProjeto')?.value || '') : '';
+    const especificacao = document.getElementById('dimDetailSpec')?.value.trim() || '';
+    const quantity = Math.max(1, Math.min(20, parseInt(document.getElementById('dimDetailQty')?.value, 10) || 1));
+
+    if (config) {
+      if (!acao) {
+        dimShowToast('Selecione a Ação Realizada.', true);
+        return;
+      }
+      if (config.hasProjectField && !projeto) {
+        dimShowToast('Selecione o Projeto.', true);
+        return;
+      }
+      if (dimDetailRequiresSpec(acao, projeto) && !especificacao) {
+        dimShowToast('Especifique os detalhes em "Se Outro, especificar".', true);
+        return;
+      }
+    }
+
+    const day = dimFindDay(ctx.day);
+    const dateIso = ctx.date || (day ? dimResolveDayDate(day) : '');
+    if (!dateIso) {
+      dimShowToast('Data do dia não encontrada — recarregue a semana', true);
+      return;
+    }
+
+    let slotUpdates = {};
+    if (day) {
+      slotUpdates = dimApplyDetailDuration(day, ctx.time, ctx.slot, quantity, ctx.initialQuantity || 1);
+      dimRenderGrid();
+      dimRenderSummary();
+      if (Object.keys(slotUpdates).length) {
+        Object.keys(slotUpdates).forEach(function (t) {
+          dimQueueSave(dateIso, dimNormalizeTime(t), slotUpdates[t], day.day);
+        });
+      }
+    }
+
     const payload = {
       tipo: ctx.slot,
       slot: ctx.slot,
-      date: ctx.date,
+      date: dateIso,
       hora: ctx.time,
       time: ctx.time,
-      acao: document.getElementById('dimDetailAcao').value.trim(),
-      projeto: document.getElementById('dimDetailProjeto').value.trim(),
-      especificacao: document.getElementById('dimDetailSpec').value.trim()
+      quantidade: quantity,
+      acao: acao,
+      projeto: projeto,
+      especificacao: especificacao
     };
     try {
       await dimCall('saveDetail', payload);
       dimShowToast('Detalhe salvo em Base_Detalhes');
       dimCloseDetailModal();
       await dimLoadWeek(dimState.week);
+      if (dimState.activeTab === 'ajustes') dimRenderAjustes();
     } catch (e) {
       dimShowToast('Erro: ' + e.message, true);
     }
@@ -1207,6 +1462,8 @@
   global.dimOpenDetailModal = dimOpenDetailModal;
   global.dimCloseDetailModal = dimCloseDetailModal;
   global.dimSaveDetail = dimSaveDetail;
+  global.dimDetailFieldChange = dimDetailFieldChange;
+  global.dimDetailQtyDelta = dimDetailQtyDelta;
   global.dimEditPending = dimEditPending;
   global.dimEditPendingByIndex = dimEditPendingByIndex;
   global.dimRenderControle = dimRenderControle;

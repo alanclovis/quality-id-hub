@@ -207,13 +207,39 @@
   width: min(440px, 100%); max-height: 90vh; overflow-y: auto;
   box-shadow: 0 20px 50px rgba(0,0,0,.2);
 }
-.dim-detail-modal h3 { font-size: 18px; margin-bottom: 14px; }
-.dim-detail-modal label { display: block; font-size: 12px; color: var(--text3); margin: 10px 0 4px; }
+.dim-detail-modal h3 { font-size: 18px; margin-bottom: 6px; }
+.dim-detail-meta { font-size: 12px; color: var(--text3); margin-bottom: 14px; font-family: ui-monospace, monospace; }
+.dim-detail-modal label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin: 10px 0 4px; }
+.dim-detail-modal .dim-req { color: #e11d48; }
 .dim-detail-modal input, .dim-detail-modal textarea, .dim-detail-modal select {
   width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px;
-  font-family: inherit; font-size: 14px;
+  font-family: inherit; font-size: 14px; background: var(--bg);
 }
 .dim-detail-modal textarea { min-height: 72px; resize: vertical; }
+.dim-detail-duration {
+  background: rgba(130, 10, 209, 0.06); border: 1px solid rgba(130, 10, 209, 0.2);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;
+}
+.dim-detail-duration-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dim-detail-duration-label { font-size: 13px; font-weight: 600; color: #820AD1; margin: 0; }
+.dim-detail-hint { font-size: 11px; color: var(--text3); margin: 2px 0 0; }
+.dim-detail-stepper {
+  display: flex; align-items: center; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; flex-shrink: 0;
+}
+.dim-detail-stepper-btn {
+  padding: 8px 12px; border: none; background: transparent; font-size: 16px; font-weight: 700;
+  color: var(--text2); cursor: pointer;
+}
+.dim-detail-stepper-btn:hover { background: var(--bg); }
+.dim-detail-stepper-input {
+  width: 44px !important; text-align: center; border: none !important; border-left: 1px solid var(--border) !important;
+  border-right: 1px solid var(--border) !important; border-radius: 0 !important; font-weight: 700;
+  -moz-appearance: textfield;
+}
+.dim-detail-stepper-input::-webkit-outer-spin-button,
+.dim-detail-stepper-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.dim-detail-qty-hint { font-size: 11px; color: #820AD1; margin: 8px 0 0; }
 .dim-detail-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
 .dim-bridge-frame {
