@@ -1,5 +1,5 @@
 {
-  "commit": "1c30f9d",
-  "message": "Bump version.json for dimensionamento detail modal fix.",
-  "date": "2026-06-23 23:58:16 -0300"
+  "commit": "3622dfe",
+  "message": "Add multi-slot selection to dimensionamento grid in Hub and GAS.",
+  "date": "2026-06-24 00:06:19 -0300"
 }
