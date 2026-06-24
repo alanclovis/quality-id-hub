@@ -95,7 +95,12 @@
     detailDraft: null,
     bridgePopup: null,
     slotOptionsFallback: null,
-    dictionaryFallback: null
+    dictionaryFallback: null,
+    selection: [],
+    selectionAnchor: null,
+    selectDrag: false,
+    selectDragMoved: false,
+    gridSelectBound: false
   };
 
   function dimLoadDictionaryFallback() {
@@ -609,6 +614,7 @@
   }
 
   async function dimInit() {
+    dimBindGridSelection();
     if (dimState.week == null) dimState.week = dimGetIsoWeek();
     const url = dimGetBridgeUrl();
     if (!url) {
@@ -880,6 +886,157 @@
     return days.find(function (d) { return d.day === dayKey; }) || null;
   }
 
+  function dimCellKey(dayKey, time) {
+    return dayKey + '|' + dimNormalizeTime(time);
+  }
+
+  function dimDayRowIndex(dayKey) {
+    return DIM_DAY_KEYS.indexOf(dayKey);
+  }
+
+  function dimTimeColIndex(time) {
+    const slots = (dimState.schedule && dimState.schedule.config.timeSlots) || [];
+    return slots.indexOf(dimNormalizeTime(time));
+  }
+
+  function dimRectSelection(anchor, end) {
+    const d0 = dimDayRowIndex(anchor.day);
+    const d1 = dimDayRowIndex(end.day);
+    const t0 = dimTimeColIndex(anchor.time);
+    const t1 = dimTimeColIndex(end.time);
+    if (d0 < 0 || d1 < 0 || t0 < 0 || t1 < 0) return [];
+    const minD = Math.min(d0, d1);
+    const maxD = Math.max(d0, d1);
+    const minT = Math.min(t0, t1);
+    const maxT = Math.max(t0, t1);
+    const slots = dimState.schedule.config.timeSlots || [];
+    const cells = [];
+    for (let d = minD; d <= maxD; d++) {
+      for (let t = minT; t <= maxT; t++) {
+        if (DIM_DAY_KEYS[d] && slots[t]) {
+          cells.push({ day: DIM_DAY_KEYS[d], time: slots[t] });
+        }
+      }
+    }
+    return cells;
+  }
+
+  function dimSetSelection(cells, anchor) {
+    dimState.selection = cells || [];
+    dimState.selectionAnchor = anchor || (cells && cells[0]) || null;
+    dimSyncSelectionVisual();
+  }
+
+  function dimClearSelection() {
+    dimState.selection = [];
+    dimState.selectionAnchor = null;
+    dimState.selectDrag = false;
+    dimState.selectDragMoved = false;
+    dimSyncSelectionVisual();
+  }
+
+  function dimSyncSelectionVisual() {
+    const keys = new Set((dimState.selection || []).map(function (c) {
+      return dimCellKey(c.day, c.time);
+    }));
+    document.querySelectorAll('.dim-slot').forEach(function (cell) {
+      const k = dimCellKey(cell.dataset.day, cell.dataset.time);
+      cell.classList.toggle('selected', keys.has(k));
+    });
+  }
+
+  function dimBindGridSelection() {
+    if (dimState.gridSelectBound) return;
+    const wrap = document.getElementById('dimGridWrap');
+    if (!wrap) return;
+    dimState.gridSelectBound = true;
+
+    wrap.addEventListener('mousedown', function (e) {
+      const cell = e.target.closest('.dim-slot');
+      if (!cell || !dimState.schedule) return;
+      if (e.button !== 0) return;
+      e.preventDefault();
+
+      const dayKey = cell.dataset.day;
+      const time = cell.dataset.time;
+
+      if (e.shiftKey && dimState.selectionAnchor) {
+        dimSetSelection(dimRectSelection(dimState.selectionAnchor, { day: dayKey, time: time }), dimState.selectionAnchor);
+        dimState.selectDrag = false;
+        dimState.selectDragMoved = true;
+        dimCloseDropdown();
+        return;
+      }
+
+      dimState.selectDrag = true;
+      dimState.selectDragMoved = false;
+      dimState.selectionAnchor = { day: dayKey, time: time };
+      dimSetSelection([{ day: dayKey, time: time }], dimState.selectionAnchor);
+      dimCloseDropdown();
+    });
+
+    wrap.addEventListener('mouseover', function (e) {
+      if (!dimState.selectDrag || !dimState.selectionAnchor) return;
+      const cell = e.target.closest('.dim-slot');
+      if (!cell) return;
+      const cells = dimRectSelection(dimState.selectionAnchor, {
+        day: cell.dataset.day,
+        time: cell.dataset.time
+      });
+      if (cells.length > 1) dimState.selectDragMoved = true;
+      dimSetSelection(cells, dimState.selectionAnchor);
+    });
+
+    document.addEventListener('mouseup', function () {
+      const shouldHandle = dimState.selectDrag || dimState.selectDragMoved;
+      dimState.selectDrag = false;
+      if (!shouldHandle) return;
+
+      if (dimState.selection.length === 1 && !dimState.selectDragMoved) {
+        const c = dimState.selection[0];
+        const anchorCell = wrap.querySelector(
+          '.dim-slot[data-day="' + c.day + '"][data-time="' + c.time.replace(/"/g, '\\"') + '"]'
+        );
+        const day = dimFindDay(c.day);
+        if (anchorCell && day) {
+          dimOpenDropdown(anchorCell, day, c.time, day.slots[c.time] || '');
+        }
+      } else if (dimState.selection.length > 1) {
+        const anchor = dimState.selectionAnchor || dimState.selection[0];
+        const anchorCell = wrap.querySelector(
+          '.dim-slot[data-day="' + anchor.day + '"][data-time="' + anchor.time.replace(/"/g, '\\"') + '"]'
+        );
+        const day = dimFindDay(anchor.day);
+        if (anchorCell && day) {
+          dimOpenDropdown(anchorCell, day, anchor.time, day.slots[anchor.time] || '');
+        }
+      }
+      dimState.selectDragMoved = false;
+    });
+
+    document.addEventListener('mousedown', function (e) {
+      if (!e.target.closest('#dimGridWrap') && !e.target.closest('.dim-dropdown') &&
+          !e.target.closest('.dim-detail-modal-backdrop')) {
+        if (!dimState.selectDrag) dimClearSelection();
+      }
+    });
+  }
+
+  function dimGetApplyTargets() {
+    if (dimState.selection.length > 1) {
+      return dimState.selection.map(function (c) {
+        const day = dimFindDay(c.day);
+        if (!day) return null;
+        return { day: day, time: c.time, dayKey: c.day };
+      }).filter(Boolean);
+    }
+    if (dimState.dropdown) {
+      const d = dimState.dropdown.day;
+      return [{ day: d, time: dimState.dropdown.time, dayKey: d.day }];
+    }
+    return [];
+  }
+
   function dimRenderGrid() {
     const wrap = document.getElementById('dimGridWrap');
     if (!wrap || !dimState.schedule) return;
@@ -904,7 +1061,7 @@
         const cls = 'dim-slot' + (val ? '' : ' empty');
         html += '<td class="' + cls + '" data-day="' + dayKey + '" data-time="' + escapeHtml(time) + '"';
         html += ' style="' + dimCellStyle(col) + '"';
-        html += ' title="' + escapeHtml(val || 'Vazio') + '" onclick="dimOnSlotClick(this)">';
+        html += ' title="' + escapeHtml(val || 'Vazio') + '">';
         html += escapeHtml(val || '·');
         html += '</td>';
       });
@@ -912,6 +1069,7 @@
     });
     html += '</tbody></table>';
     wrap.innerHTML = html;
+    dimSyncSelectionVisual();
   }
 
   function dimRenderSummary() {
@@ -933,18 +1091,6 @@
     el.innerHTML = html;
   }
 
-  function dimOnSlotClick(cell) {
-    if (!dimState.schedule) return;
-    const dayKey = cell.dataset.day;
-    const time = cell.dataset.time;
-    const day = dimFindDay(dayKey);
-    if (!day) {
-      dimShowToast('Dia não encontrado na planilha para esta semana', true);
-      return;
-    }
-    dimOpenDropdown(cell, day, time, day.slots[time] || '');
-  }
-
   function dimOpenDropdown(anchor, day, time, current) {
     dimCloseDropdown();
     dimState.editingCell = true;
@@ -961,7 +1107,11 @@
     dd.style.left = Math.min(rect.left, window.innerWidth - 340) + 'px';
 
     const options = dimGetSlotOptions();
-    dd.innerHTML =
+    const selCount = dimState.selection.length;
+    const headerHtml = selCount > 1
+      ? '<div class="dim-dropdown-header">' + selCount + ' slots selecionados</div>'
+      : '';
+    dd.innerHTML = headerHtml +
       '<div class="dim-dropdown-search"><input type="text" placeholder="Buscar slot…" id="dimDropdownSearch"></div>' +
       '<div class="dim-dropdown-list" id="dimDropdownList"></div>' +
       '<div class="dim-dropdown-clear" onclick="dimApplySlot(null)">Limpar slot</div>';
@@ -999,22 +1149,7 @@
     dimState.editingCell = false;
   }
 
-  function dimApplySlot(value) {
-    if (!dimState.dropdown) return;
-    const { day, time, current } = dimState.dropdown;
-    const newVal = value ? String(value) : '';
-    dimCloseDropdown();
-    if (newVal === current) {
-      const detailSlots = dimState.schedule.config.detailSlots || DIM_DETAIL_SLOTS;
-      if (newVal && detailSlots.indexOf(newVal) >= 0) {
-        const dateIso = dimResolveDayDate(day);
-        dimOpenDetailModal({ slot: newVal, date: dateIso, time: time, day: day.day });
-      }
-      return;
-    }
-
-    dimPushUndo({ day: day.day, date: day.date, time: time, prev: current, next: newVal });
-
+  function dimApplySlotValue(day, time, current, newVal) {
     if (!day.slots) day.slots = {};
     day.slots[time] = newVal;
     if (dimState.schedule.summary) {
@@ -1025,31 +1160,120 @@
       if (newVal) dimState.schedule.summary[newVal] = (dimState.schedule.summary[newVal] || 0) + 1;
     }
     day.filledCount = Object.keys(day.slots).filter(function (k) { return day.slots[k]; }).length;
+  }
 
-    const dateIso = dimResolveDayDate(day);
-    if (!dateIso) {
-      dimShowToast('Data do dia não encontrada — não foi possível salvar na planilha', true);
+  function dimApplyBreakAt(day, time) {
+    const times = (dimState.schedule && dimState.schedule.config.timeSlots) || [];
+    const idx = times.indexOf(dimNormalizeTime(time));
+    const changes = [];
+    for (let i = 0; i < 2 && idx + i < times.length; i++) {
+      const h = times[idx + i];
+      const cur = day.slots[h] || '';
+      if (cur === 'Break') continue;
+      changes.push({ day: day.day, date: dimResolveDayDate(day), time: h, prev: cur, next: 'Break' });
+      dimApplySlotValue(day, h, cur, 'Break');
+    }
+    return changes;
+  }
+
+  function dimApplySlot(value) {
+    const targets = dimGetApplyTargets();
+    if (!targets.length) return;
+
+    const newVal = value ? String(value) : '';
+    const isMulti = targets.length > 1;
+    dimCloseDropdown();
+
+    const detailSlots = dimState.schedule.config.detailSlots || DIM_DETAIL_SLOTS;
+    const undoBatch = [];
+    const savesByDate = {};
+
+    function queueChange(day, time, prev, next) {
+      const dateIso = dimResolveDayDate(day);
+      if (!dateIso) return;
+      undoBatch.push({ day: day.day, date: dateIso, time: time, prev: prev, next: next });
+      if (!savesByDate[dateIso]) savesByDate[dateIso] = { dayKey: day.day, slots: {} };
+      savesByDate[dateIso].slots[dimNormalizeTime(time)] = next;
+    }
+
+    if (newVal === 'Break') {
+      targets.forEach(function (t) {
+        dimApplyBreakAt(t.day, t.time).forEach(function (ch) {
+          undoBatch.push(ch);
+          const dateIso = ch.date;
+          if (!dateIso) return;
+          if (!savesByDate[dateIso]) savesByDate[dateIso] = { dayKey: ch.day, slots: {} };
+          savesByDate[dateIso].slots[dimNormalizeTime(ch.time)] = ch.next;
+        });
+      });
+    } else {
+      targets.forEach(function (t) {
+        const current = t.day.slots[t.time] || '';
+        if (newVal === current) return;
+        queueChange(t.day, t.time, current, newVal);
+        dimApplySlotValue(t.day, t.time, current, newVal);
+      });
+    }
+
+    if (!undoBatch.length) {
+      if (!isMulti && newVal && detailSlots.indexOf(newVal) >= 0) {
+        const t = targets[0];
+        dimOpenDetailModal({
+          slot: newVal,
+          date: dimResolveDayDate(t.day),
+          time: t.time,
+          day: t.day.day
+        });
+      }
       return;
     }
 
+    dimPushUndoBatch(undoBatch);
+
     dimRenderGrid();
     dimRenderSummary();
-    dimQueueSave(dateIso, dimNormalizeTime(time), newVal, day.day);
 
-    const detailSlots = dimState.schedule.config.detailSlots || DIM_DETAIL_SLOTS;
-    if (detailSlots.indexOf(newVal) >= 0) {
-      dimOpenDetailModal({ slot: newVal, date: dateIso, time: time, day: day.day });
+    Object.keys(savesByDate).forEach(function (dateIso) {
+      const meta = savesByDate[dateIso];
+      Object.keys(meta.slots).forEach(function (time) {
+        dimQueueSave(dateIso, time, meta.slots[time], meta.dayKey);
+      });
+    });
+
+    if (isMulti) dimClearSelection();
+
+    if (newVal && detailSlots.indexOf(newVal) >= 0) {
+      const t = targets[0];
+      const modalCtx = {
+        slot: newVal,
+        date: dimResolveDayDate(t.day),
+        time: t.time,
+        day: t.day.day
+      };
+      if (isMulti) {
+        modalCtx.multiTargets = targets.map(function (x) {
+          return {
+            day: x.day.day,
+            time: x.time,
+            date: dimResolveDayDate(x.day)
+          };
+        });
+      }
+      dimOpenDetailModal(modalCtx);
     }
   }
 
-  function dimPushUndo(entry) {
+  function dimPushUndoBatch(entries) {
+    if (!entries || !entries.length) return;
     if (dimState.undoTimer) clearTimeout(dimState.undoTimer);
-    dimState.undo = entry;
+    dimState.undo = { batch: entries };
     const bar = document.getElementById('dimUndoBar');
     if (bar) {
       bar.classList.add('active');
-      bar.querySelector('.dim-undo-label').textContent =
-        'Alterado ' + entry.time + ' → ' + (entry.next || '(vazio)');
+      const label = entries.length > 1
+        ? entries.length + ' slots alterados'
+        : ('Alterado ' + entries[0].time + ' → ' + (entries[0].next || '(vazio)'));
+      bar.querySelector('.dim-undo-label').textContent = label;
     }
     dimState.undoTimer = setTimeout(function () {
       dimState.undo = null;
@@ -1057,18 +1281,27 @@
     }, 4000);
   }
 
+  function dimPushUndo(entry) {
+    dimPushUndoBatch([entry]);
+  }
+
   function dimUndoLast() {
     const u = dimState.undo;
     if (!u) return;
-    const day = dimFindDay(u.day);
-    if (!day) return;
-    day.slots[u.time] = u.prev;
+    const entries = u.batch || [u];
+    entries.forEach(function (entry) {
+      const day = dimFindDay(entry.day);
+      if (!day) return;
+      const cur = day.slots[entry.time] || '';
+      dimApplySlotValue(day, entry.time, cur, entry.prev || '');
+      const dateIso = dimResolveDayDate(day) || entry.date;
+      if (dateIso) dimQueueSave(dateIso, entry.time, entry.prev || '', entry.day);
+    });
     dimState.undo = null;
     document.getElementById('dimUndoBar')?.classList.remove('active');
     if (dimState.undoTimer) clearTimeout(dimState.undoTimer);
     dimRenderGrid();
     dimRenderSummary();
-    dimQueueSave(dimResolveDayDate(day) || u.date, u.time, u.prev || '', u.day);
   }
 
   function dimQueueSave(date, time, value, dayKey) {
@@ -1117,7 +1350,8 @@
 
   function dimShouldPauseReload() {
     return dimState.editingCell || dimState.modalOpen || dimState.saving ||
-      dimState.saveQueue.length > 0 || Object.keys(dimState.pendingSaves).length > 0;
+      dimState.selectDrag || dimState.saveQueue.length > 0 ||
+      Object.keys(dimState.pendingSaves).length > 0;
   }
 
   function dimStartReloadTimer() {
@@ -1245,16 +1479,30 @@
 
     document.getElementById('dimDetailTitle').textContent = ctx.slot;
     const meta = document.getElementById('dimDetailMeta');
-    if (meta) meta.textContent = 'Início: ' + ctx.time + ' • ' + (ctx.day || '');
+    if (meta) {
+      if (ctx.multiTargets && ctx.multiTargets.length > 1) {
+        meta.textContent = ctx.multiTargets.length + ' slots selecionados · ' + ctx.slot;
+      } else {
+        meta.textContent = 'Início: ' + ctx.time + ' • ' + (ctx.day || '');
+      }
+    }
 
     const qtyInp = document.getElementById('dimDetailQty');
-    if (qtyInp) qtyInp.value = String(initialQuantity);
-
     const fieldsBlock = document.getElementById('dimDetailFieldsBlock');
     const durationBlock = document.getElementById('dimDetailDurationBlock');
+    const isMulti = ctx.multiTargets && ctx.multiTargets.length > 1;
+    if (isMulti) {
+      if (qtyInp) { qtyInp.value = '1'; qtyInp.disabled = true; }
+      if (durationBlock) durationBlock.style.display = 'none';
+    } else {
+      if (qtyInp) {
+        qtyInp.disabled = false;
+        qtyInp.value = String(initialQuantity);
+      }
+    }
     if (config) {
       if (fieldsBlock) fieldsBlock.style.display = 'block';
-      if (durationBlock) durationBlock.style.display = 'block';
+      if (durationBlock && !isMulti) durationBlock.style.display = 'block';
 
       dimPopulateDetailSelect(document.getElementById('dimDetailAcao'), config.actions, ctx.acao || '');
       const projetoWrap = document.getElementById('dimDetailProjetoWrap');
@@ -1317,33 +1565,45 @@
       return;
     }
 
-    let slotUpdates = {};
-    if (day) {
-      slotUpdates = dimApplyDetailDuration(day, ctx.time, ctx.slot, quantity, ctx.initialQuantity || 1);
-      dimRenderGrid();
-      dimRenderSummary();
-      if (Object.keys(slotUpdates).length) {
-        Object.keys(slotUpdates).forEach(function (t) {
-          dimQueueSave(dateIso, dimNormalizeTime(t), slotUpdates[t], day.day);
+    const targets = (ctx.multiTargets && ctx.multiTargets.length > 1)
+      ? ctx.multiTargets
+      : [{ day: ctx.day, time: ctx.time, date: ctx.date || dateIso }];
+
+    try {
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        const tDay = dimFindDay(t.day);
+        const tDate = t.date || (tDay ? dimResolveDayDate(tDay) : '');
+        if (!tDate) continue;
+
+        if (i === 0 && tDay && targets.length === 1) {
+          const slotUpdates = dimApplyDetailDuration(tDay, t.time, ctx.slot, quantity, ctx.initialQuantity || 1);
+          dimRenderGrid();
+          dimRenderSummary();
+          if (Object.keys(slotUpdates).length) {
+            Object.keys(slotUpdates).forEach(function (ts) {
+              dimQueueSave(tDate, dimNormalizeTime(ts), slotUpdates[ts], tDay.day);
+            });
+          }
+        }
+
+        await dimCall('saveDetail', {
+          tipo: ctx.slot,
+          slot: ctx.slot,
+          date: tDate,
+          hora: t.time,
+          time: t.time,
+          quantidade: targets.length > 1 ? 1 : quantity,
+          acao: acao,
+          projeto: projeto,
+          especificacao: especificacao
         });
       }
-    }
-
-    const payload = {
-      tipo: ctx.slot,
-      slot: ctx.slot,
-      date: dateIso,
-      hora: ctx.time,
-      time: ctx.time,
-      quantidade: quantity,
-      acao: acao,
-      projeto: projeto,
-      especificacao: especificacao
-    };
-    try {
-      await dimCall('saveDetail', payload);
-      dimShowToast('Detalhe salvo em Base_Detalhes');
+      dimShowToast(targets.length > 1
+        ? 'Detalhes salvos em ' + targets.length + ' slots'
+        : 'Detalhe salvo em Base_Detalhes');
       dimCloseDetailModal();
+      dimClearSelection();
       await dimLoadWeek(dimState.week);
       if (dimState.activeTab === 'ajustes') dimRenderAjustes();
     } catch (e) {
@@ -1455,7 +1715,6 @@
   global.dimChangeWeek = dimChangeWeek;
   global.dimGoCurrentWeek = dimGoCurrentWeek;
   global.dimSwitchTab = dimSwitchTab;
-  global.dimOnSlotClick = dimOnSlotClick;
   global.dimApplySlot = dimApplySlot;
   global.dimCloseDropdown = dimCloseDropdown;
   global.dimUndoLast = dimUndoLast;

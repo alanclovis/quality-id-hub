@@ -35,6 +35,29 @@
       return JSON.stringify(clean);
   };
 
+  const getRectCells = (anchor, end) => {
+    const d0 = DAYS.indexOf(anchor.day);
+    const d1 = DAYS.indexOf(end.day);
+    const t0 = HOURS.indexOf(anchor.hour);
+    const t1 = HOURS.indexOf(end.hour);
+    if (d0 < 0 || d1 < 0 || t0 < 0 || t1 < 0) return [];
+    const minD = Math.min(d0, d1);
+    const maxD = Math.max(d0, d1);
+    const minT = Math.min(t0, t1);
+    const maxT = Math.max(t0, t1);
+    const cells = [];
+    for (let d = minD; d <= maxD; d++) {
+      for (let t = minT; t <= maxT; t++) {
+        if (DAYS[d] && HOURS[t]) cells.push({ day: DAYS[d], hour: HOURS[t] });
+      }
+    }
+    return cells;
+  };
+
+  const isCellSelected = (day, hour, selectedCells) => {
+    return selectedCells.some(c => c.day === day && c.hour === hour);
+  };
+
   /* ============================================================================
   SEÇÃO 2: COMPONENTE PRINCIPAL (APP)
   ============================================================================ */
@@ -62,12 +85,18 @@
 
     const [editingCell, setEditingCell] = useState(null); 
     const [modalConfig, setModalConfig] = useState(null);
+    const [selectedCells, setSelectedCells] = useState([]);
     const [isWeekMenuOpen, setIsWeekMenuOpen] = useState(false);
     const [showUndoToast, setShowUndoToast] = useState(false);
     
     const undoTimerRef = useRef(null);
     const weekMenuRef = useRef(null);
     const activeWeekRef = useRef(null); 
+    const selectionAnchorRef = useRef(null);
+    const isSelectingRef = useRef(false);
+    const selectMovedRef = useRef(false);
+    const selectedCellsRef = useRef([]);
+    const gridWrapRef = useRef(null);
 
     const { dateMap, visualMap } = useMemo(() => getDatesForWeek(parseInt(selectedWeek)), [selectedWeek]);
 
@@ -129,8 +158,58 @@
         }).withFailureHandler(e => { console.error(e); setIsLoading(false); }).getUserSchedule();
     };
 
+    useEffect(() => { selectedCellsRef.current = selectedCells; }, [selectedCells]);
+
+    useEffect(() => {
+      const onUp = () => {
+        if (!isSelectingRef.current && !selectMovedRef.current) return;
+        isSelectingRef.current = false;
+        const cells = selectedCellsRef.current;
+        if (cells.length === 1 && !selectMovedRef.current) {
+          const c = cells[0];
+          const el = gridWrapRef.current?.querySelector(`[data-day="${c.day}"][data-hour="${c.hour}"]`);
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            setEditingCell({
+              day: c.day,
+              hour: c.hour,
+              top: Math.min(rect.bottom + window.scrollY, window.innerHeight + window.scrollY - 300),
+              left: Math.min(rect.left + window.scrollX, window.innerWidth - 250)
+            });
+            setSearchTerm("");
+          }
+        } else if (cells.length > 1) {
+          const anchor = selectionAnchorRef.current || cells[0];
+          const el = gridWrapRef.current?.querySelector(`[data-day="${anchor.day}"][data-hour="${anchor.hour}"]`);
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            setEditingCell({
+              day: anchor.day,
+              hour: anchor.hour,
+              top: Math.min(rect.bottom + window.scrollY, window.innerHeight + window.scrollY - 300),
+              left: Math.min(rect.left + window.scrollX, window.innerWidth - 250),
+              multiCount: cells.length
+            });
+            setSearchTerm("");
+          }
+        }
+        selectMovedRef.current = false;
+      };
+      document.addEventListener('mouseup', onUp);
+      return () => document.removeEventListener('mouseup', onUp);
+    }, []);
+
     useEffect(() => { loadData(); const interval = setInterval(loadData, 60000); return () => clearInterval(interval); }, []);
-    useEffect(() => { const h = e => { if (weekMenuRef.current && !weekMenuRef.current.contains(e.target)) setIsWeekMenuOpen(false); if (editingCell && !e.target.closest('.editing-popup')) setEditingCell(null); }; document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); }, [editingCell]);
+    useEffect(() => { const h = e => {
+      if (weekMenuRef.current && !weekMenuRef.current.contains(e.target)) setIsWeekMenuOpen(false);
+      if (editingCell && !e.target.closest('.editing-popup')) setEditingCell(null);
+      if (!e.target.closest('.dim-schedule-grid') && !e.target.closest('.editing-popup')) {
+        if (!isSelectingRef.current) {
+          setSelectedCells([]);
+          selectionAnchorRef.current = null;
+        }
+      }
+    }; document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); }, [editingCell]);
 
     /* ============================================================================
     SEÇÃO 4: LÓGICA DE SALVAMENTO (SMART MERGE CORRIGIDO)
@@ -287,64 +366,72 @@
     };
 
     // --- LÓGICA LOCAL (MANTIDA IGUAL A ANTERIOR QUE FUNCIONAVA) ---
-    const saveTask = (day, startHour, taskLabel, details = null, quantity = 1) => {
-      setGlobalSavingState(true); 
-
-      previousStateRef.current = JSON.parse(JSON.stringify(scheduleRef.current));
-      lastActionRef.current = { day, startHour, week: selectedWeek };
-
-      const newData = JSON.parse(JSON.stringify(scheduleRef.current));
-      if (!newData[selectedWeek]) newData[selectedWeek] = {};
-      if (!newData[selectedWeek][day]) newData[selectedWeek][day] = {};
-      const weekData = newData[selectedWeek];
-      
-      const effectiveTaskLabel = taskLabel === "(Limpar)" ? "AVLB" : taskLabel; 
+    const applySingleCell = (weekData, day, startHour, taskLabel, details, quantity) => {
+      const effectiveTaskLabel = taskLabel === "(Limpar)" ? "AVLB" : taskLabel;
       const startIdx = HOURS.indexOf(startHour);
 
-      // CASO 1: BREAK
       if (taskLabel === "Break") {
-          for (let i=0; i<Math.min(2, HOURS.length-startIdx); i++) { 
-              if(HOURS[startIdx+i]) weekData[day][HOURS[startIdx+i]] = { task: "Break" }; 
+        for (let i = 0; i < Math.min(2, HOURS.length - startIdx); i++) {
+          if (HOURS[startIdx + i]) weekData[day][HOURS[startIdx + i]] = { task: "Break" };
+        }
+      } else if (taskLabel === "(Limpar)" || taskLabel === "") {
+        for (let i = 0; i < quantity; i++) {
+          const h = HOURS[startIdx + i];
+          if (!h) break;
+          delete weekData[day][h];
+        }
+      } else {
+        let processed = 0;
+        for (let i = 0; i < 16; i++) {
+          const h = HOURS[startIdx + i];
+          if (!h) break;
+          if (processed >= quantity) break;
+          if (effectiveTaskLabel === "AVLB" || effectiveTaskLabel === "") {
+            weekData[day][h] = { task: "AVLB" };
+          } else {
+            weekData[day][h] = { task: effectiveTaskLabel, details: details };
           }
-      } 
-      // CASO 2: LIMPAR EXPLICITO
-      else if (taskLabel === "(Limpar)" || taskLabel === "") {
-          for (let i = 0; i < quantity; i++) {
-              const h = HOURS[startIdx + i];
-              if (!h) break;
-              delete weekData[day][h]; 
-          }
+          processed++;
+        }
       }
-      // CASO 3: TAREFA NORMAL
-      else {
-          let processed = 0;
-          for (let i = 0; i < 16; i++) { 
-              const h = HOURS[startIdx + i];
-              if (!h) break;
-            
-              if (processed >= quantity) {
-                  break; 
-              }
+    };
 
-              if (effectiveTaskLabel === "AVLB" || effectiveTaskLabel === "") {
-                  weekData[day][h] = { task: "AVLB" }; 
-              } else {
-                  weekData[day][h] = { task: effectiveTaskLabel, details: details };
-              }
-              processed++;
-          }
-      }
-      
+    const applyTaskToCells = (cells, taskLabel, details = null, quantity = 1) => {
+      if (!cells || !cells.length) return;
+
+      setGlobalSavingState(true);
+      previousStateRef.current = JSON.parse(JSON.stringify(scheduleRef.current));
+      lastActionRef.current = { cells: cells.slice(), week: selectedWeek };
+
+      const newData = JSON.parse(JSON.stringify(scheduleRef.current));
+      const weekKey = selectedWeek;
+      if (!newData[weekKey]) newData[weekKey] = {};
+      const isMulti = cells.length > 1;
+      const effectiveQty = isMulti ? 1 : quantity;
+      const dirtyDays = new Set();
+
+      cells.forEach(({ day, hour }) => {
+        if (!newData[weekKey][day]) newData[weekKey][day] = {};
+        applySingleCell(newData[weekKey], day, hour, taskLabel, details, effectiveQty);
+        dirtyDays.add(day);
+      });
+
       scheduleRef.current = newData;
       setScheduleData(newData);
       setModalConfig(null);
-      
+      setEditingCell(null);
+      setSelectedCells([]);
+      selectionAnchorRef.current = null;
+
       setShowUndoToast(true);
       setTimeout(() => setShowUndoToast(false), 4000);
 
       if (typeof google === 'undefined' || !google.script) return;
+      dirtyDays.forEach(d => triggerSave(d));
+    };
 
-      triggerSave(day);
+    const saveTask = (day, startHour, taskLabel, details = null, quantity = 1) => {
+      applyTaskToCells([{ day, hour: startHour }], taskLabel, details, quantity);
     };
 
     const handleUndo = () => {
@@ -354,38 +441,82 @@
             setScheduleData(restoredData);
             setShowUndoToast(false);
             
-            const { day } = lastActionRef.current;
+            const action = lastActionRef.current;
             previousStateRef.current = null;
             lastActionRef.current = null;
 
-            triggerSave(day);
+            if (action.cells && action.cells.length) {
+              const days = new Set(action.cells.map(c => c.day));
+              days.forEach(d => triggerSave(d));
+            } else if (action.day) {
+              triggerSave(action.day);
+            }
         }
+    };
+
+    const handleCellMouseDown = (e, day, hour) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.shiftKey && selectionAnchorRef.current) {
+        const cells = getRectCells(selectionAnchorRef.current, { day, hour });
+        setSelectedCells(cells);
+        selectMovedRef.current = true;
+        isSelectingRef.current = false;
+        setEditingCell(null);
+        return;
+      }
+
+      isSelectingRef.current = true;
+      selectMovedRef.current = false;
+      selectionAnchorRef.current = { day, hour };
+      setSelectedCells([{ day, hour }]);
+      setEditingCell(null);
+    };
+
+    const handleCellMouseEnter = (e, day, hour) => {
+      if (!isSelectingRef.current || !selectionAnchorRef.current) return;
+      const cells = getRectCells(selectionAnchorRef.current, { day, hour });
+      if (cells.length > 1) selectMovedRef.current = true;
+      setSelectedCells(cells);
     };
 
     /* ============================================================================
     SEÇÃO 5: VISUALIZAÇÃO E EVENTOS
     ============================================================================ */
-    const handleCellClick = (e, day, hour) => {
-      e.stopPropagation();
-      const rect = e.currentTarget.getBoundingClientRect();
-      const leftPos = Math.min(rect.left + window.scrollX, window.innerWidth - 250); 
-      const topPos = Math.min(rect.bottom + window.scrollY, window.innerHeight + window.scrollY - 300);
-      setEditingCell({ day, hour, top: topPos, left: leftPos });
-      setSearchTerm("");
-    };
-
     const handleTaskSelect = (newTaskLabel) => {
-      if (!editingCell) return;
-      const { day, hour } = editingCell;
+      const cells = selectedCells.length > 1
+        ? selectedCells
+        : (editingCell ? [{ day: editingCell.day, hour: editingCell.hour }] : []);
+      if (!cells.length) return;
       setEditingCell(null);
-      
+
       const isClearing = newTaskLabel === "";
-      const currentDetails = parseDetails(scheduleRef.current[selectedWeek]?.[day]?.[hour]?.details);
+      const isMulti = cells.length > 1;
+      const isDetail = DETAILED_SLOTS.includes(newTaskLabel);
+
+      if (isMulti) {
+        if (isDetail) {
+          setModalConfig({
+            taskLabel: isClearing ? "(Limpar)" : newTaskLabel,
+            cells: cells,
+            multi: true,
+            initialData: null,
+            initialQuantity: 1
+          });
+        } else {
+          applyTaskToCells(cells, isClearing ? "(Limpar)" : newTaskLabel, null, 1);
+        }
+        return;
+      }
+
+      const { day, hour } = cells[0];
       
       let currentQtd = 1;
       if (!isClearing) {
           const weekData = scheduleRef.current[selectedWeek] || {};
           const startIdx = HOURS.indexOf(hour);
+          const currentDetails = parseDetails(scheduleRef.current[selectedWeek]?.[day]?.[hour]?.details);
           if (weekData[day]?.[hour]?.task === newTaskLabel) { 
             let count = 0;
             for (let i=0; i<20; i++) {
@@ -394,18 +525,15 @@
                 const slot = weekData[day][h];
                 const slotDetailsStr = normalizeDetailsForComparison(slot?.details);
                 const currentDetailsStr = normalizeDetailsForComparison(currentDetails);
-                
-                // AJUSTE: Permite contar também se for vazio (para edição correta)
                 const emptyJson = '{"action":"","project":"","otherSpec":""}';
                 const isMatch = slotDetailsStr === currentDetailsStr || slotDetailsStr === emptyJson;
-
                 if (slot && slot.task === newTaskLabel && isMatch) count++;
                 else break; 
             }
             if (count > 0) currentQtd = count;
           }
       }
-      setModalConfig({ taskLabel: isClearing ? "(Limpar)" : newTaskLabel, day, hour, initialData: isClearing ? null : currentDetails, initialQuantity: currentQtd });
+      setModalConfig({ taskLabel: isClearing ? "(Limpar)" : newTaskLabel, day, hour, initialData: isClearing ? null : parseDetails(scheduleRef.current[selectedWeek]?.[day]?.[hour]?.details), initialQuantity: currentQtd });
     };
 
     // --- AGRUPAMENTO INTELIGENTE (VISUAL) ---
@@ -514,13 +642,20 @@
           <TaskConfigModal 
             taskLabel={modalConfig.taskLabel}
             onClose={() => setModalConfig(null)}
-            onSave={(details, qtd) => saveTask(modalConfig.day, modalConfig.hour, modalConfig.taskLabel, details, qtd)}
+            onSave={(details, qtd) => {
+              if (modalConfig.multi && modalConfig.cells) {
+                applyTaskToCells(modalConfig.cells, modalConfig.taskLabel, details, 1);
+              } else {
+                saveTask(modalConfig.day, modalConfig.hour, modalConfig.taskLabel, details, qtd);
+              }
+            }}
             initialData={modalConfig.initialData}
             hourContext={modalConfig.hour}
             initialQuantity={modalConfig.initialQuantity}
             dayContext={modalConfig.day}
             currentSchedule={scheduleData}
             weekKey={selectedWeek}
+            multiCount={modalConfig.multi ? modalConfig.cells.length : 0}
           />
         )}
         
@@ -528,7 +663,7 @@
         {editingCell && (
             <div className="editing-popup fixed bg-white border border-[#D1D5DB] shadow-lg rounded-lg flex flex-col w-[280px] max-h-[400px] z-50 animate-in fade-in zoom-in-95 duration-100" style={{ top: editingCell.top, left: editingCell.left }}>
               <div className="bg-[#F5F5F7] p-3 text-xs font-bold text-[#820AD1] border-b border-[#D1D5DB] flex justify-between items-center shrink-0">
-                  <span>{editingCell.day.toUpperCase()} • {editingCell.hour}</span>
+                  <span>{editingCell.multiCount > 1 ? `${editingCell.multiCount} slots selecionados` : `${editingCell.day.toUpperCase()} • ${editingCell.hour}`}</span>
                   <button onClick={() => setEditingCell(null)} className="hover:bg-gray-200 rounded p-1 text-[#6B7280] transition-colors" title="Fechar"><X size={16}/></button>
               </div>
               <div className="p-2 border-b border-[#D1D5DB] bg-white sticky top-0">
@@ -611,7 +746,7 @@
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#F5F5F7]">
             <div className="flex-1 overflow-auto p-4 md:p-6">
               {activeView === 'escala' && (
-                <div className="inline-block min-w-max pb-10">
+                <div ref={gridWrapRef} className="dim-schedule-grid inline-block min-w-max pb-10">
                   <div className="bg-white border-t-2 border-l-2 border-[#D1D5DB] relative overflow-visible shadow-sm">
                     {/* CABEÇALHO TABELA */}
                     <div className="flex sticky-header-fix bg-[#F9FAFB] w-full">
@@ -641,9 +776,10 @@
                             const taskName = typeof cellData === 'object' ? cellData?.task : cellData;
                             const isBreak = taskName === 'Break';
                             const isAVLB = taskName === 'AVLB';
+                            const isSelected = isCellSelected(day, hour, selectedCells);
                             return (
-                              <div key={`${day}-${hour}`} className="w-[88px] flex-shrink-0 border-r-2 border-b-2 border-[#D1D5DB] relative flex flex-col min-h-[3rem]">
-                                <div onClick={(e) => handleCellClick(e, day, hour)} className="w-full h-full p-[2px] cursor-pointer transition-all flex items-center justify-center text-center group flex-grow">
+                              <div key={`${day}-${hour}`} data-day={day} data-hour={hour} className={`w-[88px] flex-shrink-0 border-r-2 border-b-2 border-[#D1D5DB] relative flex flex-col min-h-[3rem] ${isSelected ? 'ring-2 ring-inset ring-[#820AD1] z-10' : ''}`}>
+                                <div onMouseDown={(e) => handleCellMouseDown(e, day, hour)} onMouseEnter={(e) => handleCellMouseEnter(e, day, hour)} className="w-full h-full p-[2px] cursor-pointer transition-all flex items-center justify-center text-center group flex-grow select-none">
                                   {taskName && !isAVLB ? (
                                      <div className={`w-full h-full rounded-[3px] flex flex-col items-center justify-center text-[11px] font-bold border leading-none break-words px-0.5 hover:brightness-95 hover:shadow-sm transition-all overflow-hidden ${getColor(taskName)} relative`}>
                                         <span className="line-clamp-2 px-1">{taskName}</span>{isBreak && <Coffee size={10} className="mt-1 opacity-50"/>}
@@ -744,7 +880,8 @@
   /* ============================================================================
   SEÇÃO 7: SUB-COMPONENTES
   ============================================================================ */
-  function TaskConfigModal({ taskLabel, onClose, onSave, initialData, hourContext, initialQuantity, dayContext, currentSchedule, weekKey }) {
+  function TaskConfigModal({ taskLabel, onClose, onSave, initialData, hourContext, initialQuantity, dayContext, currentSchedule, weekKey, multiCount }) {
+    const isMulti = multiCount > 1;
     const isPlanilha = taskLabel === "Planilha";
     const isCleaning = taskLabel === "(Limpar)";
     const isBreak = taskLabel === "Break"; 
@@ -813,9 +950,9 @@
         if (hasProjectField && !project) { alert("Selecione o Projeto."); return; }
       }
 
-      if (isOvertime && !confirmOvertime && !isCleaning) { setConfirmOvertime(true); return; }
+      if (isOvertime && !confirmOvertime && !isCleaning && !isMulti) { setConfirmOvertime(true); return; }
       const details = requiresDetails ? { action, project, otherSpec } : null;
-      onSave(details, quantityNum);
+      onSave(details, isMulti ? 1 : quantityNum);
     };
 
     const isWarning = isCleaning; 
@@ -835,7 +972,7 @@
                     {isCleaning ? <Trash2 size={20}/> : (isBreak ? <Coffee size={20}/> : <Edit2 size={20}/>)}
                     {taskLabel}
                 </h3>
-                <p className="text-white/80 text-xs mt-1 font-mono">Início: {hourContext} • {dayContext.charAt(0).toUpperCase() + dayContext.slice(1)}</p>
+                <p className="text-white/80 text-xs mt-1 font-mono">{isMulti ? `${multiCount} slots selecionados` : `Início: ${hourContext} • ${dayContext.charAt(0).toUpperCase() + dayContext.slice(1)}`}</p>
             </div>
             <button onClick={onClose} className="text-white/70 hover:text-white transition-colors bg-white/10 p-2 rounded-full hover:bg-white/20" title="Fechar"><X size={24} /></button>
           </div>
@@ -855,6 +992,7 @@
                 </div>
             )}
             
+            {!isMulti && (
             <div className={`${isWarning ? 'bg-red-50 border-red-200' : 'bg-purple-50 border-purple-200'} p-5 rounded-lg border-2 flex flex-col justify-between`}>
                <div className="flex items-center justify-between w-full mb-2">
                  <div><label className={`text-sm font-bold ${isWarning ? 'text-red-800' : 'text-[#820AD1]'} block`}>{isCleaning ? 'Limpar quantos slots?' : 'Duração da atividade'}</label><p className={`text-xs mt-1 ${isWarning ? 'text-red-600' : 'text-[#9B4DDB]'}`}>Cada slot tem 30 minutos</p></div>
@@ -866,6 +1004,7 @@
                </div>
                {quantityNum < initialQuantity && !isCleaning && !isBreak && (<div className="text-[10px] text-[#820AD1] bg-purple-100 px-2 py-1 rounded flex items-center"><Undo2 size={10} className="mr-1"/>Os slots excedentes ({initialQuantity - quantityNum}) virarão AVLB.</div>)}
             </div>
+            )}
             
             {requiresDetails && (
               <div className="space-y-4 pt-2 animate-in slide-in-from-bottom-2 duration-300">
