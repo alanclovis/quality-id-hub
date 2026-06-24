@@ -222,28 +222,85 @@ function hubDetailToLegacy_(detail, slot) {
   };
 }
 
+var HUB_DETAIL_REQUIRES_PROJECT_ = {
+  'Planilha': true, 'Deep Dive': true, 'Docs': true, 'Playbook': true, 'RFC': true, 'Slides': true,
+  'Project Meet': true, 'Databricks': true, 'Quicksight': true
+};
+
+function hubDetailRequiresSpec_(action, project) {
+  return action === 'Outro' || project === 'Outro' ||
+    project === 'MMP (Projeto não mapeado)' || project === 'NMP (Projeto não mapeado)';
+}
+
+function hubParseCellDetails_(detailsRaw) {
+  if (!detailsRaw) return { action: '', project: '', otherSpec: '' };
+  if (typeof detailsRaw === 'object') {
+    return {
+      action: String(detailsRaw.action || '').trim(),
+      project: String(detailsRaw.project || '').trim(),
+      otherSpec: String(detailsRaw.otherSpec || detailsRaw.other || '').trim()
+    };
+  }
+  try {
+    var parsed = JSON.parse(String(detailsRaw));
+    return hubParseCellDetails_(parsed);
+  } catch (e) {
+    return { action: '', project: '', otherSpec: '' };
+  }
+}
+
+function hubIsDetailIncomplete_(slot, details) {
+  var d = hubParseCellDetails_(details);
+  if (!d.action) return true;
+  if (HUB_DETAIL_REQUIRES_PROJECT_[slot] && !d.project) return true;
+  if (hubDetailRequiresSpec_(d.action, d.project) && !d.otherSpec) return true;
+  return false;
+}
+
 function hubGetPendingDetails_(week) {
-  var sched = hubGetUserSchedule_(week);
+  var raw = getUserSchedule();
+  if (raw.error) throw new Error(raw.error);
+
+  var weekKey = String(week != null ? week : hubGetCurrentWeek_());
+  var weekData = (raw.schedule && raw.schedule[weekKey]) || {};
+  var userEmail = raw.userEmail || Session.getActiveUser().getEmail().toLowerCase().trim();
+  var dateByDayName = hubGetWeekDateMap_(weekKey, userEmail);
   var detailTypes = hubGetConfig_().detailSlots || [];
   var pending = [];
 
-  sched.days.forEach(function (day) {
-    Object.keys(day.slots).forEach(function (time) {
-      var slot = day.slots[time];
-      if (detailTypes.indexOf(slot) < 0) return;
+  Object.keys(weekData).forEach(function (dayName) {
+    var dayKey = HUB_DAY_MAP_[dayName] || String(dayName).substring(0, 3);
+    var daySlots = weekData[dayName] || {};
+    var dateIso = dateByDayName[dayName] || hubComputeDateForWeekDay_(weekKey, dayKey);
+
+    Object.keys(daySlots).forEach(function (time) {
+      var cell = daySlots[time];
+      var slot = cell && cell.task ? String(cell.task) : '';
+      if (!slot || detailTypes.indexOf(slot) < 0) return;
+
+      var details = hubParseCellDetails_(cell && cell.details);
+      if (!hubIsDetailIncomplete_(slot, details)) return;
+
       pending.push({
-        date: day.date || '',
-        day: day.day,
-        time: time,
+        date: dateIso,
+        day: dayKey,
+        time: hubNormalizeTime_(time),
         slot: slot,
-        acao: '',
-        projeto: '',
-        especificacao: ''
+        acao: details.action,
+        projeto: details.project,
+        especificacao: details.otherSpec
       });
     });
   });
 
-  return { pending: pending, week: sched.week };
+  pending.sort(function (a, b) {
+    var dayOrder = ['seg', 'ter', 'qua', 'qui', 'sex'];
+    var dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+    if (dayDiff !== 0) return dayDiff;
+    return String(a.time).localeCompare(String(b.time));
+  });
+
+  return { pending: pending, week: Number(weekKey) };
 }
 
 function hubSaveDetail_(payload) {
