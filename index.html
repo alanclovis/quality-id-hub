@@ -5668,14 +5668,31 @@ async function loadHubBuildFooter(){
   const el=document.getElementById('hubBuildFooter');
   if(!el) return;
   const repo='https://github.com/alanclovis/quality-id-hub';
+  const api='https://api.github.com/repos/alanclovis/quality-id-hub/commits/main';
   try{
-    const r=await fetch('version.json?_='+Date.now(),{cache:'no-store'});
-    if(!r.ok) throw new Error('version fetch failed');
-    const v=await r.json();
-    const commit=v.commit||'?';
-    const msg=v.message?`<span class="hub-build-msg"> · ${escapeHtml(v.message)}</span>`:'';
-    const date=v.date?`<span class="hub-build-date">${escapeHtml(new Date(v.date).toLocaleString('pt-BR'))}</span>`:'';
-    el.innerHTML=`<a href="${repo}/commit/${encodeURIComponent(commit)}" target="_blank" rel="noopener" title="Ver commit no GitHub">${escapeHtml(commit)}</a>${msg}${date}`;
+    let commit='';
+    let message='';
+    let date='';
+    try{
+      const gh=await fetch(api,{headers:{Accept:'application/vnd.github+json'}});
+      if(gh.ok){
+        const j=await gh.json();
+        commit=(j.sha||'').slice(0,7);
+        message=((j.commit&&j.commit.message)||'').split('\n')[0];
+        date=(j.commit&&j.commit.committer&&j.commit.committer.date)||'';
+      }
+    }catch(e){/* fallback abaixo */}
+    if(!commit){
+      const r=await fetch('version.json?_='+Date.now(),{cache:'no-store'});
+      if(!r.ok) throw new Error('version fetch failed');
+      const v=await r.json();
+      commit=v.commit||'?';
+      message=v.message||'';
+      date=v.date||'';
+    }
+    const msg=message?`<span class="hub-build-msg"> · ${escapeHtml(message)}</span>`:'';
+    const dateStr=date?`<span class="hub-build-date">${escapeHtml(new Date(date).toLocaleString('pt-BR'))}</span>`:'';
+    el.innerHTML=`<a href="${repo}/commit/${encodeURIComponent(commit)}" target="_blank" rel="noopener" title="Ver commit no GitHub">${escapeHtml(commit)}</a>${msg}${dateStr}`;
   }catch(e){
     el.textContent='Hub (versão não publicada)';
     el.title=String(e&&e.message||e);
