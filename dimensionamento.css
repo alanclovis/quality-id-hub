@@ -272,20 +272,25 @@
 .dim-ajuste-meta strong { display: block; font-size: 14px; }
 .dim-ajuste-meta span { color: var(--text3); font-size: 12px; }
 
-.dim-controle-meta { font-size: 11px; color: var(--text3); margin: 0 0 14px; }
+#dimPanelControle {
+  font-family: var(--font-text);
+}
 .dim-controle-header {
   display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
-  gap: 12px 20px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 2px solid var(--text);
+  gap: 12px 20px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
 }
 .dim-controle-title {
-  font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: -0.02em; margin: 0;
+  font-family: var(--font-display); font-size: 22px; font-weight: 600;
+  letter-spacing: -0.3px; margin: 0; color: var(--text); text-transform: none;
 }
-.dim-controle-sub { font-size: 13px; color: var(--text3); margin: 4px 0 0; }
+.dim-controle-sub { font-size: 13px; color: var(--text3); margin: 4px 0 0; font-family: var(--font-text); }
 .dim-controle-search {
   width: 100%; max-width: 320px; padding: 10px 12px;
-  border: 2px solid var(--text); border-radius: 10px; font-family: inherit; font-size: 14px;
+  border: 1px solid var(--border); border-radius: var(--rs); font-family: inherit; font-size: 14px;
+  background: var(--bg2); outline: none;
 }
-.dim-controle-block { margin-bottom: 22px; }
+.dim-controle-search:focus { border-color: #820ad1; box-shadow: 0 0 0 3px rgba(130, 10, 209, 0.12); }
+.dim-controle-block { margin-bottom: 20px; }
 .dim-controle-block-head {
   display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
 }
@@ -293,46 +298,49 @@
   width: 6px; height: 6px; border-radius: 50%; background: #820ad1; flex-shrink: 0;
 }
 .dim-controle-block-head h4 {
-  font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; margin: 0;
+  font-family: var(--font-display); font-size: 16px; font-weight: 600;
+  letter-spacing: -0.2px; margin: 0; color: var(--text); text-transform: none;
 }
 .dim-controle-count {
-  font-size: 10px; font-weight: 700; color: var(--text3); background: var(--bg3);
+  font-size: 10px; font-weight: 600; color: var(--text3); background: var(--bg3);
   border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px;
 }
 .dim-controle-table-wrap {
-  background: var(--bg2); border: 2px solid var(--text); border-radius: 12px;
-  box-shadow: 3px 3px 0 rgba(0,0,0,.85); overflow: hidden;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); overflow: hidden;
 }
-.dim-controle-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dim-controle-table {
+  width: 100%; border-collapse: collapse; font-size: 13px; font-family: var(--font-text);
+}
 .dim-controle-table th, .dim-controle-table td {
-  border-bottom: 1px solid var(--border); padding: 10px 14px; text-align: left; vertical-align: middle;
+  border-bottom: 1px solid var(--border); padding: 10px 12px; text-align: left; vertical-align: middle;
 }
 .dim-controle-table th {
-  background: var(--bg3); font-weight: 700; font-size: 10px; text-transform: uppercase;
+  background: var(--bg3); font-weight: 600; font-size: 11px; text-transform: uppercase;
   letter-spacing: 0.04em; color: var(--text3);
 }
-.dim-controle-table tbody tr:hover { background: rgba(130, 10, 209, 0.04); }
+.dim-controle-table tbody tr:hover { background: rgba(130, 10, 209, 0.03); }
 .dim-controle-table tbody tr:last-child td { border-bottom: none; }
 .dim-controle-tipo { width: 22%; }
-.dim-controle-significado { width: 46%; line-height: 1.45; }
+.dim-controle-significado { width: 46%; line-height: 1.5; color: var(--text2); }
 .dim-controle-conv { width: 10%; text-align: center; }
 .dim-slot-badge {
   display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px;
-  font-size: 11px; font-weight: 700; white-space: nowrap;
+  font-size: 11px; font-weight: 600; white-space: nowrap; font-family: inherit;
 }
 .dim-controle-class {
   display: inline-flex; padding: 4px 8px; border-radius: 6px; background: var(--bg3);
-  border: 1px solid var(--border); font-size: 10px; font-weight: 700; text-transform: uppercase;
-  color: var(--text2);
+  border: 1px solid var(--border); font-size: 11px; font-weight: 500;
+  color: var(--text2); text-transform: none;
 }
 .dim-controle-conv-val {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px;
-  border-radius: 50%; font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700;
-  cursor: help;
+  display: inline-flex; align-items: center; justify-content: center; min-width: 28px;
+  padding: 4px 8px; border-radius: 6px; font-family: inherit; font-size: 11px; font-weight: 600;
+  background: var(--bg3); border: 1px solid var(--border); cursor: help;
 }
 .dim-controle-empty {
-  text-align: center; padding: 48px 20px; color: var(--text3); border: 2px dashed var(--border);
-  border-radius: 12px; background: var(--bg3);
+  text-align: center; padding: 48px 20px; color: var(--text3); border: 1px dashed var(--border);
+  border-radius: var(--r); background: var(--bg3); font-family: var(--font-text);
 }
 .dim-controle-empty-sub { font-size: 12px; margin-top: 6px; }
 
