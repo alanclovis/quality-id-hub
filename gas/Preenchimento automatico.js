@@ -118,6 +118,55 @@ function buildCotasBodyHtml_() {
   return buildCotasPadrao_().map(buildCotaRowHtml_).join('');
 }
 
+const DIAS_SEMANA_DIALOG = [
+  { value: '__semana__', label: '— Semana inteira —' },
+  { value: 'segunda-feira', label: 'segunda-feira' },
+  { value: 'terça-feira', label: 'terça-feira' },
+  { value: 'quarta-feira', label: 'quarta-feira' },
+  { value: 'quinta-feira', label: 'quinta-feira' },
+  { value: 'sexta-feira', label: 'sexta-feira' },
+];
+
+function buildDiaSemanaOptionsHtml_(selected) {
+  const sel = selected || '__semana__';
+  return DIAS_SEMANA_DIALOG.map(function (item) {
+    const s = escapeHtmlAttr_(item.value);
+    const picked = item.value === sel ? ' selected' : '';
+    return '<option value="' + s + '"' + picked + '>' + item.label + '</option>';
+  }).join('');
+}
+
+function buildAlocacaoRowHtml_(c) {
+  c = c || { slot: 'GS - ID', dia: '__semana__', quantidade: 0, inteiro: false };
+  const slotOpts = buildSelectOptionsHtml_(SLOTS_COTA_DIALOG, c.slot);
+  const diaOpts = buildDiaSemanaOptionsHtml_(c.dia || '__semana__');
+  const chk = c.inteiro ? ' checked' : '';
+  const qtdDisabled = c.inteiro ? ' disabled' : '';
+  const qtdVal = c.inteiro ? 0 : (c.quantidade || 0);
+  return (
+    '<tr>' +
+    '<td><select class="al-slot">' + slotOpts + '</select></td>' +
+    '<td><select class="al-dia">' + diaOpts + '</select></td>' +
+    '<td class="col-qtd"><input type="number" class="al-qtd" min="0" value="' + qtdVal + '"' + qtdDisabled + '></td>' +
+    '<td class="col-check"><label title="Preenche todos os blocos disponíveis no período">' +
+    '<input type="checkbox" class="al-inteiro"' + chk + ' onchange="toggleInteiraAlocacao(this)"></label></td>' +
+    '<td><button type="button" class="secondary" onclick="removerLinha(this)">×</button></td>' +
+    '</tr>'
+  );
+}
+
+function buildAlocacoesPadrao_() {
+  return [
+    { slot: 'GS - ID', dia: '__semana__', quantidade: 0, inteiro: false },
+    { slot: 'GS - VP', dia: '__semana__', quantidade: 0, inteiro: false },
+    { slot: 'CSAT', dia: '__semana__', quantidade: 0, inteiro: false },
+  ];
+}
+
+function buildAlocacoesBodyHtml_() {
+  return buildAlocacoesPadrao_().map(buildAlocacaoRowHtml_).join('');
+}
+
 function buildAnalistasCheckboxesHtml_() {
   return Object.keys(ANALISTAS).sort().map(function (id) {
     const label = escapeHtmlAttr_(id.split('.')[0]);
@@ -251,8 +300,8 @@ function onOpen() {
 
 function showDimensionarDialog() {
   const html = HtmlService.createHtmlOutput(getDialogHtml_())
-    .setWidth(660)
-    .setHeight(860);
+    .setWidth(640)
+    .setHeight(780);
   SpreadsheetApp.getUi().showModalDialog(html, 'Dimensionamento Quality');
 }
 
@@ -261,15 +310,14 @@ function buildDialogDefaults_() {
     abas: ['H1.2026', 'H2.2026'],
     aba: 'H1.2026',
     semanasPorAba: SEMANAS_POR_ABA,
-    distritos: DISTRITOS_LISTA,
     slots: SLOTS_VALIDOS,
-    cotasDistrito: buildCotasPadrao_(),
+    alocacoes: buildAlocacoesPadrao_(),
   };
 }
 
 function getDialogHtml_() {
   const semanasH1 = buildSemanaOptionsHtml_('H1.2026');
-  const cotasBody = buildCotasBodyHtml_();
+  const alocacoesBody = buildAlocacoesBodyHtml_();
   const analistasHtml = buildAnalistasCheckboxesHtml_();
   return `<!DOCTYPE html>
 <html>
@@ -317,7 +365,7 @@ function getDialogHtml_() {
 </head>
 <body>
   <h2>Dimensionar semana</h2>
-  <p class="muted">Cotas = blocos de 30 min <strong>por analista elegível</strong> na semana. Prioridade: MA-CR → GS (Global).</p>
+  <p class="muted">Marque os analistas, defina os slots e quando alocar (semana inteira ou dia específico). Cada bloco = 30 min.</p>
 
   <div class="row">
     <div>
@@ -334,8 +382,8 @@ function getDialogHtml_() {
   </div>
 
   <div class="box">
-    <strong>Analistas</strong>
-    <p class="muted">Desmarque quem <strong>não</strong> deve ser alterado nesta execução (férias, ausência etc.).</p>
+    <strong>1. Analistas</strong>
+    <p class="muted">Marque quem receberá as alocações abaixo. Desmarque quem <strong>não</strong> deve ser alterado (férias, ausência etc.).</p>
     <div class="analistas-grid" id="analistasGrid">${analistasHtml}</div>
     <div class="btn-row">
       <button type="button" class="secondary" onclick="marcarTodosAnalistas(true)">Marcar todos</button>
@@ -344,15 +392,15 @@ function getDialogHtml_() {
   </div>
 
   <div class="box">
-    <strong>Cotas por distrito</strong>
-    <p class="muted">Linhas padrão: <strong>MA-CR</strong> + GS (Todos elegíveis). GS-GM/GS-MA etc. vão para <em>todos</em> que fazem aquele slot (ex.: GM → rose, lucas, gisele). Vários slots &quot;Sem. inteira&quot; no mesmo analista são <strong>intercalados por dia</strong> conforme <code>ANALISTA_DISTRIBUICAO_SEMANA</code> (ex.: Lucas seg=GM, ter=MA…). <strong>Ctrl/Cmd+clique</strong> para várias semanas.</p>
+    <strong>2. Alocações</strong>
+    <p class="muted">Cada linha aplica a <strong>todos os analistas marcados</strong>. O horário de <strong>Break</strong> de cada um já está no turno (ex.: alan 12h, matheus 13h) — o menu <strong>não altera</strong> Break; só preenche o slot nas demais células do período.</p>
     <table>
       <thead>
-        <tr><th>Distrito</th><th>Slot</th><th class="col-qtd">Qtd/sem</th><th class="col-check">Sem. inteira</th><th></th></tr>
+        <tr><th>Slot</th><th>Quando</th><th class="col-qtd">Qtd</th><th class="col-check">Inteiro</th><th></th></tr>
       </thead>
-      <tbody id="cotasDistrito">${cotasBody}</tbody>
+      <tbody id="alocacoes">${alocacoesBody}</tbody>
     </table>
-    <button type="button" class="secondary" onclick="addLinha()">+ Linha</button>
+    <button type="button" class="secondary" onclick="addLinhaAlocacao()">+ Linha</button>
   </div>
 
   <button id="btnRun" onclick="executar()">Aplicar na planilha</button>
@@ -387,41 +435,48 @@ function getDialogHtml_() {
       }
     }
 
-    function toggleSemanaInteira(cb) {
-      var qtd = cb.closest('tr').querySelector('.d-qtd');
-      if (!qtd) return;
-      qtd.disabled = cb.checked;
-      if (cb.checked) qtd.value = '0';
-    }
-
     function removerLinha(btn) {
       var tr = btn.closest('tr');
       if (tr) tr.remove();
     }
 
-    function addLinha() {
-      var tbody = document.getElementById('cotasDistrito');
+    function toggleInteiraAlocacao(cb) {
+      var tr = cb.closest('tr');
+      if (!tr) return;
+      var qtd = tr.querySelector('.al-qtd');
+      if (!qtd) return;
+      qtd.disabled = cb.checked;
+      if (cb.checked) qtd.value = '0';
+    }
+
+    function addLinhaAlocacao() {
+      var tbody = document.getElementById('alocacoes');
       if (!tbody || !tbody.rows.length) return;
       var origem = tbody.rows[tbody.rows.length - 1];
       var nova = origem.cloneNode(true);
-      nova.querySelector('.d-qtd').value = '0';
-      nova.querySelector('.d-qtd').disabled = false;
-      var cb = nova.querySelector('.d-semana-inteira');
+      var selD = nova.querySelector('.al-dia');
+      if (selD) selD.value = '__semana__';
+      var qtd = nova.querySelector('.al-qtd');
+      if (qtd) { qtd.value = '0'; qtd.disabled = false; }
+      var cb = nova.querySelector('.al-inteiro');
       if (cb) cb.checked = false;
       tbody.appendChild(nova);
     }
 
     function coletarPayload() {
-      var cotas = [];
-      document.querySelectorAll('#cotasDistrito tr').forEach(function (tr) {
-        var semanaInteira = tr.querySelector('.d-semana-inteira').checked;
-        var q = parseInt(tr.querySelector('.d-qtd').value, 10) || 0;
-        if (!semanaInteira && q <= 0) return;
-        cotas.push({
-          distrito: tr.querySelector('.d-distrito').value,
-          slot: tr.querySelector('.d-slot').value,
+      var alocacoes = [];
+      document.querySelectorAll('#alocacoes tr').forEach(function (tr) {
+        var slot = tr.querySelector('.al-slot').value;
+        var dia = tr.querySelector('.al-dia').value;
+        var inteiro = tr.querySelector('.al-inteiro').checked;
+        var q = parseInt(tr.querySelector('.al-qtd').value, 10) || 0;
+        if (!slot) return;
+        if (!inteiro && q <= 0) return;
+        alocacoes.push({
+          slot: slot,
+          dia: dia,
           quantidade: q,
-          semanaInteira: semanaInteira,
+          inteiro: inteiro,
         });
       });
       return {
@@ -434,7 +489,7 @@ function getDialogHtml_() {
           document.querySelectorAll('.a-ativo:checked'),
           function (cb) { return cb.value; }
         ),
-        cotasDistrito: cotas,
+        alocacoes: alocacoes,
       };
     }
 
@@ -455,8 +510,8 @@ function getDialogHtml_() {
         btn.disabled = false;
         return;
       }
-      if (!payload.cotasDistrito.length) {
-        showErr('Informe Qtd/sem ou marque Sem. inteira em pelo menos uma linha.');
+      if (!payload.alocacoes.length) {
+        showErr('Informe ao menos uma alocação (Qtd ou Inteiro).');
         btn.disabled = false;
         return;
       }
@@ -690,9 +745,9 @@ function menuVerTurnos() {
   const linhas = Object.keys(ANALISTAS).map(function (a) {
     const fam = (ANALISTA_FAMILIAS[a] || []).join(', ');
     const t = ANALISTAS[a];
-    return a + ': ' + t.entrada + '-' + t.saida + ' | faz: ' + fam;
+    return a + ': ' + t.entrada + '-' + t.saida + ' | break ' + t.break_inicio + ' | faz: ' + fam;
   });
-  SpreadsheetApp.getUi().alert('Turnos e famílias de slot\n\n' + linhas.join('\n'));
+  SpreadsheetApp.getUi().alert('Turnos, break e famílias de slot\n\n' + linhas.join('\n'));
 }
 
 function getDimensionamentoDefaults() {
@@ -764,10 +819,10 @@ function executarModoCotas_(data, cols, header, semana, cfg, stats) {
   const demandasPorAnalista = {};
   const ativosSet = criarSetAnalistasAtivos_(cfg);
 
-  function addDemanda(analista, slot, qtd, semanaInteira) {
+  function addDemanda(analista, slot, qtd, semanaInteira, diaSemana, diaInteiro) {
     if (!analista || !slot) return;
     if (!analistaEstaAtivo_(analista, ativosSet)) return;
-    if (!semanaInteira && (!qtd || qtd <= 0)) return;
+    if (!semanaInteira && !diaInteiro && (!qtd || qtd <= 0)) return;
     if (!analistaPodeSlot_(analista, slot)) {
       stats.avisos.push(analista + ' não executa ' + slot + ' (ignorado)');
       return;
@@ -777,40 +832,46 @@ function executarModoCotas_(data, cols, header, semana, cfg, stats) {
       slot: slot,
       quantidade: qtd || 0,
       semanaInteira: !!semanaInteira,
+      diaSemana: diaSemana || null,
+      diaInteiro: !!diaInteiro,
     });
   }
 
-  function resolverCotaDistrito_(c) {
-    const semInt = !!c.semanaInteira;
-    if (!c.slot || (!semInt && (!c.quantidade || c.quantidade <= 0))) return;
-    const distrito = String(c.distrito || '').trim();
-    const global_ = cotaUsaElegiveisGlobais_(c);
-    const vistos = {};
-    for (let r = 1; r < data.length; r++) {
-      if (parseSemana_(data[r][cols.semana]) !== semana) continue;
-      const a = String(data[r][cols.analista] || '').trim();
-      if (!a || vistos[a]) continue;
-      if (!analistaEstaAtivo_(a, ativosSet)) continue;
-      if (!analistaPodeSlot_(a, c.slot)) continue;
-      if (global_) {
-        if (!analistaTemLinhaNaSemana_(data, cols, semana, a)) continue;
-      } else if (!analistaTemDistritoNaSemana_(data, cols, semana, a, distrito)) {
-        continue;
-      }
-      vistos[a] = true;
-      addDemanda(a, c.slot, c.quantidade, semInt);
-    }
-    if (!Object.keys(vistos).length) {
-      stats.avisos.push('Sem elegíveis: ' + (distrito || c.slot) + ' / ' + c.slot);
+  function registrarDemandaDeAlocacao_(c, analista) {
+    const slot = String(c.slot || '').trim();
+    const diaVal = String(c.dia || '').trim();
+    const isSemana = !diaVal || diaVal === '__semana__';
+    const inteiro = !!c.inteiro;
+    const qtd = c.quantidade || 0;
+    if (!slot) return;
+    if (!inteiro && qtd <= 0) return;
+    if (isSemana) {
+      addDemanda(analista, slot, qtd, inteiro, null, false);
+    } else {
+      addDemanda(analista, slot, qtd, false, normalizarDia_(diaVal), inteiro);
     }
   }
 
-  (cfg.cotasDistrito || []).forEach(resolverCotaDistrito_);
+  const analistasAlvo = Object.keys(ativosSet).filter(function (a) { return ativosSet[a]; });
+
+  (cfg.alocacoes || []).forEach(function (c) {
+    analistasAlvo.forEach(function (analista) {
+      registrarDemandaDeAlocacao_(c, analista);
+    });
+  });
+
+  (cfg.cotasAnalista || []).forEach(function (c) {
+    const analista = String(c.analista || '').trim();
+    if (analista) {
+      registrarDemandaDeAlocacao_(c, analista);
+    }
+  });
 
   const rowsPorAnalista = {};
   for (let r = 1; r < data.length; r++) {
-    if (parseSemana_(data[r][cols.semana]) !== semana) continue;
-    const analista = String(data[r][cols.analista] || '').trim();
+    if (!linhaPertenceSemana_(data[r], cols, semana)) continue;
+    const analista = resolverAnalistaDaLinha_(data[r], cols);
+    if (!analista || !ANALISTAS[analista]) continue;
     if (!rowsPorAnalista[analista]) rowsPorAnalista[analista] = [];
     rowsPorAnalista[analista].push(r);
   }
@@ -822,29 +883,91 @@ function executarModoCotas_(data, cols, header, semana, cfg, stats) {
       stats.semTurno.push(analista);
       return;
     }
-    alocarDemandasAnalista_(data, cols, header, acfg, rowsPorAnalista[analista], demandasPorAnalista[analista] || [], stats, analista);
+    const demandas = demandasPorAnalista[analista] || [];
+    if (!demandas.length) return;
+    alocarDemandasAnalista_(data, cols, header, acfg, rowsPorAnalista[analista], demandas, stats, analista);
   });
 }
 
 function alocarDemandasAnalista_(data, cols, header, acfg, filas, demandas, stats, analista) {
+  if (!demandas.length) return;
   const dias = [];
   filas.forEach(function (r) {
-    const prep = prepararLinhaBase_(data[r], cols.timeIndices, header, acfg, stats.avisos);
-    commitValores_(data, r, cols.timeIndices, prep.valores, stats);
     dias.push({
       row: r,
       dia: normalizarDia_(getDiaSemana_(data[r], cols)),
-      disponiveis: prep.disponiveis.slice(),
+      disponiveis: calcularDisponiveisDaLinha_(data[r], cols.timeIndices, header, acfg),
     });
     stats.processadas++;
   });
   dias.sort(function (a, b) { return ordemDia_(a.dia) - ordemDia_(b.dia); });
 
+  function alocarBlocosNoPool_(pool, slot, qtd) {
+    let faltam = qtd;
+    pool.sort(function (a, b) { return a.ordem - b.ordem; });
+    pool.forEach(function (p) {
+      if (faltam <= 0) return;
+      const ci = cols.timeIndices[p.idx];
+      const cur = String(data[p.row][ci] || '').trim();
+      if (canOverwrite_(cur)) {
+        data[p.row][ci] = slot;
+        registrarSlotAlterado_(stats, slot, cur, slot);
+        faltam--;
+      }
+    });
+    return faltam;
+  }
+
+  function preencherDiaInteiro_(dayObjs, slot) {
+    dayObjs.forEach(function (dayObj) {
+      dayObj.disponiveis.forEach(function (idx) {
+        const ci = cols.timeIndices[idx];
+        const cur = String(data[dayObj.row][ci] || '').trim();
+        if (canOverwrite_(cur)) {
+          data[dayObj.row][ci] = slot;
+          registrarSlotAlterado_(stats, slot, cur, slot);
+        }
+      });
+    });
+  }
+
   const sorted = (demandas || []).slice().sort(function (a, b) {
     return prioridadeSlot_(a.slot) - prioridadeSlot_(b.slot);
   });
-  const comQtd = sorted.filter(function (d) { return !d.semanaInteira; });
-  const semInt = sorted.filter(function (d) { return d.semanaInteira; });
+  const weekDemands = [];
+
+  sorted.forEach(function (d) {
+    if (d.diaSemana) {
+      const dayObjs = dias.filter(function (x) { return x.dia === d.diaSemana; });
+      if (!dayObjs.length) {
+        const diasEncontrados = dias.map(function (x) { return x.dia || '?'; }).join(', ');
+        stats.avisos.push(
+          analista + ': sem linha em ' + d.diaSemana + ' para ' + d.slot +
+          ' (dias encontrados: ' + diasEncontrados + ')'
+        );
+        return;
+      }
+      if (d.diaInteiro) {
+        preencherDiaInteiro_(dayObjs, d.slot);
+      } else {
+        const pool = [];
+        dayObjs.forEach(function (dayObj) {
+          dayObj.disponiveis.forEach(function (idx) {
+            pool.push({ row: dayObj.row, idx: idx, ordem: dayObj.row * 1000 + idx });
+          });
+        });
+        const faltam = alocarBlocosNoPool_(pool, d.slot, d.quantidade);
+        if (faltam > 0) {
+          stats.avisos.push(analista + ': faltam ' + faltam + ' blocos de ' + d.slot + ' em ' + d.diaSemana);
+        }
+      }
+    } else {
+      weekDemands.push(d);
+    }
+  });
+
+  const comQtd = weekDemands.filter(function (d) { return !d.semanaInteira; });
+  const semInt = weekDemands.filter(function (d) { return d.semanaInteira; });
 
   let poolRestante = [];
   dias.forEach(function (d) {
@@ -862,7 +985,7 @@ function alocarDemandasAnalista_(data, cols, header, acfg, filas, demandas, stat
       const cur = String(data[p.row][ci] || '').trim();
       if (canOverwrite_(cur)) {
         data[p.row][ci] = d.slot;
-        stats.slots[d.slot] = (stats.slots[d.slot] || 0) + 1;
+        registrarSlotAlterado_(stats, d.slot, cur, d.slot);
         faltam--;
         return false;
       }
@@ -883,7 +1006,7 @@ function alocarDemandasAnalista_(data, cols, header, acfg, filas, demandas, stat
         const cur = String(data[d.row][ci] || '').trim();
         if (canOverwrite_(cur)) {
           data[d.row][ci] = slot;
-          stats.slots[slot] = (stats.slots[slot] || 0) + 1;
+          registrarSlotAlterado_(stats, slot, cur, slot);
         }
       });
     });
@@ -894,20 +1017,50 @@ function alocarDemandasAnalista_(data, cols, header, acfg, filas, demandas, stat
       const cur = String(data[p.row][ci] || '').trim();
       if (canOverwrite_(cur)) {
         data[p.row][ci] = dem.slot;
-        stats.slots[dem.slot] = (stats.slots[dem.slot] || 0) + 1;
+        registrarSlotAlterado_(stats, dem.slot, cur, dem.slot);
       }
     });
   }
 }
 
-// --- Linha: base (break + fora expediente) ---
+function calcularDisponiveisDaLinha_(row, timeIndices, header, acfg) {
+  const timeLabels = timeIndices.map(function (ci) {
+    return normalizeTimeHeader_(header[ci]);
+  });
+  const expSet = {};
+  indicesExpediente_(acfg.entrada, acfg.saida, timeLabels).forEach(function (i) {
+    expSet[i] = true;
+  });
+  // Respeita break_inicio de ANALISTAS — não aloca nos 2 blocos de 30 min do almoço
+  const brkList = indicesBreak_(acfg.break_inicio, timeLabels);
+  const brkSet = {};
+  brkList.forEach(function (i) { brkSet[i] = true; });
+  const disponiveis = [];
+  for (let i = 0; i < timeIndices.length; i++) {
+    if (!expSet[i] || brkSet[i]) continue;
+    const cur = String(row[timeIndices[i]] == null ? '' : row[timeIndices[i]]).trim();
+    if (isProtected_(cur)) continue;
+    if (canOverwrite_(cur)) disponiveis.push(i);
+  }
+  return disponiveis;
+}
+
+function registrarSlotAlterado_(stats, slot, prev, next) {
+  const p = String(prev || '').trim();
+  const n = String(next || '').trim();
+  if (n && n !== p) {
+    stats.slots[n] = (stats.slots[n] || 0) + 1;
+  }
+}
+
+// --- Linha: base (break + fora expediente) — só modo expediente legado ---
 
 function prepararLinhaBase_(row, timeIndices, header, acfg, avisos) {
   const valores = timeIndices.map(function (ci) {
     return String(row[ci] == null ? '' : row[ci]).trim();
   });
   const timeLabels = timeIndices.map(function (ci) {
-    return normalizeHeader_(header[ci]);
+    return normalizeTimeHeader_(header[ci]);
   });
   const expSet = {};
   indicesExpediente_(acfg.entrada, acfg.saida, timeLabels).forEach(function (i) {
@@ -983,9 +1136,14 @@ function aplicarDiaNaLinha_(row, timeIndices, header, acfg, diaSemana, avisos, o
 
 function commitValores_(data, r, timeIndices, valores, stats) {
   for (let i = 0; i < timeIndices.length; i++) {
+    const ci = timeIndices[i];
     const v = valores[i];
-    data[r][timeIndices[i]] = v;
-    if (v) stats.slots[v] = (stats.slots[v] || 0) + 1;
+    const prev = String(data[r][ci] == null ? '' : data[r][ci]).trim();
+    const next = String(v == null ? '' : v).trim();
+    data[r][ci] = v;
+    if (next && next !== prev) {
+      stats.slots[next] = (stats.slots[next] || 0) + 1;
+    }
   }
 }
 
@@ -1048,8 +1206,97 @@ function canOverwrite_(value) {
   const v = String(value || '').trim();
   if (!v) return true;
   if (isProtected_(v)) return false;
-  if (v === 'AVLB' && SUBSTITUIR_AVLB) return true;
+  return true;
+}
+
+function resolverAnalistaDaLinha_(row, cols) {
+  const rawAnalista = cols.analista >= 0 ? String(row[cols.analista] || '').trim() : '';
+  let id = normalizarAnalistaId_(rawAnalista);
+  if (id && ANALISTAS[id]) return id;
+  if (cols.email >= 0) {
+    id = normalizarAnalistaId_(row[cols.email]);
+    if (id && ANALISTAS[id]) return id;
+  }
+  return id || rawAnalista;
+}
+
+function parseSemanaFromDate_(val) {
+  if (val == null || val === '') return NaN;
+  let d;
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    d = val;
+  } else {
+    const s = String(val).trim();
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+    } else {
+      d = new Date(s);
+    }
+  }
+  if (!d || isNaN(d.getTime())) return NaN;
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function linhaPertenceSemana_(row, cols, semana) {
+  if (parseSemana_(row[cols.semana]) === semana) return true;
+  if (cols.data >= 0) {
+    return parseSemanaFromDate_(row[cols.data]) === semana;
+  }
   return false;
+}
+
+function diaDaData_(val) {
+  if (val == null || val === '') return '';
+  const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+  let d;
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    d = val;
+  } else {
+    const s = String(val).trim();
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+    } else {
+      d = new Date(s);
+    }
+  }
+  if (!d || isNaN(d.getTime())) return '';
+  const dow = d.getDay();
+  if (dow >= 1 && dow <= 5) return DIAS[dow];
+  return '';
+}
+
+function normalizarAnalistaId_(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  const lower = s.toLowerCase();
+  const user = lower.split('@')[0];
+  if (ANALISTAS[s]) return s;
+  if (ANALISTAS[user]) return user;
+  const ids = Object.keys(ANALISTAS);
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    if (id.toLowerCase() === lower || id.toLowerCase() === user) return id;
+  }
+  return s;
+}
+
+function normalizeTimeHeader_(h) {
+  if (h instanceof Date) {
+    return Utilities.formatDate(h, Session.getScriptTimeZone(), 'HH:mm');
+  }
+  const s = String(h).trim();
+  const parts = s.split(':');
+  if (parts.length >= 2) {
+    const hh = String(parseInt(parts[0], 10)).padStart(2, '0');
+    const mm = String(parseInt(String(parts[1]).replace(/\D/g, ''), 10)).padStart(2, '0');
+    return hh + ':' + mm;
+  }
+  return s;
 }
 
 // --- Helpers planilha ---
@@ -1065,18 +1312,33 @@ function mapColumns_(header) {
   const timeCols = gerarColunasHorario_();
   const timeIndices = [];
   for (let i = 0; i < header.length; i++) {
-    if (timeCols.indexOf(normalizeHeader_(header[i])) >= 0) timeIndices.push(i);
+    if (timeCols.indexOf(normalizeTimeHeader_(header[i])) >= 0) timeIndices.push(i);
   }
-  let colDia = findCol_(header, ['DIA SEMANA', 'DIA_SEMANA']);
+  if (!timeIndices.length) {
+    for (let j = 8; j < header.length; j++) {
+      const norm = normalizeTimeHeader_(header[j]);
+      if (/^\d{2}:\d{2}$/.test(norm)) timeIndices.push(j);
+    }
+  }
+  let colDia = findCol_(header, ['DIA SEMANA', 'DIA_SEMANA', 'DIA DA SEMANA', 'DIA']);
+  if (colDia < 0 && header.length > 2) colDia = 2;
+  let colSemana = findCol_(header, ['SEMANA', 'WEEK']);
+  if (colSemana < 0 && header.length > 4) colSemana = 4;
+  let colAnalista = findCol_(header, ['ANALISTA', 'ANALYST']);
+  if (colAnalista < 0 && header.length > 6) colAnalista = 6;
+  let colEmail = findCol_(header, ['E-MAIL', 'EMAIL', 'E_MAIL']);
+  if (colEmail < 0 && header.length > 7) colEmail = 7;
+  let colData = findCol_(header, ['DATA', 'DATE']);
+  if (colData < 0 && header.length > 3) colData = 3;
   const unitIndices = [];
   for (let i = 0; i < header.length; i++) {
     if (header[i] === 'UNIT/PACK' || header[i] === 'UNIT_PACK') unitIndices.push(i);
   }
-  if (colDia < 0 && unitIndices.length >= 2) colDia = unitIndices[1];
-  else if (colDia < 0 && unitIndices.length === 1) colDia = unitIndices[0];
   return {
-    semana: findCol_(header, ['SEMANA']),
-    analista: findCol_(header, ['ANALISTA']),
+    semana: colSemana,
+    analista: colAnalista,
+    email: colEmail,
+    data: colData,
     distrito: findCol_(header, ['DISTRITO']),
     dia: colDia,
     unitPack: unitIndices.length ? unitIndices[0] : -1,
@@ -1096,21 +1358,29 @@ function findCol_(header, names) {
 }
 
 function getDiaSemana_(row, cols) {
-  if (cols.dia >= 0 && row[cols.dia]) return String(row[cols.dia]);
+  if (cols.dia >= 0 && row[cols.dia] != null && row[cols.dia] !== '') {
+    const raw = String(row[cols.dia]).trim();
+    if (normalizarDia_(raw)) return raw;
+  }
+  if (cols.data >= 0) {
+    const fromDate = diaDaData_(row[cols.data]);
+    if (fromDate) return fromDate;
+  }
   if (cols.unitPack >= 0) {
     const u = String(row[cols.unitPack] || '');
-    if (/segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo/i.test(u)) return u;
+    if (/segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo/i.test(u)) return u.trim();
   }
   return '';
 }
 
 function normalizarDia_(dia) {
-  const d = String(dia).toLowerCase();
-  if (d.indexOf('segunda') >= 0) return 'segunda';
-  if (d.indexOf('terça') >= 0 || d.indexOf('terca') >= 0) return 'terca';
-  if (d.indexOf('quarta') >= 0) return 'quarta';
-  if (d.indexOf('quinta') >= 0) return 'quinta';
-  if (d.indexOf('sexta') >= 0) return 'sexta';
+  const d = String(dia).toLowerCase().trim();
+  if (!d) return '';
+  if (d.indexOf('segunda') >= 0 || d === 'seg') return 'segunda';
+  if (d.indexOf('terça') >= 0 || d.indexOf('terca') >= 0 || d === 'ter') return 'terca';
+  if (d.indexOf('quarta') >= 0 || d === 'qua') return 'quarta';
+  if (d.indexOf('quinta') >= 0 || d === 'qui') return 'quinta';
+  if (d.indexOf('sexta') >= 0 || d === 'sex') return 'sexta';
   return d;
 }
 
@@ -1147,7 +1417,12 @@ function buildReport_(semanas, stats) {
     lines.push('Sem turno: ' + Object.keys(uniq).join(', '));
   }
   if (stats.avisos.length) {
-    lines.push('Avisos: ' + stats.avisos.slice(0, 6).join('; '));
+    lines.push('Avisos: ' + stats.avisos.slice(0, 8).join('; '));
+  }
+  let totalBlocos = 0;
+  Object.keys(stats.slots).forEach(function (s) { totalBlocos += stats.slots[s]; });
+  if (totalBlocos === 0) {
+    lines.push('Nenhum bloco alterado — confira semana, analistas marcados, dia da semana e se há linhas na planilha.');
   }
   lines.push('Slots aplicados (top):');
   Object.keys(stats.slots).sort(function (a, b) {
