@@ -1526,7 +1526,7 @@ let data={notice:{title:'',text:''},sections:[]};
 let editMode=false;
 const GIST_FILENAME='quality-hub-data.json';
 const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
-const DIM_GAS_DIRECT_URL='https://script.google.com/a/macros/nubank.com.br/s/AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5/exec';
+const DIM_GAS_DIRECT_URL='https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec';
 // NÃO cole token aqui — o GitHub bloqueia o push (secret scanning).
 // Admin: salve o token compartilhado em Configuração → Técnico (vai pro Gist, não pro Git).
 const DEFAULT_PACK_TOKEN='';
@@ -3399,7 +3399,7 @@ function showPage(page){
 
 function normalizeDimGasUrl(url){
   const v=String(url||'').trim();
-  if(!v||v.indexOf('AKfycbzj23vyenWabiFcDlqiT8')>=0) return DIM_GAS_DIRECT_URL;
+  if(!v||v.indexOf('AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5')>=0) return DIM_GAS_DIRECT_URL;
   return v;
 }
 function syncDimGasDirectLink(){
@@ -5981,7 +5981,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   </div><!-- end dimAppContent -->
   <footer class="dim-fallback-footer" aria-label="Alternativa App Script">
     Problemas no Hub?
-    <a id="dimGasDirectLink" href="https://script.google.com/a/macros/nubank.com.br/s/AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5/exec" target="_blank" rel="noopener noreferrer">Abra o dimensionamento direto na plataforma</a>
+    <a id="dimGasDirectLink" href="https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec" target="_blank" rel="noopener noreferrer">Abra o dimensionamento direto na plataforma</a>
   </footer>
 </div>
 </div><!-- end layout -->
