@@ -220,7 +220,7 @@ const DISTRITOS_LISTA = [
 const ANALISTA_FAMILIAS = {
   'alan.clovis':        ['ID'],
   'tiago.genangello':   ['ID'],
-  'matheus.santos2':    ['ID' ,'VP'],
+  'matheus.santos2':    ['ID', 'VP'],
   'livia.lyra':         ['ID'],
   'luciana.ramos':      ['ID'],
   'evelyn.marconi':     ['CSAT'],
@@ -278,7 +278,7 @@ const ANALISTAS = {
   'luciana.ramos':      { distrito: 'Identity',           entrada: '11:00', saida: '20:00', break_inicio: '15:00' },
   'evelyn.marconi':     { distrito: 'Csat',               entrada: '07:00', saida: '16:00', break_inicio: '12:00' },
   'felipe.rosado':      { distrito: 'Csat',               entrada: '08:00', saida: '17:00', break_inicio: '12:00' },
-  'mayara.kin':         { distrito: 'Csat',               entrada: '09:00', saida: '18:00', break_inicio: '13:00' },
+  'mayara.kin':         { distrito: 'Csat',               entrada: '07:00', saida: '16:00', break_inicio: '12:00' },
 };
 
 const PROTECTED_EXACT = ['Break', 'Weekly', 'Mission Control'];
@@ -393,7 +393,7 @@ function getDialogHtml_() {
 
   <div class="box">
     <strong>2. Alocações</strong>
-    <p class="muted">Cada linha aplica a <strong>todos os analistas marcados</strong>. O horário de <strong>Break</strong> de cada um já está no turno (ex.: alan 12h, matheus 13h) — o menu <strong>não altera</strong> Break; só preenche o slot nas demais células do período.</p>
+    <p class="muted">Cada linha aplica a <strong>todos os analistas marcados</strong>. O <strong>Break</strong> de cada um é preenchido automaticamente conforme o turno (ex.: alan 12h, matheus 13h) antes das alocações.</p>
     <table>
       <thead>
         <tr><th>Slot</th><th>Quando</th><th class="col-qtd">Qtd</th><th class="col-check">Inteiro</th><th></th></tr>
@@ -547,6 +547,7 @@ function slotParaFamilia_(slot) {
   if (s === 'GS - VP' || s === 'PlanilhaVP' || s === 'VP') return 'VP';
   if (s === 'GS - GM' || s === 'PlanilhaGM' || s === 'GM') return 'GM';
   if (s === 'GS - TR' || s === 'PlanilhaTR' || s === 'TR') return 'TR';
+  if (s === 'CSAT' || s === 'ProjCSAT') return 'CSAT';
   return null;
 }
 
@@ -883,6 +884,11 @@ function executarModoCotas_(data, cols, header, semana, cfg, stats) {
       stats.semTurno.push(analista);
       return;
     }
+    rowsPorAnalista[analista].forEach(function (r) {
+      const distritoPlanilha = cols.distrito >= 0 ? String(data[r][cols.distrito] || '').trim() : '';
+      const rowCfg = getAnalystConfig_(analista, distritoPlanilha) || acfg;
+      aplicarBreakNaLinha_(data, r, cols, header, rowCfg, stats, analista);
+    });
     const demandas = demandasPorAnalista[analista] || [];
     if (!demandas.length) return;
     alocarDemandasAnalista_(data, cols, header, acfg, rowsPorAnalista[analista], demandas, stats, analista);
@@ -1043,6 +1049,33 @@ function calcularDisponiveisDaLinha_(row, timeIndices, header, acfg) {
     if (canOverwrite_(cur)) disponiveis.push(i);
   }
   return disponiveis;
+}
+
+function aplicarBreakNaLinha_(data, r, cols, header, acfg, stats, analista) {
+  const timeLabels = cols.timeIndices.map(function (ci) {
+    return normalizeTimeHeader_(header[ci]);
+  });
+  const expSet = {};
+  indicesExpediente_(acfg.entrada, acfg.saida, timeLabels).forEach(function (i) {
+    expSet[i] = true;
+  });
+  const brkList = indicesBreak_(acfg.break_inicio, timeLabels);
+  if (!brkList.length) {
+    stats.avisos.push(
+      (analista || 'Analista') + ': coluna de break não encontrada para ' + acfg.break_inicio +
+      ' (confira cabeçalhos 12:00 / 12:30)'
+    );
+    return;
+  }
+  brkList.forEach(function (i) {
+    if (!expSet[i]) return;
+    const ci = cols.timeIndices[i];
+    const cur = String(data[r][ci] == null ? '' : data[r][ci]).trim();
+    if (canOverwrite_(cur)) {
+      data[r][ci] = 'Break';
+      registrarSlotAlterado_(stats, 'Break', cur, 'Break');
+    }
+  });
 }
 
 function registrarSlotAlterado_(stats, slot, prev, next) {
