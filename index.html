@@ -1737,7 +1737,11 @@ function enterAsVisitor(){
   renderAccessStatusBox();
   updateEditButtonVisibility();
   closeName();
-  loadFromGist({force:true});
+  loadFromGist({force:true}).then(()=>{
+    if(!isPackDataReady(data)){
+      showDataLoadWarning('Não foi possível carregar os links. Clique em Tentar novamente ou recarregue (Ctrl+Shift+R).');
+    }
+  });
   if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
 }
 function showAuthChoose(){
@@ -2549,16 +2553,20 @@ async function fetchGistRaw(gistId){
   return fetch(url,{cache:'no-store'});
 }
 async function fetchPackSnapshot(){
-  const base=location.pathname.replace(/\/[^/]*$/,'/')||'/';
-  const url=base+PACK_SNAPSHOT_FILE+'?_='+Date.now();
-  const res=await fetch(url,{cache:'no-store'});
+  const url=new URL(PACK_SNAPSHOT_FILE,location.href);
+  url.searchParams.set('_',String(Date.now()));
+  const res=await fetch(url.toString(),{cache:'no-store'});
   if(!res.ok) throw new Error('Snapshot indisponível ('+res.status+')');
   const parsed=await res.json();
+  stripPackTokenFromParsed(parsed);
   if(!parsed?.sections?.length) throw new Error('Snapshot do pack inválido');
   return {parsed,updatedAt:parsed.packUpdatedAt||null,source:'snapshot'};
 }
 async function fetchPackFromGist(gistId,{auth=false}={}){
   const errors=[];
+  if(!auth){
+    try{ return await fetchPackSnapshot(); }catch(e){ errors.push('snapshot: '+(e.message||String(e))); }
+  }
   try{
     const res=await fetchGistApi(gistId,{auth});
     if(res.ok){
@@ -2566,6 +2574,7 @@ async function fetchPackFromGist(gistId,{auth=false}={}){
       const file=json.files[GIST_FILENAME];
       if(file?.content){
         const parsed=JSON.parse(file.content);
+        stripPackTokenFromParsed(parsed);
         if(parsed?.sections?.length) return {parsed,updatedAt:json.updated_at||null,source:'api'};
         errors.push('Dados do pack inválidos');
       }else errors.push('Arquivo não encontrado no Gist');
@@ -2575,12 +2584,13 @@ async function fetchPackFromGist(gistId,{auth=false}={}){
     const res=await fetchGistRaw(gistId);
     if(!res.ok) throw new Error('Raw gist indisponível ('+res.status+')');
     const parsed=await res.json();
+    stripPackTokenFromParsed(parsed);
     if(!parsed?.sections?.length) throw new Error('Dados do pack inválidos (raw)');
     return {parsed,updatedAt:null,source:'raw'};
   }catch(e){ errors.push(e.message||String(e)); }
-  try{
-    return await fetchPackSnapshot();
-  }catch(e){ errors.push(e.message||String(e)); }
+  if(auth){
+    try{ return await fetchPackSnapshot(); }catch(e){ errors.push('snapshot: '+(e.message||String(e))); }
+  }
   throw new Error(errors.filter(Boolean).join('; ')||'Falha ao carregar pack');
 }
 function getLoadingPackShell(){
@@ -2599,13 +2609,21 @@ function clearPlaceholderPackCache(){
     if(saved&&isUsingPlaceholderData(JSON.parse(saved))) localStorage.removeItem('qhub_data');
   }catch(e){ localStorage.removeItem('qhub_data'); }
 }
+function isLoadingPackShell(d){
+  return d?.notice?.title==='Carregando...'&&!(d?.sections?.length);
+}
 function isUsingPlaceholderData(d){
-  if(!d) return true;
+  if(!d||isLoadingPackShell(d)) return false;
   if(d.notice?.title==='Bem-vindos ao pack!') return true;
   const links=(d.sections||[]).flatMap(s=>s.links||[]);
   if(!links.length) return true;
   const hashCount=links.filter(l=>l.url==='#').length;
   return hashCount>links.length/2;
+}
+function isPackDataReady(d){
+  if(!d?.sections?.length) return false;
+  const links=d.sections.flatMap(s=>s.links||[]);
+  return links.length>0&&!isUsingPlaceholderData(d);
 }
 function showDataLoadWarning(msg){
   const el=document.getElementById('dataLoadWarning');
@@ -2759,6 +2777,8 @@ async function loadFromGistInner(){
     hideStatus();
     if(isUsingPlaceholderData(parsed)){
       showDataLoadWarning('Não foi possível carregar os links do pack. Verifique VPN/rede ou tente novamente.');
+    }else if(!isPackDataReady(data)){
+      showDataLoadWarning('Links do pack não carregaram. Clique em Tentar novamente ou recarregue a página.');
     }
     if(priArchivedRestorePending){
       priArchivedRestorePending=false;
@@ -2774,8 +2794,14 @@ async function loadFromGistInner(){
   }catch(e){
     hideStatus();
     clearPlaceholderPackCache();
+    try{
+      const {parsed,updatedAt}=await fetchPackSnapshot();
+      applyLoadedPackData(parsed,updatedAt);
+      hideDataLoadWarning();
+      return;
+    }catch(snapshotErr){ /* fall through */ }
     loadLocal();
-    if(isUsingPlaceholderData(data)){
+    if(isUsingPlaceholderData(data)||!isPackDataReady(data)){
       showDataLoadWarning('Não foi possível carregar os links do pack. Verifique VPN/rede ou tente novamente.');
     }else{
       showStatus('error','Erro ao carregar Gist: '+e.message+'. Usando dados locais.');
@@ -2835,7 +2861,7 @@ function loadLocal(){
   normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();
 }
 function saveLocal(){
-  if(isUsingPlaceholderData(data)) return;
+  if(isUsingPlaceholderData(data)||isLoadingPackShell(data)) return;
   localStorage.setItem('qhub_data',JSON.stringify(data));
 }
 
@@ -5820,8 +5846,9 @@ async function loadHubBuildFooter(){
     el.title=String(e&&e.message||e);
   }
 }
-window.addEventListener('DOMContentLoaded',()=>{
+window.addEventListener('DOMContentLoaded',async()=>{
   try{
+    if(isVisitor()) clearPlaceholderPackCache();
     loadLocal();
     if(!isVisitor()&&typeof dimScheduleWarmup==='function') dimScheduleWarmup();
     initProfileForm();
@@ -5836,7 +5863,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(savedPage && savedPage !== 'links') showPage(savedPage);
     renderUserChip();
     if(!hasClaimedIdentity()||needsMandatoryToken()) openNameModal();
-    loadFromGist();
+    await loadFromGist();
     initPriGridEvents();
     loadHubBuildFooter();
   }catch(e){
