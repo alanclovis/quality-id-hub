@@ -229,6 +229,7 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .status-bar.loading{background:var(--purple-bg);border:1px solid rgba(139,92,246,0.25);color:var(--purple-l);display:flex;}
 .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center;}
 .modal-backdrop.active{display:flex;}
+#configModal{z-index:650;}
 .modal{background:var(--bg2);border:1px solid var(--border-h);border-radius:14px;padding:1.5rem;width:100%;max-width:420px;margin:1rem;}
 .modal h3{font-size:15px;font-weight:600;margin-bottom:4px;}
 .modal p{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:1rem;}
@@ -1359,6 +1360,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   <div class="header-actions">
     <span class="tag-edit" id="editModeTag"><i class="ti ti-pencil"></i> Modo edição</span>
     <button class="btn" id="btnSave" style="display:none" onclick="saveToGist()"><i class="ti ti-cloud-upload"></i> Salvar</button>
+    <button class="btn primary" id="btnEnterHub" onclick="openNameModal()" style="display:none"><i class="ti ti-login"></i> Entrar</button>
     <div class="user-chip" id="userChip" onclick="openNameModal()" title="Editar perfil" style="display:none"><div class="user-avatar profile-av" id="userAvatarEl"></div><span id="userNameEl"></span></div>
     <button class="btn icon-only" onclick="openGuide()" title="Guia de uso" aria-label="Guia de uso"><i class="ti ti-help"></i></button>
     <button class="btn icon-only" onclick="openStats()" title="Estatísticas de uso" aria-label="Estatísticas de uso" id="btnStats"><i class="ti ti-chart-bar"></i></button>
@@ -1799,9 +1801,22 @@ function clearIdentitySession(){
   localStorage.removeItem('qhub_claimed_name');
   localStorage.removeItem('qhub_saved_invite_code');
 }
+function rebindIdentityByName(){
+  const name=localStorage.getItem('qhub_username');
+  if(!name||name==='Visitante') return false;
+  ensureAccessUsers();
+  const u=data.accessUsers.find(x=>x.status==='active'&&namesMatch(x.name,name));
+  if(!u) return false;
+  localStorage.setItem('qhub_user_id',u.id);
+  localStorage.setItem('qhub_username',u.name);
+  localStorage.setItem('qhub_claimed_name','1');
+  if(u.inviteCode) localStorage.setItem('qhub_saved_invite_code',u.inviteCode);
+  return true;
+}
 function validateStoredIdentity(){
   const uid=localStorage.getItem('qhub_user_id');
   if(!uid||localStorage.getItem('qhub_claimed_name')!=='1'){
+    if(rebindIdentityByName()) return true;
     clearIdentitySession();
     return false;
   }
@@ -1817,6 +1832,7 @@ function validateStoredIdentity(){
   }
   const u=getAccessUserById(uid);
   if(!u||u.status!=='active'){
+    if(rebindIdentityByName()) return true;
     const savedCode=localStorage.getItem('qhub_saved_invite_code');
     if(savedCode&&restoreIdentityFromCode(savedCode)) return true;
     clearIdentitySession();
@@ -2349,11 +2365,11 @@ function renderAccessStatusBox(){
   const tabTech=document.getElementById('configTabTech');
   if(!box) return;
   const name=getUserName();
-  tabUsers.style.display=canManageAccess()?'inline-flex':'none';
-  tabTech.style.display='inline-flex';
+  if(tabUsers) tabUsers.style.display=canManageAccess()?'inline-flex':'none';
+  if(tabTech) tabTech.style.display='inline-flex';
   if(!name){
-    box.innerHTML='<div class="access-empty">Escolha <strong>Visitante</strong> ou <strong>Membro do pack</strong> no popup de entrada (ou clique no seu nome no topo).</div>';
-    hint.textContent='';
+    box.innerHTML='<div class="access-empty">Você não está identificado. <button class="btn primary btn-sm" type="button" style="margin-top:10px;width:100%;justify-content:center" onclick="closeConfig();openNameModal()"><i class="ti ti-login"></i> Entrar no pack</button></div>';
+    if(hint) hint.textContent='Use seu código pessoal (Slack) ou o fluxo de admin na aba Técnico.';
     return;
   }
   const u=getAccessUserRecord(name);
@@ -2519,36 +2535,48 @@ function saveConfig(){
 function updateEditButtonVisibility(){
   const btn=document.getElementById('btnEditMode');
   if(btn) btn.style.display=canEditContent()?'flex':'none';
+  const enterBtn=document.getElementById('btnEnterHub');
+  if(enterBtn) enterBtn.style.display=hasClaimedIdentity()?'none':'inline-flex';
   const priBtn=document.getElementById('btnPriEdit');
   if(priBtn) priBtn.style.display=canEditContent()&&!priEditMode?'inline-flex':'none';
   const refreshBtn=document.getElementById('btnRefreshPack');
   if(refreshBtn) refreshBtn.style.display=getGistId()?'flex':'none';
 }
 function openConfig(){
-  document.getElementById('tokenInput').value=localStorage.getItem('qhub_token')||'';
-  document.getElementById('gistIdInput').value=getGistId();
-  ensureDimensionamentoData();
-  const dimInp=document.getElementById('dimBridgeUrlInput');
-  if(dimInp) dimInp.value=(typeof dimGetBridgeUrl==='function'?dimGetBridgeUrl():localStorage.getItem('qhub_dim_bridge_url'))||'';
-  const packBox=document.getElementById('packSharedTokenBox');
-  const packInp=document.getElementById('packSharedTokenInput');
-  if(packBox) packBox.style.display=canManageAccess()?'block':'none';
-  if(packInp){
-    ensureAuthConfig();
-    packInp.value='';
-    packInp.placeholder=getEmbeddedPackToken()?'Token do pack já configurado (digite para substituir)':'ghp_...';
+  document.getElementById('nameBackdrop')?.classList.remove('active');
+  try{
+    document.getElementById('tokenInput').value=localStorage.getItem('qhub_token')||'';
+    document.getElementById('gistIdInput').value=getGistId();
+    ensureDimensionamentoData();
+    const dimInp=document.getElementById('dimBridgeUrlInput');
+    if(dimInp) dimInp.value=(typeof dimGetBridgeUrl==='function'?dimGetBridgeUrl():localStorage.getItem('qhub_dim_bridge_url'))||'';
+    const packBox=document.getElementById('packSharedTokenBox');
+    const packInp=document.getElementById('packSharedTokenInput');
+    if(packBox) packBox.style.display=canManageAccess()?'block':'none';
+    if(packInp){
+      ensureAuthConfig();
+      packInp.value='';
+      packInp.placeholder=getEmbeddedPackToken()?'Token do pack já configurado (digite para substituir)':'ghp_...';
+    }
+    const techHint=document.getElementById('techConfigHint');
+    if(techHint){
+      techHint.textContent=hasEmbeddedPackToken()
+        ? 'Token compartilhado já está no pack — membros usam só o código pessoal. Abaixo: token deste navegador (opcional).'
+        : 'Token GitHub com permissão gist. Admin pode salvar um token compartilhado abaixo para o time não precisar configurar.';
+    }
+    switchConfigTab('access');
+    renderAccessStatusBox();
+  }catch(e){
+    console.error('openConfig',e);
+    const box=document.getElementById('accessStatusBox');
+    if(box) box.innerHTML='<div class="access-empty">Erro ao abrir configuração. Recarregue a página ou limpe o cache do navegador.</div>';
   }
-  const techHint=document.getElementById('techConfigHint');
-  if(techHint){
-    techHint.textContent=hasEmbeddedPackToken()
-      ? 'Token compartilhado já está no pack — membros usam só o código pessoal. Abaixo: token deste navegador (opcional).'
-      : 'Token GitHub com permissão gist. Admin pode salvar um token compartilhado abaixo para o time não precisar configurar.';
-  }
-  switchConfigTab('access');
-  renderAccessStatusBox();
-  document.getElementById('configModal').classList.add('active');
+  document.getElementById('configModal')?.classList.add('active');
 }
-function closeConfig(){document.getElementById('configModal').classList.remove('active');}
+function closeConfig(){
+  document.getElementById('configModal')?.classList.remove('active');
+  if(!hasClaimedIdentity()||needsMandatoryToken()) openNameModal();
+}
 
 // ── Gist API ───────────────────────────────────────────────────────────────────
 async function fetchGistApi(gistId,{auth=false}={}){
@@ -2754,7 +2782,17 @@ async function saveToGist(){
 }
 function showStatus(type,msg){const bar=document.getElementById('statusBar');bar.className='status-bar '+type;document.getElementById('statusMsg').textContent=msg;}
 function hideStatus(){document.getElementById('statusBar').className='status-bar';}
-function loadLocal(){const saved=localStorage.getItem('qhub_data');data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();}
+function loadLocal(){
+  try{
+    const saved=localStorage.getItem('qhub_data');
+    data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }catch(e){
+    console.error('loadLocal',e);
+    data=JSON.parse(JSON.stringify(DEFAULT_DATA));
+    localStorage.removeItem('qhub_data');
+  }
+  normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();
+}
 function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -5715,23 +5753,29 @@ async function loadHubBuildFooter(){
   }
 }
 window.addEventListener('DOMContentLoaded',()=>{
-  loadLocal();
-  if(typeof dimScheduleWarmup==='function') dimScheduleWarmup();
-  initProfileForm();
-  initTagFilterUI();
-  const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
-  if(savedZoom!==100)applyZoom(savedZoom);
-  updateEditButtonVisibility();
-  initSidebar();
-  ensurePageOrder();
-  applySidebarOrder();
-  const savedPage = localStorage.getItem('qhub_page');
-  if(savedPage && savedPage !== 'links') showPage(savedPage);
-  renderUserChip();
-  if(!hasClaimedIdentity()||needsMandatoryToken()) openNameModal();
-  loadFromGist();
-  initPriGridEvents();
-  loadHubBuildFooter();
+  try{
+    loadLocal();
+    if(typeof dimScheduleWarmup==='function') dimScheduleWarmup();
+    initProfileForm();
+    initTagFilterUI();
+    const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
+    if(savedZoom!==100)applyZoom(savedZoom);
+    updateEditButtonVisibility();
+    initSidebar();
+    ensurePageOrder();
+    applySidebarOrder();
+    const savedPage = localStorage.getItem('qhub_page');
+    if(savedPage && savedPage !== 'links') showPage(savedPage);
+    renderUserChip();
+    if(!hasClaimedIdentity()||needsMandatoryToken()) openNameModal();
+    loadFromGist();
+    initPriGridEvents();
+    loadHubBuildFooter();
+  }catch(e){
+    console.error('Hub init',e);
+    updateEditButtonVisibility();
+    renderUserChip();
+  }
 });
 </script>
 
