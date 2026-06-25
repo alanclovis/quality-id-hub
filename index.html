@@ -1004,7 +1004,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     </div>
     <div class="profile-step" id="profileStepVisitor">
       <h3>Acesso visitante</h3>
-      <p class="profile-intro">Você pode navegar <strong>links</strong>, <strong>prioridades</strong> e <strong>férias</strong> em modo leitura. <strong>Não é necessário login Google nem token GitHub</strong> — só escolher visitante e usar o hub.</p>
+      <p class="profile-intro">Você pode navegar <strong>links</strong>, <strong>prioridades</strong> e <strong>férias</strong> em modo leitura. <strong>Dimensionamento</strong> não está disponível para visitantes. Não é necessário login Google nem token GitHub.</p>
       <p class="profile-intro">Para acesso completo, saia e escolha <strong>Sou membro do pack</strong> com o código enviado pelo admin.</p>
       <button class="btn primary profile-save" onclick="closeName()"><i class="ti ti-check"></i> Entendi</button>
     </div>
@@ -2380,7 +2380,7 @@ function renderAccessStatusBox(){
   }else if(getToken()&&role==='member'){
     hint.textContent='Token ativo — ao salvar o perfil, foto e dados vão para o pack. Você não edita links nem prioridades.';
   }else if(role==='visitor'){
-    hint.textContent='Modo visitante — leitura do hub. Para perfil e férias, saia e entre como membro com seu código.';
+    hint.textContent='Modo visitante — leitura de links, prioridades e férias. Dimensionamento não disponível.';
   }else if(role==='member'){
     hint.textContent='Configure seu token GitHub na aba Técnico para publicar perfil e férias no pack.';
   }else if(role==='admin'){
@@ -2503,6 +2503,18 @@ function saveConfig(){
     refreshProfileModal();
   }
 }
+function updateVisitorUI(){
+  const dimSb=document.getElementById('sbDimensionamento');
+  if(dimSb) dimSb.style.display=isVisitor()?'none':'';
+  document.querySelectorAll('#pageFerias .ferias-header .btn.purple').forEach(btn=>{
+    btn.style.display=isVisitor()?'none':'';
+  });
+  const feriasForm=document.getElementById('feriasForm');
+  if(feriasForm&&isVisitor()) feriasForm.classList.remove('active');
+  if(isVisitor()&&document.getElementById('pageDimensionamento')?.classList.contains('active')){
+    showPageAnimated('links');
+  }
+}
 function updateEditButtonVisibility(){
   const btn=document.getElementById('btnEditMode');
   if(btn) btn.style.display=canEditContent()?'flex':'none';
@@ -2512,6 +2524,7 @@ function updateEditButtonVisibility(){
   if(priBtn) priBtn.style.display=canEditContent()&&!priEditMode?'inline-flex':'none';
   const refreshBtn=document.getElementById('btnRefreshPack');
   if(refreshBtn) refreshBtn.style.display=getGistId()?'flex':'none';
+  updateVisitorUI();
 }
 function openConfig(){
   document.getElementById('nameBackdrop')?.classList.remove('active');
@@ -3518,6 +3531,7 @@ let currentPage = 'links';
 
 function showPage(page){
   if(editMode||sbDragging) return;
+  if(isVisitor()&&page==='dimensionamento') page='links';
   showPageAnimated(page);
 }
 
@@ -3554,9 +3568,11 @@ function applySidebarOrder(){
   const nav=document.getElementById('sbNav');
   if(!nav) return;
   data.pageOrder.forEach(page=>{
+    if(isVisitor()&&page==='dimensionamento') return;
     const el=document.getElementById(SB_ID_MAP[page]);
     if(el) nav.appendChild(el);
   });
+  updateVisitorUI();
 }
 
 let sbDragListenersAttached=false;
@@ -3746,7 +3762,7 @@ function hasOperationalProfile(name){
 
 function getDimensionamentoGateHint(){
   if(isVisitor()){
-    return 'Como visitante, use Links e Prioridades para acompanhar o pack. Dimensionamento é exclusivo de quem atua em filas.';
+    return 'Visitantes podem ver links, prioridades e férias. O dimensionamento é exclusivo de membros que atuam em filas (ID, VP ou CSAT).';
   }
   return 'No seu perfil consta como não operacional. Se você atua em filas, abra seu perfil e marque ID, VP ou CSAT em Área de atuação.';
 }
@@ -3763,6 +3779,9 @@ function updateDimensionamentoAccess(){
   if(gate) gate.hidden=state!=='blocked';
   if(app) app.hidden=!allowed;
   if(hint&&state==='blocked') hint.textContent=getDimensionamentoGateHint();
+  const lead=document.getElementById('dimNonOpLead');
+  if(lead&&isVisitor()) lead.textContent='Visitantes não têm acesso ao dimensionamento.';
+  else if(lead) lead.innerHTML='Dimensionamento é só para quem atua em filas <strong>(ID, VP ou CSAT)</strong>.';
   if(profileBtn) profileBtn.style.display=isVisitor()?'none':'';
   return allowed;
 }
@@ -4089,7 +4108,7 @@ function renderUserChip(){
   mountAvatar('userAvatarEl',name,22,'user-avatar');
   document.getElementById('userNameEl').textContent=name.split(' ')[0];
   const summary=formatProfileSummary(findProfile(name));
-  chip.title=isVisitor()?'Modo visitante — leitura do hub':(summary?`${name} — ${summary}`:'Editar perfil');
+  chip.title=isVisitor()?'Visitante — links, prioridades e férias (sem dimensionamento)':(summary?`${name} — ${summary}`:'Editar perfil');
   renderSidebarUser();
 }
 function renderSidebarUser(){
@@ -4104,7 +4123,7 @@ function renderSidebarUser(){
   const roleEl=document.getElementById('sbUserRole');
   if(roleEl) roleEl.textContent=ACCESS_ROLE_LABELS[role]||'';
   const summary=formatProfileSummary(findProfile(name));
-  el.title=isVisitor()?'Modo visitante — leitura do hub':(summary?`${name} — ${summary}`:'Editar perfil');
+  el.title=isVisitor()?'Visitante — links, prioridades e férias (sem dimensionamento)':(summary?`${name} — ${summary}`:'Editar perfil');
 }
 document.getElementById('nameInput').addEventListener('keydown',e=>{
   if(e.key==='Enter') saveProfile();
@@ -4147,7 +4166,7 @@ function renderMural(){
   const avisos = getAvisos();
 
   if(btnAdd&&canEditContent()) btnAdd.style.display='flex';
-  if(!avisos.length && !getToken()){ wrap.style.display='none'; return; }
+  if(!avisos.length){ wrap.style.display='none'; return; }
   wrap.style.display='block';
 
   // sort: pinned first, then by date desc
@@ -4781,18 +4800,19 @@ function renderFerias(){
   if(!visible.length){
     const empty = document.createElement('div');
     empty.className = 'tl-empty-state';
+    const registerBtn=isVisitor()?'':`<button class="btn-sm purple" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar período</button>`;
     if(!allFerias.length){
       empty.innerHTML = `<i class="ti ti-beach tl-empty-icon"></i>
         <h4>Nenhum registro ainda</h4>
-        <p>Registre férias, atestados e licenças para visualizar a timeline e avisar o time.</p>
-        <button class="btn-sm purple" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar período</button>`;
+        <p>${isVisitor()?'Ainda não há férias ou ausências registradas no pack.':'Registre férias, atestados e licenças para visualizar a timeline e avisar o time.'}</p>
+        ${registerBtn}`;
       card.appendChild(empty);
       return;
     }
     empty.innerHTML = `<i class="ti ti-calendar-off tl-empty-icon"></i>
       <h4>Nenhum registro em ${MESES[feriasMonth]} ${feriasYear}</h4>
-      <p>Use as setas para ver outros meses ou registre um novo período.</p>
-      <button class="btn-sm purple" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar período</button>`;
+      <p>Use as setas para ver outros meses${isVisitor()?'.':` ou registre um novo período.`}</p>
+      ${registerBtn}`;
     card.appendChild(empty);
     return;
   }
@@ -5860,7 +5880,10 @@ window.addEventListener('DOMContentLoaded',async()=>{
     ensurePageOrder();
     applySidebarOrder();
     const savedPage = localStorage.getItem('qhub_page');
-    if(savedPage && savedPage !== 'links') showPage(savedPage);
+    if(savedPage && savedPage !== 'links'){
+      if(isVisitor()&&savedPage==='dimensionamento') showPage('links');
+      else showPage(savedPage);
+    }
     renderUserChip();
     if(!hasClaimedIdentity()||needsMandatoryToken()) openNameModal();
     await loadFromGist();
@@ -6034,7 +6057,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
     <div class="dim-nonop-card">
       <div class="dim-nonop-icon"><i class="ti ti-calendar-off"></i></div>
       <h2>Dimensionamento</h2>
-      <p class="dim-nonop-lead">Dimensionamento é só para quem atua em filas <strong>(ID, VP ou CSAT)</strong>.</p>
+      <p class="dim-nonop-lead" id="dimNonOpLead">Dimensionamento é só para quem atua em filas <strong>(ID, VP ou CSAT)</strong>.</p>
       <p class="dim-nonop-sub" id="dimNonOpHint"></p>
       <div class="dim-nonop-actions">
         <button type="button" class="btn primary" onclick="showPage('prioridades')"><i class="ti ti-calendar-week"></i> Ver Prioridades</button>
