@@ -1740,6 +1740,7 @@ function findUserByInviteCode(code){
 }
 function enterAsVisitor(){
   if(typeof dimTeardownBridge==='function') dimTeardownBridge();
+  clearPlaceholderPackCache();
   localStorage.setItem('qhub_user_id',VISITOR_PACK_USER_ID);
   localStorage.setItem('qhub_username','Visitante');
   localStorage.setItem('qhub_claimed_name','1');
@@ -2594,12 +2595,22 @@ async function fetchGistApi(gistId,{auth=false}={}){
   const url=`https://api.github.com/gists/${gistId}?_=${Date.now()}`;
   return fetch(url,{headers,cache:'no-store'});
 }
+const PACK_SNAPSHOT_FILE='pack-data.json';
 async function fetchGistRaw(gistId){
   const url=`https://gist.githubusercontent.com/${DEFAULT_GIST_OWNER}/${gistId}/raw/${GIST_FILENAME}?_=${Date.now()}`;
   return fetch(url,{cache:'no-store'});
 }
+async function fetchPackSnapshot(){
+  const base=location.pathname.replace(/\/[^/]*$/,'/')||'/';
+  const url=base+PACK_SNAPSHOT_FILE+'?_='+Date.now();
+  const res=await fetch(url,{cache:'no-store'});
+  if(!res.ok) throw new Error('Snapshot indisponível ('+res.status+')');
+  const parsed=await res.json();
+  if(!parsed?.sections?.length) throw new Error('Snapshot do pack inválido');
+  return {parsed,updatedAt:parsed.packUpdatedAt||null,source:'snapshot'};
+}
 async function fetchPackFromGist(gistId,{auth=false}={}){
-  const apiErrors=[];
+  const errors=[];
   try{
     const res=await fetchGistApi(gistId,{auth});
     if(res.ok){
@@ -2608,20 +2619,37 @@ async function fetchPackFromGist(gistId,{auth=false}={}){
       if(file?.content){
         const parsed=JSON.parse(file.content);
         if(parsed?.sections?.length) return {parsed,updatedAt:json.updated_at||null,source:'api'};
-        apiErrors.push('Dados do pack inválidos');
-      }else apiErrors.push('Arquivo não encontrado no Gist');
-    }else apiErrors.push('API '+res.status);
-  }catch(e){ apiErrors.push(e.message||String(e)); }
+        errors.push('Dados do pack inválidos');
+      }else errors.push('Arquivo não encontrado no Gist');
+    }else errors.push('API '+res.status);
+  }catch(e){ errors.push(e.message||String(e)); }
   try{
     const res=await fetchGistRaw(gistId);
     if(!res.ok) throw new Error('Raw gist indisponível ('+res.status+')');
     const parsed=await res.json();
     if(!parsed?.sections?.length) throw new Error('Dados do pack inválidos (raw)');
     return {parsed,updatedAt:null,source:'raw'};
-  }catch(e){
-    const detail=[...apiErrors,e.message||String(e)].filter(Boolean).join('; ');
-    throw new Error(detail||'Falha ao carregar gist');
-  }
+  }catch(e){ errors.push(e.message||String(e)); }
+  try{
+    return await fetchPackSnapshot();
+  }catch(e){ errors.push(e.message||String(e)); }
+  throw new Error(errors.filter(Boolean).join('; ')||'Falha ao carregar pack');
+}
+function getLoadingPackShell(){
+  return {
+    pageOrder:[...DEFAULT_PAGE_ORDER],
+    profiles:{},
+    accessUsers:[],
+    notice:{title:'Carregando...',text:'Buscando os links atualizados do pack.'},
+    sections:[],
+    dimensionamento:{bridgeUrl:DIM_GAS_DIRECT_URL},
+  };
+}
+function clearPlaceholderPackCache(){
+  try{
+    const saved=localStorage.getItem('qhub_data');
+    if(saved&&isUsingPlaceholderData(JSON.parse(saved))) localStorage.removeItem('qhub_data');
+  }catch(e){ localStorage.removeItem('qhub_data'); }
 }
 function isUsingPlaceholderData(d){
   if(!d) return true;
@@ -2797,6 +2825,7 @@ async function loadFromGistInner(){
     }
   }catch(e){
     hideStatus();
+    clearPlaceholderPackCache();
     loadLocal();
     if(isUsingPlaceholderData(data)){
       showDataLoadWarning('Não foi possível carregar os links do pack. Verifique VPN/rede ou tente novamente.');
@@ -2842,15 +2871,23 @@ function hideStatus(){document.getElementById('statusBar').className='status-bar
 function loadLocal(){
   try{
     const saved=localStorage.getItem('qhub_data');
-    data=saved?JSON.parse(saved):JSON.parse(JSON.stringify(DEFAULT_DATA));
+    if(saved){
+      const parsed=JSON.parse(saved);
+      data=isUsingPlaceholderData(parsed)?getLoadingPackShell():parsed;
+    }else{
+      data=getLoadingPackShell();
+    }
   }catch(e){
     console.error('loadLocal',e);
-    data=JSON.parse(JSON.stringify(DEFAULT_DATA));
+    data=getLoadingPackShell();
     localStorage.removeItem('qhub_data');
   }
   normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();
 }
-function saveLocal(){localStorage.setItem('qhub_data',JSON.stringify(data));}
+function saveLocal(){
+  if(isUsingPlaceholderData(data)) return;
+  localStorage.setItem('qhub_data',JSON.stringify(data));
+}
 
 // ── Search ─────────────────────────────────────────────────────────────────────
 function getAllLinks(){
@@ -2994,10 +3031,14 @@ function renderRecents(){
 
 // ── Open link ──────────────────────────────────────────────────────────────────
 function openLink(url,linkId){
-  if(url&&url!=='#'){
-    if(linkId){addRecent(linkId);trackClick(linkId);}
-    window.open(url,'_blank');
+  if(!url||url==='#'){
+    showStatus('error','Link indisponível. Clique em Atualizar (ícone ↻) ou recarregue com Ctrl+Shift+R.');
+    setTimeout(hideStatus,5000);
+    doSearch('');
+    return;
   }
+  if(linkId){addRecent(linkId);trackClick(linkId);}
+  window.open(url,'_blank');
   doSearch('');
 }
 

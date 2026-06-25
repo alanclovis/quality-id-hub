@@ -1,0 +1,716 @@
+{
+  "notice": {
+    "title": "Bem-vindos ao Hub!",
+    "text": "Aqui você encontra todos os links úteis do dia a dia. Dúvidas? Chama no canal team-quality-csat-id.\n"
+  },
+  "sections": [
+    {
+      "id": "s1",
+      "name": "Ferramentas principais",
+      "links": [
+        {
+          "id": "l3",
+          "name": "SPOT Quality Team",
+          "desc": "Apontamento externo",
+          "url": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbwMFQ9pcX3GvFd0MNnZP3NPzFakb1gyAIqwTnm8ILvlJ2scqVoYd0llsjEKcSFm3xGM/exec",
+          "icon": "ti-route",
+          "color": "icon-purple",
+          "notes": "Spot de apontamento externo e Calibração",
+          "isNew": false,
+          "logo": "monitoria",
+          "tags": [
+            "id"
+          ]
+        },
+        {
+          "id": "l4",
+          "name": "SPOT Contestação",
+          "desc": "Fluxo de contestações",
+          "url": "https://script.google.com/a/nubank.com.br/macros/s/AKfycbxo092Kgf3bqmzjjaoSGilXUzjXGdnpevwQerDROV7Tde29EFBP4CAyZkT2sI0vTABk/exec?page=contestacao",
+          "icon": "ti-route",
+          "color": "icon-purple",
+          "notes": "Ferramenta para editar o apontamento e realizar a contestação ",
+          "isNew": false,
+          "logo": "monitoria",
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l5",
+          "name": "Dim ID/CSAT",
+          "desc": "Dimensionamento ",
+          "url": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec",
+          "icon": "ti-calculator",
+          "color": "icon-amber",
+          "notes": "",
+          "isNew": false,
+          "logo": "dim",
+          "tags": [
+            "id",
+            "csat",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1781799038627",
+          "name": "Mgen",
+          "desc": "Gerador de macros",
+          "notes": "",
+          "url": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbyOz-eHZeIbZZqddn3DKCXGrlYx6OaXX8Seeu7hGxpBgx-DMcOppfN8TcSUmLTy7Fid/exec",
+          "logo": "mgen",
+          "isNew": false,
+          "tags": [
+            "id"
+          ]
+        },
+        {
+          "id": "l1781807443021",
+          "name": "Shuffle",
+          "desc": "Fazer monitorias",
+          "notes": "",
+          "url": "https://backoffice.nubank.com.br/shuffle/",
+          "logo": "politica",
+          "isNew": false,
+          "tags": [
+            "id",
+            "csat",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1781807778617",
+          "name": "Toolio",
+          "desc": "Alteraçao de badges",
+          "notes": "",
+          "url": "https://backoffice.nubank.com.br/toolio/",
+          "logo": "fraud",
+          "isNew": false,
+          "tags": [
+            "id",
+            "csat",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1781808115370",
+          "name": "Macroteca",
+          "desc": "Dash de macros",
+          "notes": "",
+          "url": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbxgpm_e9Rbd9fZoAeljwAnEc3nJOy30VXiW2CeklZR_LtWQphyr7LVLcdkDbnNUqroTiQ/exec",
+          "logo": "identity",
+          "isNew": false,
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1781808291026",
+          "name": "Quality Hub",
+          "desc": "Hub de links ",
+          "notes": "Ferramenta que contém todos os links úteis para o dia a dia do pack",
+          "url": "https://alanclovis.github.io/quality-id-hub/",
+          "logo": "star",
+          "isNew": false,
+          "tags": [
+            "id",
+            "csat",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1782132740421",
+          "name": "Registro de reversões ",
+          "desc": "Taxonomia de reversão",
+          "notes": "",
+          "url": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbzjHxrAuqQicJZi2Cnn33nMGEvCRWEfc6C-bJMdKuzLvbTWGsKvOxijY1CVvTOowQY/exec",
+          "logo": "mgen",
+          "isNew": false,
+          "tags": [
+            "id",
+            "vp"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "name": "Monitorias & Scorecards",
+      "links": [
+        {
+          "id": "l1781809778177",
+          "name": "Novo Scorecard 2026",
+          "desc": "Scorecards shuffle",
+          "notes": "",
+          "url": "https://docs.google.com/spreadsheets/d/1ou2T6gt0DGx1V9W3G6BM-C9q7dE1LiNXTsFLTOv-qWY/edit?gid=0#gid=0",
+          "logo": "google-sheets",
+          "isNew": false,
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l9",
+          "name": "Jira Apontamento Externo",
+          "desc": "apontamentos a realizar",
+          "url": "https://nubank.atlassian.net/jira/servicedesk/projects/QF/queues/custom/19074",
+          "icon": "ti-table",
+          "color": "icon-green",
+          "notes": "",
+          "isNew": false,
+          "logo": "monitoria",
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l10",
+          "name": "Jira Contestação ",
+          "desc": "InvOps",
+          "url": "https://nubank.atlassian.net/jira/servicedesk/projects/QF/queues/custom/18963",
+          "icon": "ti-arrow-back",
+          "color": "icon-amber",
+          "notes": "",
+          "isNew": false,
+          "logo": "monitoria",
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l7",
+          "name": "Scorecard Ap Externo",
+          "desc": "H2 | 2025",
+          "url": "https://docs.google.com/spreadsheets/d/1ZpXlHh_YDGlkmrHgZWwBcms9-qVQ5-ratXZes0m7bGE/edit?gid=1908470038#gid=1908470038",
+          "icon": "ti-chart-bar",
+          "color": "icon-green",
+          "notes": "",
+          "isNew": false,
+          "logo": "google-sheets",
+          "tags": [
+            "id",
+            "vp"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "name": "Queries & Consultas",
+      "links": [
+        {
+          "id": "l11",
+          "name": "Monitoria realizada",
+          "desc": "acesse a query para consultar",
+          "url": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbw7e4aLX_ZElF4M2BBPd8cYSBLdi3-vdB1ORP-GQuuJvhSZTr7XxTC1-tdiPH5E9R4jZg/exec",
+          "icon": "ti-database",
+          "color": "icon-purple",
+          "notes": "",
+          "isNew": false,
+          "logo": "query",
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l12",
+          "name": "Localizar CID do FR",
+          "desc": "query para localizar o CID",
+          "url": "https://nubank-e2-general.cloud.databricks.com/dashboardsv3/01f155fb281410d28c351bdd299d8edd/published?o=2093534396923660",
+          "icon": "ti-database",
+          "color": "icon-purple",
+          "notes": "",
+          "isNew": false,
+          "logo": "query",
+          "tags": [
+            "id"
+          ]
+        },
+        {
+          "id": "l13",
+          "name": "Dist Key",
+          "desc": "banco de queries",
+          "url": "https://us-east-1.signin.aws.amazon.com/platform/d-9067ddf831/login?workflowStateHandle=eab9f5b2-92a1-4956-9ff2-f6b878401758",
+          "icon": "ti-search",
+          "color": "icon-blue",
+          "notes": "Quicksight com conjunto de queries úteis ",
+          "isNew": false,
+          "logo": "query",
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1",
+          "name": "Links Importantes 2026",
+          "desc": "Google Planilhas",
+          "url": "https://docs.google.com/spreadsheets/d/1OxnGCy7oGWimStPYL_YGMJgRLdqgTnsjrOuQESNarlI/edit?gid=0#gid=0",
+          "icon": "ti-table",
+          "color": "icon-green",
+          "notes": "Planilha com informaçoes de links úteis para o dia a dia do qualiter",
+          "isNew": false,
+          "logo": "google-sheets",
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1781884189194",
+          "name": "Dash da quantidade de jobs na fila",
+          "desc": "Grafana com a quantidade restante de jobs a fazer",
+          "notes": "",
+          "url": "https://prod-grafana.ist.nubank.world/d/efpfljog0kd8gb/quality-id-vp-monitoring?orgId=1",
+          "logo": "looker",
+          "isNew": false,
+          "tags": [
+            "id",
+            "vp"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "name": "Documentos & Políticas",
+      "links": [
+        {
+          "id": "l17",
+          "name": "HSP Política Facial Recog",
+          "desc": "Google Docs",
+          "url": "https://docs.google.com/document/d/1jv8NtGu0wjaGmJcC42mA8VKee_7-Wkk42eXL1kS_GLE/edit?tab=t.0#heading=h.4jfttpyetgmv",
+          "icon": "ti-file-text",
+          "color": "icon-blue",
+          "notes": "Documenton que relata a polícita de análise da HSP em jobs de Facial Recognition",
+          "isNew": false,
+          "logo": "google-docs",
+          "tags": [
+            "id"
+          ]
+        },
+        {
+          "id": "l18",
+          "name": "HSP Política de análise ",
+          "desc": "Política de análise de identidade da HSP",
+          "url": "https://docs.google.com/document/d/1cBXPHeVno0q_OXCk6BAQQRUFb7HSL3Y-lBJHOFjrmd8/edit?tab=t.0#heading=h.4jfttpyetgmv",
+          "icon": "ti-file-text",
+          "color": "icon-blue",
+          "notes": "",
+          "isNew": false,
+          "logo": "google-docs",
+          "tags": [
+            "id"
+          ]
+        },
+        {
+          "id": "l20",
+          "name": "OKRs Quality H1 2026",
+          "desc": "Objetivos do time",
+          "url": "https://anacarolinabaisch.github.io/okr-quality-2026/",
+          "icon": "ti-target",
+          "color": "icon-purple",
+          "notes": "",
+          "isNew": false,
+          "logo": "politica",
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1781808994847",
+          "name": "Onboarding Quality",
+          "desc": "jun26",
+          "notes": "",
+          "url": "https://docs.google.com/presentation/d/1Aq4qT4V0AsZcTZESDvgFfCvKudbrqfBvr0hCWG9EfzE/edit?slide=id.g3c9d162a401_0_4526#slide=id.g3c9d162a401_0_4526",
+          "logo": "google-slides",
+          "isNew": false,
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1781809131119",
+          "name": "Apontamento e contestação",
+          "desc": "Material de onboarding",
+          "notes": "",
+          "url": "https://docs.google.com/presentation/d/1kgNp0oeohiR-BzUZ2tsoYLjGolNgF40f7m0OWh53ErY/edit?slide=id.g3a656a38510_0_226#slide=id.g3a656a38510_0_226",
+          "logo": "google-slides",
+          "isNew": false,
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1781809708281",
+          "name": "Prioridades da semana",
+          "desc": "Consultar badge do dia",
+          "notes": "",
+          "url": "https://docs.google.com/spreadsheets/d/1v3cUz2_4Q25edZif_QBRBxp3E-hHKLulx9EtLdIGXZY/edit?gid=0#gid=0",
+          "logo": "google-sheets",
+          "isNew": false,
+          "tags": [
+            "id"
+          ]
+        },
+        {
+          "id": "l1781809901663",
+          "name": "Macroteca em planilha",
+          "desc": "Consulta de macros",
+          "notes": "",
+          "url": "https://docs.google.com/spreadsheets/d/1saryKil_qKreLr4eGlEV6iSjX1bKkZdvvTnV3Dds1Fg/edit?gid=975895094#gid=975895094",
+          "logo": "google-sheets",
+          "isNew": false,
+          "tags": [
+            "id",
+            "vp"
+          ]
+        },
+        {
+          "id": "l1781810226033",
+          "name": "Drive Quality",
+          "desc": "Acesso ao drive",
+          "notes": "",
+          "url": "https://drive.google.com/drive/folders/1VxOWGa9mXuExbmVk4GgZHRVeqdDeKda-",
+          "logo": "google-drive",
+          "isNew": false,
+          "tags": [
+            "id",
+            "vp"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "name": "Notebooks ",
+      "links": [
+        {
+          "id": "l21",
+          "name": "Contestações procedentes",
+          "desc": "Verifique sua métrica",
+          "url": "https://fraud-contestacoes-2093534396923660.aws.databricksapps.com/",
+          "icon": "ti-brain",
+          "color": "icon-gray",
+          "notes": "",
+          "isNew": false,
+          "logo": "reversao",
+          "tags": [
+            "id",
+            "vp"
+          ]
+        }
+      ]
+    }
+  ],
+  "avisos": [],
+  "ferias": [
+    {
+      "id": "f1781814997204",
+      "nome": "Alan",
+      "inicio": "2026-10-26",
+      "fim": "2026-11-09",
+      "status": "verde"
+    },
+    {
+      "id": "f1782328146077",
+      "nome": "Tico",
+      "inicio": "2026-06-29",
+      "fim": "2026-07-12",
+      "tipo": "ferias",
+      "status": "verde"
+    },
+    {
+      "id": "f1782330112465",
+      "nome": "Mayara",
+      "inicio": "2026-08-03",
+      "fim": "2026-08-22",
+      "tipo": "ferias",
+      "status": "verde"
+    }
+  ],
+  "priorities": {
+    "instructions": "- A fila de reversed tem poucos casos, então se zerarem podem seguir para a de decision interna.\n- Planejem a semana pensando em quantos slots vcs precisam para projeto e deixem organizado no dimensionado de cada um.\n- No começo, talvez sempre teremos casos nas filas para fazermos (como já conversamos sobre). A expectativa é que vocês tenham sim suas pausas normais, como sempre foi. Façam essa divisão como preferirem.",
+    "queues": [
+      {
+        "id": "q1",
+        "name": "data-labeling-hsp-id-catchandrelease"
+      },
+      {
+        "id": "q2",
+        "name": "data-labeling-hsp-id-fraudadoresearquivados"
+      },
+      {
+        "id": "q3",
+        "name": "data-labeling-id-amostra-decision"
+      },
+      {
+        "id": "q4",
+        "name": "data-labeling-id-deep-dive-reversed-cases"
+      },
+      {
+        "id": "q5",
+        "name": "data-labeling-id-catch-and-release"
+      }
+    ],
+    "updatedAt": "2026-06-23T10:18:35.330Z",
+    "weeks": {
+      "2026-06-22": {
+        "slots": {
+          "seg-manha": "data-labeling-id-amostra-decision",
+          "seg-tarde": "data-labeling-id-amostra-decision",
+          "ter-manha": "data-labeling-hsp-id-catchandrelease",
+          "ter-tarde": "data-labeling-hsp-id-catchandrelease",
+          "qua-manha": "data-labeling-hsp-id-catchandrelease",
+          "qua-tarde": "data-labeling-hsp-id-fraudadoresearquivados",
+          "qui-manha": "data-labeling-hsp-id-fraudadoresearquivados",
+          "qui-tarde": "data-labeling-hsp-id-fraudadoresearquivados",
+          "sex-manha": "data-labeling-id-amostra-decision",
+          "sex-tarde": "data-labeling-id-amostra-decision"
+        },
+        "counts": {
+          "q1": 118,
+          "q2": 349,
+          "q3": 91,
+          "q4": 0,
+          "q5": 0
+        },
+        "updatedAt": "2026-06-23T10:18:35.330Z"
+      },
+      "2026-06-15": {
+        "updatedAt": "2026-06-19T01:00:00.000Z",
+        "slots": {
+          "seg-manha": "data-labeling-hsp-id-fraudadoresearquivados",
+          "seg-tarde": "data-labeling-hsp-id-fraudadoresearquivados",
+          "ter-manha": "data-labeling-hsp-id-fraudadoresearquivados",
+          "ter-tarde": "data-labeling-hsp-id-fraudadoresearquivados",
+          "qua-manha": "data-labeling-hsp-id-catchandrelease",
+          "qua-tarde": "data-labeling-hsp-id-catchandrelease",
+          "qui-manha": "data-labeling-id-catch-and-release",
+          "qui-tarde": "data-labeling-id-catch-and-release",
+          "sex-manha": "data-labeling-id-amostra-decision",
+          "sex-tarde": "data-labeling-id-amostra-decision"
+        },
+        "counts": {
+          "q1": 93,
+          "q2": 376,
+          "q3": 213,
+          "q4": 27,
+          "q5": 41
+        }
+      }
+    }
+  },
+  "pageOrder": [
+    "links",
+    "prioridades",
+    "dimensionamento",
+    "ferias"
+  ],
+  "profiles": {
+    "Alan": {
+      "level": "Analyst I",
+      "areas": [
+        "id"
+      ],
+      "updatedAt": 1782273072750,
+      "avatar": "data:image/jpeg;base64,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"
+    },
+    "Dilello": {
+      "level": "Analyst II",
+      "updatedAt": 1781876540448
+    },
+    "Luciana": {
+      "level": "Analyst I",
+      "updatedAt": 1782328252047,
+      "areas": [
+        "id"
+      ],
+      "avatar": "data:image/jpeg;base64,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"
+    },
+    "Matheus": {
+      "level": "Analyst I",
+      "updatedAt": 1781881395410
+    },
+    "Tico": {
+      "level": "Analyst I",
+      "updatedAt": 1782224425545,
+      "areas": [
+        "id"
+      ]
+    },
+    "Gabes": {
+      "level": "Coordinator",
+      "updatedAt": 1781881458662
+    },
+    "Lucas": {
+      "level": "Associate Manager",
+      "updatedAt": 1781881485889
+    },
+    "Mayara": {
+      "level": "Assistant II",
+      "updatedAt": 1782329955819,
+      "areas": [
+        "id",
+        "vp",
+        "csat"
+      ],
+      "avatar": "data:image/jpeg;base64,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"
+    },
+    "Rosado": {
+      "level": "Assistant II",
+      "updatedAt": 1781881626755
+    },
+    "Evelyn": {
+      "level": "Assistant II",
+      "updatedAt": 1781881705819
+    },
+    "Lívia Lyra": {
+      "level": "Analyst I",
+      "updatedAt": 1781895991117,
+      "areas": [
+        "id"
+      ]
+    },
+    "M Dilello": {
+      "level": "Analyst II",
+      "updatedAt": 1782330593602
+    }
+  },
+  "accessUsers": [
+    {
+      "id": "u1781832774211",
+      "name": "Alan",
+      "role": "admin",
+      "status": "active",
+      "joinedAt": "2026-06-19T01:32:54.211Z",
+      "autoRegistered": true,
+      "inviteCode": "A-LMJV"
+    },
+    {
+      "id": "u1781881313035",
+      "name": "Lívia Lyra",
+      "role": "admin",
+      "status": "active",
+      "inviteCode": "L-RGLT",
+      "joinedAt": "2026-06-19T15:01:53.035Z",
+      "approvedAt": "2026-06-25T13:01:43.202Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1781881337840",
+      "name": "Luciana",
+      "role": "member",
+      "status": "active",
+      "inviteCode": "L-GMHQ",
+      "joinedAt": "2026-06-19T15:02:17.840Z",
+      "approvedAt": "2026-06-19T15:02:17.840Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1781881395409",
+      "name": "Matheus",
+      "role": "member",
+      "status": "active",
+      "inviteCode": "M-UT2S",
+      "joinedAt": "2026-06-19T15:03:15.410Z",
+      "approvedAt": "2026-06-19T15:03:15.410Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1781881418035",
+      "name": "Tico",
+      "role": "member",
+      "status": "active",
+      "inviteCode": "T-DC94",
+      "joinedAt": "2026-06-19T15:03:38.035Z",
+      "approvedAt": "2026-06-19T15:03:38.035Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1781881458662",
+      "name": "Gabes",
+      "role": "admin",
+      "status": "active",
+      "inviteCode": "G-SU9Z",
+      "joinedAt": "2026-06-19T15:04:18.662Z",
+      "approvedAt": "2026-06-19T15:04:18.662Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1781881485889",
+      "name": "Lucas",
+      "role": "admin",
+      "status": "active",
+      "inviteCode": "L-AV4V",
+      "joinedAt": "2026-06-19T15:04:45.889Z",
+      "approvedAt": "2026-06-19T15:04:45.889Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1781881610571",
+      "name": "Mayara",
+      "role": "member",
+      "status": "active",
+      "inviteCode": "M-2JSA",
+      "joinedAt": "2026-06-19T15:06:50.572Z",
+      "approvedAt": "2026-06-19T15:06:50.572Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1781881626755",
+      "name": "Rosado",
+      "role": "member",
+      "status": "active",
+      "inviteCode": "R-8BJH",
+      "joinedAt": "2026-06-19T15:07:06.755Z",
+      "approvedAt": "2026-06-19T15:07:06.755Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1781881705819",
+      "name": "Evelyn",
+      "role": "member",
+      "status": "active",
+      "inviteCode": "E-DZ4Y",
+      "joinedAt": "2026-06-19T15:08:25.819Z",
+      "approvedAt": "2026-06-19T15:08:25.819Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1782330593602",
+      "name": "M Dilello",
+      "role": "admin",
+      "status": "active",
+      "inviteCode": "MD-BK5V",
+      "joinedAt": "2026-06-24T19:49:53.602Z",
+      "approvedAt": "2026-06-24T19:49:53.602Z",
+      "approvedBy": "Alan"
+    },
+    {
+      "id": "u1782385949109",
+      "name": "Dilello",
+      "role": "member",
+      "status": "active",
+      "joinedAt": "2026-06-25T11:12:29.109Z",
+      "autoRegistered": true,
+      "inviteCode": "D-XCE4"
+    }
+  ],
+  "authConfig": {
+    "packToken": ""
+  },
+  "dimensionamento": {
+    "bridgeUrl": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec"
+  },
+  "packUpdatedAt": "2026-06-25T14:16:13Z"
+}
