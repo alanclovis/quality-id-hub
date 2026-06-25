@@ -20,26 +20,39 @@
     <div id="root"></div>
 
     <script>
-      window.onerror = function(message, source, lineno, colno, error) {
-        if (message && message.includes("ResizeObserver")) return;
-        var root = document.getElementById('root');
-        // Se der erro fatal e a tela estiver vazia, mostra aviso amigável
-        if (root && !root.innerHTML.includes("Dimensionamento")) {
-            root.innerHTML = `
-            <div style="font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #333;">
-                <h2 style="color: #c026d3;">O painel precisa de autorização</h2>
-                <p style="max-width: 400px; margin: 10px 0 20px;">Se é a primeira vez que você acessa após as férias, o Google precisa validar sua conta novamente.</p>
-                <a href="${getScriptUrl()}" target="_top" style="background: #c026d3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                   Clique aqui para Recarregar e Autorizar
-                </a>
-                <p style="font-size: 11px; margin-top: 30px; color: #999;">Erro técnico: ${message}</p>
-            </div>`;
-        }
-      };
-      
-      function getScriptUrl() {
-        return "https://script.google.com/a/macros/nubank.com.br/s/AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5/exec";
-      }
+      (function () {
+        var execUrl = '<?= ScriptApp.getService().getUrl() ?>';
+
+        window.getScriptUrl = function () {
+          return execUrl;
+        };
+
+        window.addEventListener('error', function (ev) {
+          if (ev.message && ev.message.indexOf('ResizeObserver') >= 0) return;
+          // Erros genéricos de CDN (tailwind/babel/react) — não bloquear o app
+          if (ev.message === 'Script error.' && (!ev.filename || ev.lineno === 0)) return;
+          console.error('Dim UI error:', ev.message, ev.filename, ev.lineno, ev.error);
+        });
+
+        window.addEventListener('unhandledrejection', function (ev) {
+          console.error('Dim UI rejection:', ev.reason);
+        });
+
+        // Fallback só se o React não montar após o carregamento
+        setTimeout(function () {
+          var root = document.getElementById('root');
+          if (!root || root.innerHTML.indexOf('Dimensionamento') >= 0) return;
+          if (root.querySelector('[data-dim-fallback]')) return;
+          root.innerHTML = [
+            '<div data-dim-fallback style="font-family:sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#333;">',
+            '<h2 style="color:#c026d3;margin:0 0 8px;">Não foi possível abrir o painel</h2>',
+            '<p style="max-width:440px;margin:0 0 16px;line-height:1.5;">Recarregue a página. Se for seu primeiro acesso (ou após férias), o Google pode pedir permissão para ler sua escala na planilha — aceite com sua conta <strong>@nubank.com.br</strong>.</p>',
+            '<a href="' + execUrl + '" target="_top" style="background:#c026d3;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">Recarregar</a>',
+            '<p style="font-size:11px;margin-top:24px;color:#999;">Se persistir: limpe o cache do navegador ou tente outra aba anônima.</p>',
+            '</div>'
+          ].join('');
+        }, 15000);
+      })();
     </script>
 
     <?!= include('Config_Slots'); ?>
