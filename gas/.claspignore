@@ -4,3 +4,8 @@ package.json
 package-lock.json
 *.md
 .clasp.json.example
+HubBridge.gs
+SlotDictionaryStatic.gs
+PopulateH2_oneshot.gs.js
+GerarLinhas.gs.js
+pack-bridge/**
