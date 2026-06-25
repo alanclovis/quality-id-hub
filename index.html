@@ -2391,12 +2391,21 @@ function canUseMemberFeatures(){
   const role=getUserRole();
   return role==='member'||role==='editor'||role==='admin';
 }
+function refreshTechConfigFields(){
+  ensurePackBridgeData();
+  ensureDimensionamentoData();
+  const packInp=document.getElementById('packBridgeUrlInput');
+  if(packInp) packInp.value=getPackBridgeUrl();
+  const dimInp=document.getElementById('dimBridgeUrlInput');
+  if(dimInp) dimInp.value=(typeof dimGetBridgeUrl==='function'?dimGetBridgeUrl():localStorage.getItem('qhub_dim_bridge_url'))||'';
+}
 function switchConfigTab(tab){
   document.querySelectorAll('.config-tab').forEach(b=>b.classList.toggle('active',b.dataset.configTab===tab));
   document.querySelectorAll('.config-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('configPanel'+tab.charAt(0).toUpperCase()+tab.slice(1))?.classList.add('active');
   if(tab==='users'){ renderProfilesPublishSection(); renderAccessUsersPanel(); }
   if(tab==='access') renderAccessStatusBox();
+  if(tab==='tech') refreshTechConfigFields();
 }
 function renderAccessStatusBox(){
   const box=document.getElementById('accessStatusBox');
@@ -2537,7 +2546,7 @@ async function adminDeleteUser(id){
   renderAccessUsersPanel();
   await saveToGist();
 }
-function saveConfig(){
+async function saveConfig(){
   const t=document.getElementById('tokenInput').value.trim();
   const g=document.getElementById('gistIdInput').value.trim();
   const packUrl=document.getElementById('packBridgeUrlInput')?.value.trim()||'';
@@ -2549,12 +2558,12 @@ function saveConfig(){
   else localStorage.setItem('qhub_dim_bridge_url',dimUrl);
   ensureDimensionamentoData();
   ensurePackBridgeData();
-  if(canWriteGist()&&getGistId()) saveToGist();
+  if(canWriteGist()&&getGistId()) await saveToGist();
+  else saveLocal();
   syncTokenHolderRole();
   closeConfig();
   updateEditButtonVisibility();
-  if(g)loadFromGist();
-  else if(!hasClaimedIdentity()) setTimeout(openNameModal,200);
+  if(!hasClaimedIdentity()) setTimeout(openNameModal,200);
   else refreshAuthAdminPanel();
   if(document.getElementById('nameBackdrop').classList.contains('active')){
     refreshProfileModal();
@@ -2588,12 +2597,7 @@ function openConfig(){
   try{
     document.getElementById('tokenInput').value=localStorage.getItem('qhub_token')||'';
     document.getElementById('gistIdInput').value=getGistId();
-    ensureDimensionamentoData();
-    ensurePackBridgeData();
-    const packInp=document.getElementById('packBridgeUrlInput');
-    if(packInp) packInp.value=getPackBridgeUrl();
-    const dimInp=document.getElementById('dimBridgeUrlInput');
-    if(dimInp) dimInp.value=(typeof dimGetBridgeUrl==='function'?dimGetBridgeUrl():localStorage.getItem('qhub_dim_bridge_url'))||'';
+    refreshTechConfigFields();
     const techHint=document.getElementById('techConfigHint');
     if(techHint){
       techHint.textContent='Bridge do pack (recomendado): membros usam só o código. Token GitHub é alternativa local para publicar e editar links.';
@@ -2833,6 +2837,7 @@ function applyLoadedPackData(parsed,updatedAt){
     dimScheduleWarmup();
   }
   if(!isUsingPlaceholderData(parsed)) hideDataLoadWarning();
+  if(document.getElementById('configModal')?.classList.contains('active')) refreshTechConfigFields();
   return roleSynced||hadPackToken;
 }
 async function refreshPackData(opts={}){
