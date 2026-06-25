@@ -803,7 +803,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   from{opacity:0;transform:translateY(14px)}
   to{opacity:1;transform:translateY(0)}
 }
-.link-card.entering{animation:fadeUp 280ms cubic-bezier(0.25,0.46,0.45,0.94) forwards;opacity:0;}
+.link-card.entering{animation:fadeUp 280ms cubic-bezier(0.25,0.46,0.45,0.94) both;}
 
 /* 3. Page transition */
 @keyframes slideInRight{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:translateX(0)}}
@@ -3076,7 +3076,7 @@ function toggleEditMode(){
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────────
-function render(){
+function render(opts){
   document.getElementById('noticeTitle').textContent=data.notice.title;
   document.getElementById('noticeText').innerHTML=data.notice.text;
   const container=document.getElementById('sectionsContainer');
@@ -3152,7 +3152,10 @@ function render(){
   renderFeriasLegend();
   renderUpcoming();
   saveLocal();
-  setTimeout(staggerCards, 20);
+  ensureLinksVisible();
+  if(opts&&opts.animate){
+    requestAnimationFrame(()=>setTimeout(staggerCards,20));
+  }
   maybeShowFavHint();
 }
 
@@ -3333,28 +3336,37 @@ function resetZoom(){applyZoom(100);}
 // 2. Stagger entrance on render
 let staggerTimers = [];
 
+function ensureLinksVisible(){
+  staggerTimers.forEach(clearTimeout);
+  staggerTimers = [];
+  document.querySelectorAll('.link-card').forEach(card=>{
+    card.classList.remove('entering');
+    card.style.opacity='';
+    card.style.transform='';
+    card.style.transition='';
+  });
+}
+
 function staggerCards(){
   staggerTimers.forEach(clearTimeout);
   staggerTimers = [];
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reducedMotion) return;
   document.querySelectorAll('.link-card').forEach((card, i) => {
     card.style.opacity = '';
     card.style.transform = '';
     card.style.transition = '';
     card.classList.remove('entering');
-    if(reducedMotion) return;
     void card.offsetWidth;
     card.classList.add('entering');
-    const t = setTimeout(() => card.classList.remove('entering'), 300 + i * 40);
-    staggerTimers.push(t);
+    const onEnd=()=>{
+      card.classList.remove('entering');
+      card.style.opacity='';
+      card.style.transform='';
+    };
+    card.addEventListener('animationend',onEnd,{once:true});
+    staggerTimers.push(setTimeout(onEnd, 320 + i * 40));
   });
-  staggerTimers.push(setTimeout(() => {
-    document.querySelectorAll('.link-card').forEach(c => {
-      c.style.opacity = '';
-      c.style.transform = '';
-      c.classList.remove('entering');
-    });
-  }, 800));
 }
 
 // 3. Page transition
@@ -5023,7 +5035,7 @@ function setTagFilter(tag){
   document.querySelectorAll('.tag-filter-btn').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById('tf-'+tag);
   if(btn) btn.classList.add('active');
-  render();
+  render({animate:true});
 }
 
 function pinCurrentFilter(){
