@@ -38,10 +38,10 @@
           console.error('Dim UI rejection:', ev.reason);
         });
 
-        // Fallback só se o React não montar após o carregamento
+        // Fallback só se o React não montar nada (CDN/JS quebrado)
         setTimeout(function () {
           var root = document.getElementById('root');
-          if (!root || root.innerHTML.indexOf('Dimensionamento') >= 0) return;
+          if (!root || root.childElementCount > 0) return;
           if (root.querySelector('[data-dim-fallback]')) return;
           root.innerHTML = [
             '<div data-dim-fallback style="font-family:sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#333;">',
@@ -51,7 +51,7 @@
             '<p style="font-size:11px;margin-top:24px;color:#999;">Se persistir: limpe o cache do navegador ou tente outra aba anônima.</p>',
             '</div>'
           ].join('');
-        }, 15000);
+        }, 45000);
       })();
     </script>
 
