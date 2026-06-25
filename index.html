@@ -1010,7 +1010,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     </div>
     <div class="profile-step" id="profileStepToken">
       <h3>Token do pack</h3>
-      <p class="profile-intro">Peça o token ao admin do pack. É <strong>obrigatório</strong> para publicar perfil, férias e sincronizar com o time.</p>
+      <p class="profile-intro" id="profileTokenIntro">Peça o token ao admin do pack. É <strong>obrigatório</strong> para publicar perfil, férias e sincronizar com o time.</p>
       <div class="profile-field profile-token-field">
         <label for="onboardTokenInput">Token GitHub</label>
         <input type="password" id="onboardTokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
@@ -1222,10 +1222,13 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
       <label style="margin-top:10px">Gist ID</label>
       <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
+      <label style="margin-top:14px">URL bridge do pack (Apps Script, sem planilha)</label>
+      <input type="url" id="packBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+      <p class="access-hint" style="margin-top:6px">Com a bridge ativa, membros publicam perfil e férias só com o <strong>código pessoal</strong> — sem token no navegador. O PAT fica no script.</p>
       <label style="margin-top:14px">URL ponte Dimensionamento (Apps Script)</label>
       <input type="url" id="dimBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="access-hint" style="margin-top:6px">Web App publicado com <code>?view=bridge</code>. Conecta o Hub à planilha Google Sheets.</p>
-      <p class="access-hint" style="margin-top:10px">O token fica <strong>só neste navegador</strong> — nunca é salvo no Gist nem compartilhado com o time.</p>
+      <p class="access-hint" style="margin-top:10px">Token GitHub (acima) é opcional se a bridge do pack estiver configurada. Caso contrário, fica <strong>só neste navegador</strong>.</p>
       <div class="modal-actions" style="margin-top:14px">
         <button class="btn" onclick="closeConfig()">Fechar</button>
         <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar</button>
@@ -1234,7 +1237,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <div class="config-panel" id="configPanelUsers">
       <p class="access-hint">Cadastre cada pessoa com nome e papel. Membros recebem <strong>código pessoal</strong> no Slack. Visitantes entram pelo hub sem código.</p>
       <div class="profiles-publish-box" id="profilesPublishBox" style="display:none">
-        <p class="access-hint">Cada membro publica o próprio perfil ao salvar (com o token do pack em Técnico). Use o botão abaixo só para recuperar perfis que existam <strong>neste navegador</strong> — não alcança outros computadores.</p>
+        <p class="access-hint">Cada membro publica o próprio perfil ao salvar (código + bridge do pack, ou token em Técnico). Use o botão abaixo só para recuperar perfis que existam <strong>neste navegador</strong> — não alcança outros computadores.</p>
         <p class="access-hint" id="profilesPublishSummary"></p>
         <button class="btn primary" id="btnPublishProfiles" onclick="publishProfilesToGist()"><i class="ti ti-cloud-upload"></i> Publicar perfis no Gist</button>
       </div>
@@ -1700,7 +1703,7 @@ function isVisitor(){
   return getUserRole()==='visitor';
 }
 function needsMandatoryToken(){
-  return hasClaimedIdentity()&&!!getUserName()&&!isVisitor()&&!getToken();
+  return hasClaimedIdentity()&&!!getUserName()&&!isVisitor()&&!getToken()&&!canSyncViaBridge();
 }
 function canBrowseHub(){
   return hasClaimedIdentity()&&!!getUserName();
@@ -1887,7 +1890,7 @@ async function submitInviteCode(){
   document.getElementById('nameBackdrop').classList.add('active');
   syncTokenHolderRole();
   refreshProfileModal();
-  if(!getToken()){
+  if(!getToken()&&!canSyncViaBridge()){
     showProfileModalStep('token');
     setTimeout(()=>document.getElementById('onboardTokenInput')?.focus(),100);
   }
@@ -2127,19 +2130,40 @@ function mergeProfileRecords(existing,incoming){
 }
 function canSyncProfileToGist(){
   if(isVisitor()) return false;
-  return !!(getToken()&&getGistId()&&getUserName()&&canUseMemberFeatures());
+  if(!getUserName()||!canUseMemberFeatures()) return false;
+  if(getToken()&&getGistId()) return true;
+  return canSyncViaBridge()&&!!getMemberInviteCode();
 }
 function canSyncFeriasToGist(){
   return canSyncProfileToGist();
 }
 function ensurePackTokenOrRedirect(){
   if(getToken()&&getGistId()) return true;
+  if(canSyncViaBridge()&&getMemberInviteCode()) return true;
   openNameModal();
   showProfileModalStep('token');
   return false;
 }
+async function syncFeriasViaBridge(){
+  const code=getMemberInviteCode();
+  if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
+  showStatus('loading','Publicando férias no pack...');
+  try{
+    const res=await packJsonpApi('saveFerias',{inviteCode:code,memberName:getUserName(),ferias:data.ferias});
+    data.ferias=res.ferias||data.ferias;
+    initKnownFeriasIds();
+    saveLocal();
+    document.getElementById('lastSaved').textContent='Férias publicadas';
+    showStatus('success','Férias publicadas no pack!');setTimeout(hideStatus,3000);
+    return true;
+  }catch(e){
+    showStatus('error','Erro ao publicar férias: '+e.message);setTimeout(hideStatus,5000);
+    return false;
+  }
+}
 async function syncFeriasToGist(){
   if(!canSyncFeriasToGist()) return false;
+  if(canSyncViaBridge()&&!getToken()) return syncFeriasViaBridge();
   const token=getToken(),gistId=getGistId();
   showStatus('loading','Publicando férias no pack...');
   try{
@@ -2216,8 +2240,33 @@ function renameMemberIdentity(oldName,newName){
   localStorage.setItem('qhub_username',normNew);
   return normNew;
 }
+async function syncOwnProfileViaBridge(name,oldName){
+  const code=getMemberInviteCode();
+  if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
+  const profile=data.profiles[name];
+  if(!profile) return false;
+  showStatus('loading','Publicando perfil no pack...');
+  try{
+    const res=await packJsonpApi('saveProfile',{inviteCode:code,name,memberName:name,oldName:oldName||'',profile});
+    if(res.profiles) data.profiles=res.profiles;
+    else data.profiles[name]=profile;
+    if(oldName&&oldName!==name){
+      const lu=getAccessUserById(localStorage.getItem('qhub_user_id'));
+      if(lu) lu.name=name;
+    }
+    ensureRegisteredMember(name);
+    saveLocal();
+    document.getElementById('lastSaved').textContent='Perfil publicado';
+    showStatus('success','Perfil publicado no pack!');setTimeout(hideStatus,3000);
+    return true;
+  }catch(e){
+    showStatus('error','Erro ao publicar perfil: '+e.message);setTimeout(hideStatus,5000);
+    return false;
+  }
+}
 async function syncOwnProfileToGist(name,oldName){
   if(!canSyncProfileToGist()) return false;
+  if(canSyncViaBridge()&&!getToken()) return syncOwnProfileViaBridge(name,oldName);
   const token=getToken(),gistId=getGistId();
   const profile=data.profiles[name];
   if(!profile) return false;
@@ -2308,7 +2357,7 @@ function renderProfilesPublishSection(){
   summary.textContent=text;
 }
 async function publishProfilesToGist(){
-  if(!canWriteGist()){ alert('Token com permissão gist necessário — aba Técnico.'); switchConfigTab('tech'); return; }
+  if(!canWriteGist()){ alert('Permissão de editor/admin necessária — token GitHub ou bridge do pack (aba Técnico).'); switchConfigTab('tech'); return; }
   if(!getGistId()){ alert('Informe o Gist ID na aba Técnico.'); switchConfigTab('tech'); return; }
   const {total}=mergeLocalProfilesIntoData();
   syncMembersFromProfiles();
@@ -2326,9 +2375,10 @@ function isAppAdmin(){
   return getUserRole()==='admin';
 }
 function canWriteGist(){
-  if(!getToken()) return false;
   const role=getUserRole();
-  return role==='admin'||role==='editor';
+  if(role!=='admin'&&role!=='editor') return false;
+  if(getToken()) return true;
+  return canSyncViaBridge()&&!!getMemberInviteCode();
 }
 function canEditContent(){
   return canWriteGist();
@@ -2381,8 +2431,12 @@ function renderAccessStatusBox(){
     hint.textContent='Token ativo — ao salvar o perfil, foto e dados vão para o pack. Você não edita links nem prioridades.';
   }else if(role==='visitor'){
     hint.textContent='Modo visitante — leitura de links, prioridades e férias. Dimensionamento não disponível.';
+  }else if(canSyncViaBridge()&&role==='member'){
+    hint.textContent='Bridge do pack ativa — publique perfil e férias com seu código, sem token no navegador.';
+  }else if(canSyncViaBridge()&&(role==='editor'||role==='admin')){
+    hint.textContent='Bridge do pack ativa — edite links e salve com seu código, sem token no navegador.';
   }else if(role==='member'){
-    hint.textContent='Configure seu token GitHub na aba Técnico para publicar perfil e férias no pack.';
+    hint.textContent='Configure o token GitHub ou peça ao admin para ativar a bridge do pack (aba Técnico).';
   }else if(role==='admin'){
     hint.textContent='Acesso total. Gerencie papéis na aba Usuários. Token GitHub fica só no seu navegador (aba Técnico).';
   }else{
@@ -2486,12 +2540,15 @@ async function adminDeleteUser(id){
 function saveConfig(){
   const t=document.getElementById('tokenInput').value.trim();
   const g=document.getElementById('gistIdInput').value.trim();
+  const packUrl=document.getElementById('packBridgeUrlInput')?.value.trim()||'';
   const dimUrl=document.getElementById('dimBridgeUrlInput')?.value.trim()||'';
   if(t)localStorage.setItem('qhub_token',t);
   if(g)localStorage.setItem('qhub_gist_id',g);
+  setPackBridgeUrl(packUrl);
   if(typeof dimSetBridgeUrl==='function') dimSetBridgeUrl(dimUrl);
   else localStorage.setItem('qhub_dim_bridge_url',dimUrl);
   ensureDimensionamentoData();
+  ensurePackBridgeData();
   if(canWriteGist()&&getGistId()) saveToGist();
   syncTokenHolderRole();
   closeConfig();
@@ -2532,11 +2589,14 @@ function openConfig(){
     document.getElementById('tokenInput').value=localStorage.getItem('qhub_token')||'';
     document.getElementById('gistIdInput').value=getGistId();
     ensureDimensionamentoData();
+    ensurePackBridgeData();
+    const packInp=document.getElementById('packBridgeUrlInput');
+    if(packInp) packInp.value=getPackBridgeUrl();
     const dimInp=document.getElementById('dimBridgeUrlInput');
     if(dimInp) dimInp.value=(typeof dimGetBridgeUrl==='function'?dimGetBridgeUrl():localStorage.getItem('qhub_dim_bridge_url'))||'';
     const techHint=document.getElementById('techConfigHint');
     if(techHint){
-      techHint.textContent='Token GitHub com permissão gist — só neste navegador, para publicar perfil, férias e (se editor/admin) links. Nunca é salvo no Gist.';
+      techHint.textContent='Bridge do pack (recomendado): membros usam só o código. Token GitHub é alternativa local para publicar e editar links.';
     }
     switchConfigTab('access');
     renderAccessStatusBox();
@@ -2550,6 +2610,66 @@ function openConfig(){
 function closeConfig(){
   document.getElementById('configModal')?.classList.remove('active');
   if(!hasClaimedIdentity()||needsMandatoryToken()) openNameModal();
+}
+
+// ── Pack bridge (Apps Script, sem planilha) ───────────────────────────────────
+function ensurePackBridgeData(){
+  if(!data.packBridge) data.packBridge={url:''};
+  if(data.packBridge.url==null) data.packBridge.url='';
+  const stored=localStorage.getItem('qhub_pack_bridge_url');
+  if(stored&&!data.packBridge.url) data.packBridge.url=stored;
+}
+function getPackBridgeUrl(){
+  ensurePackBridgeData();
+  return (data.packBridge.url||localStorage.getItem('qhub_pack_bridge_url')||'').trim();
+}
+function setPackBridgeUrl(url){
+  ensurePackBridgeData();
+  data.packBridge.url=url||'';
+  if(url) localStorage.setItem('qhub_pack_bridge_url',url);
+  else localStorage.removeItem('qhub_pack_bridge_url');
+}
+function packBridgeExecBase(){
+  const raw=getPackBridgeUrl();
+  if(!raw) return '';
+  return raw.replace(/\/dev$/,'/exec').replace(/\?.*$/,'').replace(/\/+$/,'');
+}
+function getMemberInviteCode(){
+  return normalizeInviteCode(localStorage.getItem('qhub_saved_invite_code')||'');
+}
+function canSyncViaBridge(){
+  return !!getPackBridgeUrl()&&!isVisitor()&&hasClaimedIdentity()&&!!getUserName();
+}
+function packJsonpApi(action,payload,timeoutMs){
+  timeoutMs=timeoutMs||45000;
+  const base=packBridgeExecBase();
+  if(!base) return Promise.reject(new Error('URL da bridge do pack não configurada.'));
+  return new Promise((resolve,reject)=>{
+    const cb='packCb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);
+    let timer,script;
+    function cleanup(){
+      if(timer) clearTimeout(timer);
+      try{ delete window[cb]; }catch(e){ window[cb]=undefined; }
+      if(script&&script.parentNode) script.parentNode.removeChild(script);
+    }
+    timer=setTimeout(()=>{ cleanup(); reject(new Error('Timeout ao comunicar com a bridge do pack')); },timeoutMs);
+    window[cb]=function(res){
+      cleanup();
+      if(res&&res.ok) resolve(res.data);
+      else reject(new Error((res&&res.error)||'Erro na bridge do pack'));
+    };
+    const sep=base.indexOf('?')>=0?'&':'?';
+    script=document.createElement('script');
+    script.src=base+sep+'pack='+encodeURIComponent(action)+'&payload='+encodeURIComponent(JSON.stringify(payload||{}))+'&callback='+encodeURIComponent(cb);
+    script.onerror=()=>{ cleanup(); reject(new Error('Falha na comunicação com a bridge do pack')); };
+    document.head.appendChild(script);
+  });
+}
+async function fetchPackViaBridge(){
+  const res=await packJsonpApi('getPack',{});
+  if(!res?.pack?.sections?.length) throw new Error('Pack inválido na bridge');
+  stripPackTokenFromParsed(res.pack);
+  return {parsed:res.pack,updatedAt:res.updatedAt||null,source:'bridge'};
 }
 
 // ── Gist API ───────────────────────────────────────────────────────────────────
@@ -2604,6 +2724,9 @@ async function fetchPackFromGist(gistId,{auth=false}={}){
   if(auth){
     try{ return await fetchPackSnapshot(); }catch(e){ errors.push('snapshot: '+(e.message||String(e))); }
   }
+  if(getPackBridgeUrl()){
+    try{ return await fetchPackViaBridge(); }catch(e){ errors.push('bridge: '+(e.message||String(e))); }
+  }
   throw new Error(errors.filter(Boolean).join('; ')||'Falha ao carregar pack');
 }
 function getLoadingPackShell(){
@@ -2614,6 +2737,7 @@ function getLoadingPackShell(){
     notice:{title:'Carregando...',text:'Buscando os links atualizados do pack.'},
     sections:[],
     dimensionamento:{bridgeUrl:DIM_GAS_DIRECT_URL},
+    packBridge:{url:''},
   };
 }
 function clearPlaceholderPackCache(){
@@ -2655,9 +2779,13 @@ function retryLoadFromGist(){
 }
 async function fetchRemotePackData(){
   const gistId=getGistId();
-  if(!gistId) return null;
+  if(!gistId&&!getPackBridgeUrl()) return null;
   try{
-    const {parsed}=await fetchPackFromGist(gistId,{auth:!!getToken()});
+    if(gistId){
+      const {parsed}=await fetchPackFromGist(gistId,{auth:!!getToken()});
+      return parsed;
+    }
+    const {parsed}=await fetchPackViaBridge();
     return parsed;
   }catch(e){ return null; }
 }
@@ -2669,6 +2797,8 @@ function applyLoadedPackData(parsed,updatedAt){
   ensurePageOrder();
   ensurePrioritiesData();
   ensureDimensionamentoData();
+  ensurePackBridgeData();
+  if(data.packBridge?.url) localStorage.setItem('qhub_pack_bridge_url',data.packBridge.url);
   ensureProfilesData();
   ensureAccessUsers();
   migratePendingToActiveMembers();
@@ -2824,9 +2954,32 @@ async function loadFromGistInner(){
     refreshAuthAdminPanel();
   }
 }
+async function saveToGistViaBridge(){
+  const code=getMemberInviteCode();
+  if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
+  if(editMode){
+    data.notice.title=document.getElementById('noticeTitleInput').value||data.notice.title;
+    data.notice.text=document.getElementById('noticeTextInput').value||data.notice.text;
+  }
+  showStatus('loading','Salvando...');
+  if(getGistId()) await mergeRemoteFeriasBeforeSave();
+  sanitizeAuthConfig();
+  try{
+    await packJsonpApi('patchPack',{inviteCode:code,memberName:getUserName(),pack:data});
+    const lastSaved=document.getElementById('lastSaved');
+    if(lastSaved) lastSaved.textContent='Salvo agora';
+    initKnownFeriasIds();
+    showStatus('success','Salvo com sucesso!');setTimeout(hideStatus,3000);
+    return true;
+  }catch(e){
+    showStatus('error','Erro ao salvar: '+e.message);setTimeout(hideStatus,4000);
+    return false;
+  }
+}
 async function saveToGist(){
-  const token=getToken(),gistId=getGistId();
   if(!canWriteGist()){openConfig();return false;}
+  if(!getToken()&&canSyncViaBridge()) return saveToGistViaBridge();
+  const token=getToken(),gistId=getGistId();
   if(editMode){
     data.notice.title=document.getElementById('noticeTitleInput').value||data.notice.title;
     data.notice.text=document.getElementById('noticeTextInput').value||data.notice.text;
@@ -3933,7 +4086,8 @@ function restoreIdentityFromCode(code){
 }
 function canEditProfileFields(){
   if(isVisitor()) return false;
-  if(!hasClaimedIdentity()||!getUserName()||!getToken()) return false;
+  if(!hasClaimedIdentity()||!getUserName()) return false;
+  if(!getToken()&&!canSyncViaBridge()) return false;
   const rec=getAccessUserRecord(getUserName());
   if(rec&&rec.status==='revoked') return false;
   if(rec&&rec.status==='active') return true;
@@ -3950,6 +4104,12 @@ function showProfileModalStep(step){
   if(step==='token'){
     const inp=document.getElementById('onboardTokenInput');
     if(inp) inp.value=getToken();
+    const intro=document.getElementById('profileTokenIntro');
+    if(intro){
+      intro.innerHTML=canSyncViaBridge()
+        ?'A bridge do pack está ativa — você pode pular esta etapa e editar o perfil direto. O token só é necessário se a bridge não estiver disponível.'
+        :'Peça o token ao admin do pack. É <strong>obrigatório</strong> para publicar perfil, férias e sincronizar com o time.';
+    }
   }
   if(step==='edit') updateProfileFieldsLock();
 }
@@ -3960,7 +4120,15 @@ function updateProfileFieldsLock(){
   const header=document.querySelector('#profileStepEdit .profile-header');
   if(body) body.classList.toggle('profile-form-locked',locked);
   if(header) header.classList.toggle('profile-form-locked',locked);
-  if(notice) notice.style.display=locked?'flex':'none';
+  if(notice){
+    notice.style.display=locked?'flex':'none';
+    const span=notice.querySelector('span');
+    if(span){
+      span.textContent=canSyncViaBridge()
+        ?'Entre novamente com seu código para editar foto, nível e área.'
+        :'Configure o token do pack para editar foto, nível e área.';
+    }
+  }
   const saveBtn=document.getElementById('profileSaveBtn');
   if(saveBtn) saveBtn.disabled=locked;
   const goToken=document.getElementById('profileGoTokenBtn');
@@ -3969,7 +4137,7 @@ function updateProfileFieldsLock(){
 function resolveProfileModalStep(){
   if(!hasClaimedIdentity()||!getUserName()) return 'auth';
   if(isVisitor()) return 'visitor';
-  if(!getToken()) return 'token';
+  if(!getToken()&&!canSyncViaBridge()) return 'token';
   return 'edit';
 }
 function refreshProfileModal(){
@@ -4034,8 +4202,8 @@ function closeName(){
 }
 async function saveProfile(){
   if(!canEditProfileFields()){
-    alert('Configure o token do pack antes de editar seu perfil.');
-    showProfileModalStep('token');
+    alert(canSyncViaBridge()?'Entre novamente com seu código para editar o perfil.':'Configure o token do pack antes de editar seu perfil.');
+    showProfileModalStep(canSyncViaBridge()?'auth':'token');
     return;
   }
   const oldName=getUserName();
@@ -4144,7 +4312,7 @@ document.getElementById('profileAvInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];
   e.target.value='';
   if(!file) return;
-  if(!canEditProfileFields()){ alert('Configure o token do pack antes de enviar foto.'); return; }
+  if(!canEditProfileFields()){ alert(canSyncViaBridge()?'Entre com seu código para enviar foto.':'Configure o token do pack antes de enviar foto.'); return; }
   if(!file.type.startsWith('image/')){ alert('Selecione um arquivo de imagem.'); return; }
   try{
     pendingAvatar=await compressAvatarFile(file);
