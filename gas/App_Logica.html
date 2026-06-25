@@ -173,7 +173,7 @@
           console.error(e);
           setCurrentUser("Erro ao carregar escala");
           setIsLoading(false);
-        }).getUserSchedule({ week: selectedWeek });
+        }).getUserSchedule({});
     };
 
     useEffect(() => { selectedCellsRef.current = selectedCells; }, [selectedCells]);
@@ -217,7 +217,7 @@
       return () => document.removeEventListener('mouseup', onUp);
     }, []);
 
-    useEffect(() => { loadData(); const interval = setInterval(loadData, 60000); return () => clearInterval(interval); }, [selectedWeek]);
+    useEffect(() => { loadData(); const interval = setInterval(loadData, 60000); return () => clearInterval(interval); }, []);
     useEffect(() => { const h = e => {
       if (weekMenuRef.current && !weekMenuRef.current.contains(e.target)) setIsWeekMenuOpen(false);
       if (editingCell && !e.target.closest('.editing-popup')) setEditingCell(null);
