@@ -1225,12 +1225,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <label style="margin-top:14px">URL ponte Dimensionamento (Apps Script)</label>
       <input type="url" id="dimBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="access-hint" style="margin-top:6px">Web App publicado com <code>?view=bridge</code>. Conecta o Hub à planilha Google Sheets.</p>
-      <div id="packSharedTokenBox" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <p class="access-hint"><strong>Admin — token compartilhado:</strong> salvo no Gist (não no Git). Membros entram só com o código pessoal, sem colar token.</p>
-        <label>Token do pack (para todos os membros)</label>
-        <input type="password" id="packSharedTokenInput" placeholder="ghp_..." autocomplete="off">
-        <button class="btn primary btn-sm" type="button" style="margin-top:10px;width:100%;justify-content:center" onclick="adminSaveSharedPackToken()"><i class="ti ti-cloud-upload"></i> Salvar token no pack</button>
-      </div>
+      <p class="access-hint" style="margin-top:10px">O token fica <strong>só neste navegador</strong> — nunca é salvo no Gist nem compartilhado com o time.</p>
       <div class="modal-actions" style="margin-top:14px">
         <button class="btn" onclick="closeConfig()">Fechar</button>
         <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar</button>
@@ -1534,9 +1529,7 @@ const GIST_FILENAME='quality-hub-data.json';
 const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
 const DEFAULT_GIST_OWNER='alanclovis';
 const DIM_GAS_DIRECT_URL='https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec';
-// NÃO cole token aqui — o GitHub bloqueia o push (secret scanning).
-// Admin: salve o token compartilhado em Configuração → Técnico (vai pro Gist, não pro Git).
-const DEFAULT_PACK_TOKEN='';
+// NÃO cole token no código nem no Gist — cada pessoa configura o PAT só no navegador (Config → Técnico).
 let logoCb=null,logoSelected=null;
 let tooltipTimeout=null;
 
@@ -1694,6 +1687,15 @@ const VISITOR_PACK_USER_ID='__visitor_pack__';
 function ensureAuthConfig(){
   if(!data.authConfig) data.authConfig={};
 }
+function sanitizeAuthConfig(){
+  ensureAuthConfig();
+  const had=!!data.authConfig.packToken;
+  delete data.authConfig.packToken;
+  return had;
+}
+function stripPackTokenFromParsed(obj){
+  if(obj?.authConfig?.packToken) delete obj.authConfig.packToken;
+}
 function isVisitor(){
   return getUserRole()==='visitor';
 }
@@ -1704,22 +1706,8 @@ function canBrowseHub(){
   return hasClaimedIdentity()&&!!getUserName();
 }
 
-function getEmbeddedPackToken(){
-  ensureAuthConfig();
-  return (data.authConfig?.packToken||'').trim();
-}
-function hasEmbeddedPackToken(){
-  return !!getEmbeddedPackToken();
-}
-function persistEmbeddedTokenForMember(){
-  if(isVisitor()||!hasClaimedIdentity()) return;
-  const emb=getEmbeddedPackToken();
-  if(emb&&!localStorage.getItem('qhub_token')) localStorage.setItem('qhub_token',emb);
-}
 function getToken(){
-  const stored=localStorage.getItem('qhub_token');
-  if(stored) return stored;
-  return getEmbeddedPackToken();
+  return (localStorage.getItem('qhub_token')||'').trim();
 }
 function getGistId(){return localStorage.getItem('qhub_gist_id')||DEFAULT_GIST_ID;}
 function normalizeInviteCode(code){
@@ -1893,7 +1881,6 @@ async function submitInviteCode(){
     return;
   }
   document.getElementById('nameBackdrop').classList.add('active');
-  persistEmbeddedTokenForMember();
   syncTokenHolderRole();
   refreshProfileModal();
   if(!getToken()){
@@ -2356,16 +2343,6 @@ function switchConfigTab(tab){
   document.getElementById('configPanel'+tab.charAt(0).toUpperCase()+tab.slice(1))?.classList.add('active');
   if(tab==='users'){ renderProfilesPublishSection(); renderAccessUsersPanel(); }
   if(tab==='access') renderAccessStatusBox();
-  if(tab==='tech'){
-    const packBox=document.getElementById('packSharedTokenBox');
-    if(packBox) packBox.style.display=canManageAccess()?'block':'none';
-    const packInp=document.getElementById('packSharedTokenInput');
-    if(packInp){
-      ensureAuthConfig();
-      packInp.value='';
-      packInp.placeholder=getEmbeddedPackToken()?'Token do pack já configurado (digite para substituir)':'ghp_...';
-    }
-  }
 }
 function renderAccessStatusBox(){
   const box=document.getElementById('accessStatusBox');
@@ -2401,9 +2378,9 @@ function renderAccessStatusBox(){
   }else if(role==='visitor'){
     hint.textContent='Modo visitante — leitura do hub. Para perfil e férias, saia e entre como membro com seu código.';
   }else if(role==='member'){
-    hint.textContent='Configure o token do pack na aba Técnico para publicar seu perfil (peça ao admin).';
+    hint.textContent='Configure seu token GitHub na aba Técnico para publicar perfil e férias no pack.';
   }else if(role==='admin'){
-    hint.textContent='Acesso total. Gerencie papéis na aba Usuários e o token na aba Técnico.';
+    hint.textContent='Acesso total. Gerencie papéis na aba Usuários. Token GitHub fica só no seu navegador (aba Técnico).';
   }else{
     hint.textContent='';
   }
@@ -2502,25 +2479,6 @@ async function adminDeleteUser(id){
   renderAccessUsersPanel();
   await saveToGist();
 }
-async function adminSaveSharedPackToken(){
-  if(!canManageAccess()) return;
-  const t=document.getElementById('packSharedTokenInput')?.value.trim();
-  if(!t){ alert('Informe o token do pack.'); return; }
-  ensureAuthConfig();
-  data.authConfig.packToken=t;
-  saveLocal();
-  showStatus('loading','Salvando token no Gist...');
-  try{
-    await saveToGist();
-    hideStatus();
-    alert('Token compartilhado salvo. Membros entram com código pessoal — sem configurar token.');
-    document.getElementById('packSharedTokenInput').value='';
-    openConfig();
-  }catch(e){
-    hideStatus();
-    alert('Erro ao salvar: '+e.message);
-  }
-}
 function saveConfig(){
   const t=document.getElementById('tokenInput').value.trim();
   const g=document.getElementById('gistIdInput').value.trim();
@@ -2559,19 +2517,9 @@ function openConfig(){
     ensureDimensionamentoData();
     const dimInp=document.getElementById('dimBridgeUrlInput');
     if(dimInp) dimInp.value=(typeof dimGetBridgeUrl==='function'?dimGetBridgeUrl():localStorage.getItem('qhub_dim_bridge_url'))||'';
-    const packBox=document.getElementById('packSharedTokenBox');
-    const packInp=document.getElementById('packSharedTokenInput');
-    if(packBox) packBox.style.display=canManageAccess()?'block':'none';
-    if(packInp){
-      ensureAuthConfig();
-      packInp.value='';
-      packInp.placeholder=getEmbeddedPackToken()?'Token do pack já configurado (digite para substituir)':'ghp_...';
-    }
     const techHint=document.getElementById('techConfigHint');
     if(techHint){
-      techHint.textContent=hasEmbeddedPackToken()
-        ? 'Token compartilhado já está no pack — membros usam só o código pessoal. Abaixo: token deste navegador (opcional).'
-        : 'Token GitHub com permissão gist. Admin pode salvar um token compartilhado abaixo para o time não precisar configurar.';
+      techHint.textContent='Token GitHub com permissão gist — só neste navegador, para publicar perfil, férias e (se editor/admin) links. Nunca é salvo no Gist.';
     }
     switchConfigTab('access');
     renderAccessStatusBox();
@@ -2684,6 +2632,7 @@ async function fetchRemotePackData(){
 }
 function applyLoadedPackData(parsed,updatedAt){
   data=parsed;
+  const hadPackToken=sanitizeAuthConfig();
   normalizeFeriasRecordsInData();
   initKnownFeriasIds();
   ensurePageOrder();
@@ -2695,7 +2644,6 @@ function applyLoadedPackData(parsed,updatedAt){
   syncMembersFromProfiles();
   validateStoredIdentity();
   if(getUserName()) ensureRegisteredMember(getUserName());
-  persistEmbeddedTokenForMember();
   const roleSynced=syncTokenHolderRole();
   applySidebarOrder();
   renderFerias();
@@ -2724,7 +2672,7 @@ function applyLoadedPackData(parsed,updatedAt){
     dimScheduleWarmup();
   }
   if(!isUsingPlaceholderData(parsed)) hideDataLoadWarning();
-  return roleSynced;
+  return roleSynced||hadPackToken;
 }
 async function refreshPackData(opts={}){
   const quiet=!!opts.quiet;
@@ -2807,7 +2755,7 @@ async function loadFromGistInner(){
   showStatus('loading','Carregando do Gist...');
   try{
     const {parsed,updatedAt}=await fetchPackFromGist(gistId,{auth:false});
-    const roleSynced=applyLoadedPackData(parsed,updatedAt);
+    const shouldPublish=applyLoadedPackData(parsed,updatedAt);
     hideStatus();
     if(isUsingPlaceholderData(parsed)){
       showDataLoadWarning('Não foi possível carregar os links do pack. Verifique VPN/rede ou tente novamente.');
@@ -2819,7 +2767,7 @@ async function loadFromGistInner(){
         await saveToGist();
         showStatus('success','Semana 15–19 jun restaurada no pack.');setTimeout(hideStatus,4000);
       }
-    }else if(roleSynced){
+    }else if(shouldPublish){
       saveLocal();
       if(canWriteGist()&&getGistId()) await saveToGist();
     }
@@ -2846,6 +2794,7 @@ async function saveToGist(){
   }
   showStatus('loading','Salvando...');
   if(gistId) await mergeRemoteFeriasBeforeSave();
+  sanitizeAuthConfig();
   const body={files:{[GIST_FILENAME]:{content:JSON.stringify(data,null,2)}}};
   const method=gistId?'PATCH':'POST';
   const url=gistId?`https://api.github.com/gists/${gistId}`:'https://api.github.com/gists';
@@ -2873,6 +2822,7 @@ function loadLocal(){
     const saved=localStorage.getItem('qhub_data');
     if(saved){
       const parsed=JSON.parse(saved);
+      stripPackTokenFromParsed(parsed);
       data=isUsingPlaceholderData(parsed)?getLoadingPackShell():parsed;
     }else{
       data=getLoadingPackShell();
