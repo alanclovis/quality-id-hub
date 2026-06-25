@@ -10,6 +10,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    
     <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
     
     <?!= include('Estilos_Cores'); ?>
@@ -18,71 +20,35 @@
     <div id="root"></div>
 
     <script>
-      (function () {
-        var execUrl = <?!= execUrlJson ?>;
-
-        window.getScriptUrl = function () {
-          return execUrl;
-        };
-
-        window.addEventListener('error', function (ev) {
-          if (ev.message && ev.message.indexOf('ResizeObserver') >= 0) return;
-          // Erros genéricos de CDN (tailwind/babel/react) — não bloquear o app
-          if (ev.message === 'Script error.' && (!ev.filename || ev.lineno === 0)) return;
-          console.error('Dim UI error:', ev.message, ev.filename, ev.lineno, ev.error);
-        });
-
-        window.addEventListener('unhandledrejection', function (ev) {
-          console.error('Dim UI rejection:', ev.reason);
-        });
-
-        // Fallback só se o React não montar nada (CDN/JS quebrado)
-        setTimeout(function () {
-          var root = document.getElementById('root');
-          if (!root || root.childElementCount > 0) return;
-          if (root.querySelector('[data-dim-fallback]')) return;
-          root.innerHTML = [
-            '<div data-dim-fallback style="font-family:sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#333;">',
-            '<h2 style="color:#c026d3;margin:0 0 8px;">Não foi possível abrir o painel</h2>',
-            '<p style="max-width:440px;margin:0 0 16px;line-height:1.5;">Recarregue a página. Se for seu primeiro acesso (ou após férias), o Google pode pedir permissão para ler sua escala na planilha — aceite com sua conta <strong>@nubank.com.br</strong>.</p>',
-            '<a href="' + execUrl + '" target="_top" style="background:#c026d3;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">Recarregar</a>',
-            '<p style="font-size:11px;margin-top:24px;color:#999;">Se persistir: limpe o cache do navegador ou tente outra aba anônima.</p>',
-            '</div>'
-          ].join('');
-        }, 45000);
-      })();
+      window.onerror = function(message, source, lineno, colno, error) {
+        if (message && message.includes("ResizeObserver")) return;
+        var root = document.getElementById('root');
+        // Se der erro fatal e a tela estiver vazia, mostra aviso amigável
+        if (root && !root.innerHTML.includes("Dimensionamento")) {
+            root.innerHTML = `
+            <div style="font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #333;">
+                <h2 style="color: #c026d3;">O painel precisa de autorização</h2>
+                <p style="max-width: 400px; margin: 10px 0 20px;">Se é a primeira vez que você acessa após as férias, o Google precisa validar sua conta novamente.</p>
+                <a href="${getScriptUrl()}" target="_top" style="background: #c026d3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                   Clique aqui para Recarregar e Autorizar
+                </a>
+                <p style="font-size: 11px; margin-top: 30px; color: #999;">Erro técnico: ${message}</p>
+            </div>`;
+        }
+      };
+      
+      function getScriptUrl() {
+        return "https://script.google.com/a/macros/nubank.com.br/s/AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5/exec";
+      }
     </script>
 
     <?!= include('Config_Slots'); ?>
     <?!= include('Comp_ControleSlots'); ?>
     <?!= include('App_Logica'); ?>
 
-    <script>
-      (function () {
-        function showBootError(msg) {
-          var root = document.getElementById('root');
-          if (!root || root.childElementCount > 0) return;
-          root.innerHTML = [
-            '<div data-dim-fallback style="font-family:sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#333;">',
-            '<h2 style="color:#c026d3;margin:0 0 8px;">Não foi possível abrir o painel</h2>',
-            '<p style="max-width:480px;margin:0 0 16px;line-height:1.5;">' + msg + '</p>',
-            '<a href="' + (window.getScriptUrl ? window.getScriptUrl() : location.href) + '" target="_top" style="background:#c026d3;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">Recarregar</a>',
-            '</div>'
-          ].join('');
-        }
-        try {
-          if (!window.React || !window.ReactDOM || typeof window.App !== 'function') {
-            showBootError('Bibliotecas do painel não carregaram (React). Verifique bloqueio de CDN ou recarregue.');
-            return;
-          }
-          var rootEl = document.getElementById('root');
-          var root = ReactDOM.createRoot(rootEl);
-          root.render(React.createElement(App));
-        } catch (err) {
-          console.error(err);
-          showBootError('Erro ao iniciar o painel: ' + (err && err.message ? err.message : String(err)));
-        }
-      })();
+    <script type="text/babel">
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
     </script>
   </body>
 </html>

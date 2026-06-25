@@ -25,18 +25,8 @@ function doGet(e) {
     return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
   }
 
-  var template = HtmlService.createTemplateFromFile('Index');
-  var execUrl = '';
-  try {
-    execUrl = ScriptApp.getService().getUrl() || '';
-  } catch (urlErr) {
-    execUrl = '';
-  }
-  if (!execUrl) {
-    execUrl = 'https://script.google.com/a/macros/nubank.com.br/s/AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5/exec';
-  }
-  template.execUrlJson = JSON.stringify(execUrl);
-  return template.evaluate()
+  return HtmlService.createTemplateFromFile('Index')
+      .evaluate()
       .setTitle('Dimensionamento ID Quality/Csat')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
