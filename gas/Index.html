@@ -21,7 +21,7 @@
 
     <script>
       (function () {
-        var execUrl = '<?= ScriptApp.getService().getUrl() ?>';
+        var execUrl = <?!= execUrlJson ?>;
 
         window.getScriptUrl = function () {
           return execUrl;
