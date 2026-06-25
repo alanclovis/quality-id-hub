@@ -1004,7 +1004,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     </div>
     <div class="profile-step" id="profileStepVisitor">
       <h3>Acesso visitante</h3>
-      <p class="profile-intro">Você pode navegar <strong>links</strong>, <strong>prioridades</strong> e <strong>férias</strong> em modo leitura. Perfil, token e registro de férias não estão disponíveis.</p>
+      <p class="profile-intro">Você pode navegar <strong>links</strong>, <strong>prioridades</strong> e <strong>férias</strong> em modo leitura. <strong>Não é necessário login Google nem token GitHub</strong> — só escolher visitante e usar o hub.</p>
       <p class="profile-intro">Para acesso completo, saia e escolha <strong>Sou membro do pack</strong> com o código enviado pelo admin.</p>
       <button class="btn primary profile-save" onclick="closeName()"><i class="ti ti-check"></i> Entendi</button>
     </div>
@@ -1334,7 +1334,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   </div>
   <div class="sb-reorder-hint" id="sbReorderHint">Arraste para reordenar</div>
   <div class="sb-spacer"></div>
-  <button type="button" class="sb-user" id="sbUser" onclick="openNameModal()" title="Editar perfil" style="display:none">
+  <button type="button" class="sb-user" id="sbUser" onclick="openProfileOrVisitorModal()" title="Perfil" style="display:none">
     <div class="sb-user-avatar profile-av" id="sbUserAvatar"></div>
     <span class="sb-user-text"><span class="sb-user-name" id="sbUserName"></span><span class="sb-user-role" id="sbUserRole"></span></span>
   </button>
@@ -1365,7 +1365,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <span class="tag-edit" id="editModeTag"><i class="ti ti-pencil"></i> Modo edição</span>
     <button class="btn" id="btnSave" style="display:none" onclick="saveToGist()"><i class="ti ti-cloud-upload"></i> Salvar</button>
     <button class="btn primary" id="btnEnterHub" onclick="openNameModal()" style="display:none"><i class="ti ti-login"></i> Entrar</button>
-    <div class="user-chip" id="userChip" onclick="openNameModal()" title="Editar perfil" style="display:none"><div class="user-avatar profile-av" id="userAvatarEl"></div><span id="userNameEl"></span></div>
+    <div class="user-chip" id="userChip" onclick="openProfileOrVisitorModal()" title="Perfil" style="display:none"><div class="user-avatar profile-av" id="userAvatarEl"></div><span id="userNameEl"></span></div>
     <button class="btn icon-only" onclick="openGuide()" title="Guia de uso" aria-label="Guia de uso"><i class="ti ti-help"></i></button>
     <button class="btn icon-only" onclick="openStats()" title="Estatísticas de uso" aria-label="Estatísticas de uso" id="btnStats"><i class="ti ti-chart-bar"></i></button>
     <button class="btn primary" id="btnEditMode" onclick="toggleEditMode()" style="display:none"><i class="ti ti-pencil"></i> Editar</button>
@@ -1739,6 +1739,7 @@ function findUserByInviteCode(code){
   return data.accessUsers.find(x=>x.status==='active'&&x.inviteCode&&normalizeInviteCode(x.inviteCode)===norm)||null;
 }
 function enterAsVisitor(){
+  if(typeof dimTeardownBridge==='function') dimTeardownBridge();
   localStorage.setItem('qhub_user_id',VISITOR_PACK_USER_ID);
   localStorage.setItem('qhub_username','Visitante');
   localStorage.setItem('qhub_claimed_name','1');
@@ -1747,6 +1748,7 @@ function enterAsVisitor(){
   renderAccessStatusBox();
   updateEditButtonVisibility();
   closeName();
+  loadFromGist({force:true});
   if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
 }
 function showAuthChoose(){
@@ -1984,6 +1986,7 @@ async function claimBootstrapAdmin(){
   refreshProfileModal();
 }
 function signOutIdentity(){
+  if(typeof dimTeardownBridge==='function') dimTeardownBridge();
   clearIdentitySession();
   renderUserChip();
   renderAccessStatusBox();
@@ -2084,7 +2087,7 @@ function syncTokenHolderRole(){
   return false;
 }
 function ensureRegisteredMember(name){
-  if(!name) return;
+  if(!name||isVisitor()||normalizeNameKey(name)==='visitante') return;
   ensureAccessUsers();
   const u=data.accessUsers.find(x=>namesMatch(x.name,name));
   const role=roleForRegistration(name);
@@ -2687,7 +2690,11 @@ function applyLoadedPackData(parsed,updatedAt){
   }
   maybeShowOnboarding();
   refreshAuthAdminPanel();
-  if(typeof dimScheduleWarmup==='function') dimScheduleWarmup();
+  if(isVisitor()){
+    if(typeof dimTeardownBridge==='function') dimTeardownBridge();
+  }else if(typeof dimScheduleWarmup==='function'){
+    dimScheduleWarmup();
+  }
   if(!isUsingPlaceholderData(parsed)) hideDataLoadWarning();
   return roleSynced;
 }
@@ -4039,6 +4046,14 @@ async function saveProfile(){
   }
   if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
 }
+function openVisitorPanel(){
+  showProfileModalStep('visitor');
+  document.getElementById('nameBackdrop').classList.add('active');
+}
+function openProfileOrVisitorModal(){
+  if(isVisitor()) openVisitorPanel();
+  else openNameModal();
+}
 function openNameModal(){
   pendingAvatar=undefined;
   refreshProfileModal();
@@ -4057,7 +4072,7 @@ function renderUserChip(){
   mountAvatar('userAvatarEl',name,22,'user-avatar');
   document.getElementById('userNameEl').textContent=name.split(' ')[0];
   const summary=formatProfileSummary(findProfile(name));
-  chip.title=summary?`${name} — ${summary}`:'Editar perfil';
+  chip.title=isVisitor()?'Modo visitante — leitura do hub':(summary?`${name} — ${summary}`:'Editar perfil');
   renderSidebarUser();
 }
 function renderSidebarUser(){
@@ -4072,7 +4087,7 @@ function renderSidebarUser(){
   const roleEl=document.getElementById('sbUserRole');
   if(roleEl) roleEl.textContent=ACCESS_ROLE_LABELS[role]||'';
   const summary=formatProfileSummary(findProfile(name));
-  el.title=summary?`${name} — ${summary}`:'Editar perfil';
+  el.title=isVisitor()?'Modo visitante — leitura do hub':(summary?`${name} — ${summary}`:'Editar perfil');
 }
 document.getElementById('nameInput').addEventListener('keydown',e=>{
   if(e.key==='Enter') saveProfile();
@@ -5817,7 +5832,7 @@ async function loadHubBuildFooter(){
 window.addEventListener('DOMContentLoaded',()=>{
   try{
     loadLocal();
-    if(typeof dimScheduleWarmup==='function') dimScheduleWarmup();
+    if(!isVisitor()&&typeof dimScheduleWarmup==='function') dimScheduleWarmup();
     initProfileForm();
     initTagFilterUI();
     const savedZoom=parseInt(localStorage.getItem('qhub_zoom')||'100');
@@ -6206,6 +6221,6 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=35"></script>
+<script src="dimensionamento.js?v=36"></script>
 </body>
 </html>

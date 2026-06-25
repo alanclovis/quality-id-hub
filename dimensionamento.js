@@ -1787,7 +1787,30 @@
     if (typeof dimInit === 'function') dimInit();
   }
 
+  function dimTeardownBridge() {
+    if (dimState.reloadTimer) {
+      clearInterval(dimState.reloadTimer);
+      dimState.reloadTimer = null;
+    }
+    if (dimState.bridgePopup && !dimState.bridgePopup.closed) {
+      try { dimState.bridgePopup.close(); } catch (e) { /* ignore */ }
+      dimState.bridgePopup = null;
+    }
+    const frame = document.getElementById('dimBridgeFrame');
+    if (frame) {
+      frame.src = 'about:blank';
+      frame.remove();
+    }
+    dimState.bridgeReady = false;
+    dimState.warming = false;
+    dimState.warmupDone = false;
+  }
+
   function dimScheduleWarmup() {
+    if (typeof isVisitor === 'function' && isVisitor()) {
+      dimTeardownBridge();
+      return;
+    }
     setTimeout(function () {
       dimWarmup();
     }, 0);
@@ -1814,6 +1837,10 @@
   }
 
   function dimWarmup() {
+    if (typeof isVisitor === 'function' && isVisitor()) {
+      dimTeardownBridge();
+      return;
+    }
     if (typeof hasOperationalProfile === 'function' && !hasOperationalProfile()) return;
     if (!dimGetBridgeUrl()) return;
 
@@ -3348,6 +3375,7 @@
   global.dimEnsureLoaded = dimEnsureLoaded;
   global.dimWarmup = dimWarmup;
   global.dimScheduleWarmup = dimScheduleWarmup;
+  global.dimTeardownBridge = dimTeardownBridge;
   global.dimChangeWeek = dimChangeWeek;
   global.dimGoCurrentWeek = dimGoCurrentWeek;
   global.dimSwitchTab = dimSwitchTab;
