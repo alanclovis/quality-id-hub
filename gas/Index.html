@@ -10,8 +10,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-    
     <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
     
     <?!= include('Estilos_Cores'); ?>
@@ -59,9 +57,32 @@
     <?!= include('Comp_ControleSlots'); ?>
     <?!= include('App_Logica'); ?>
 
-    <script type="text/babel">
-      const root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(<App />);
+    <script>
+      (function () {
+        function showBootError(msg) {
+          var root = document.getElementById('root');
+          if (!root || root.childElementCount > 0) return;
+          root.innerHTML = [
+            '<div data-dim-fallback style="font-family:sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#333;">',
+            '<h2 style="color:#c026d3;margin:0 0 8px;">Não foi possível abrir o painel</h2>',
+            '<p style="max-width:480px;margin:0 0 16px;line-height:1.5;">' + msg + '</p>',
+            '<a href="' + (window.getScriptUrl ? window.getScriptUrl() : location.href) + '" target="_top" style="background:#c026d3;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;">Recarregar</a>',
+            '</div>'
+          ].join('');
+        }
+        try {
+          if (!window.React || !window.ReactDOM || typeof window.App !== 'function') {
+            showBootError('Bibliotecas do painel não carregaram (React). Verifique bloqueio de CDN ou recarregue.');
+            return;
+          }
+          var rootEl = document.getElementById('root');
+          var root = ReactDOM.createRoot(rootEl);
+          root.render(React.createElement(App));
+        } catch (err) {
+          console.error(err);
+          showBootError('Erro ao iniciar o painel: ' + (err && err.message ? err.message : String(err)));
+        }
+      })();
     </script>
   </body>
 </html>

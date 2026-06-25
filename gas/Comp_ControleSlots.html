@@ -1,141 +1,108 @@
-<script type="text/babel">
-  function ControleSlots({ data, getColor, isLoading, HelpCircle }) {
-    const [searchTerm, setSearchTerm] = React.useState("");
-    const { Search, Layers } = window.lucideReact || {};
+<script>
+function ControleSlots({
+  data,
+  getColor,
+  isLoading,
+  HelpCircle
+}) {
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const {
+    Search,
+    Layers
+  } = window.lucideReact || {};
 
-    // 1. Lógica de Pesquisa
-    const filteredData = data.filter(row => 
-      row.atividade.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      row.tipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      row.significado.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  // 1. Lógica de Pesquisa
+  const filteredData = data.filter(row => row.atividade.toLowerCase().includes(searchTerm.toLowerCase()) || row.tipo.toLowerCase().includes(searchTerm.toLowerCase()) || row.significado.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    // 2. Agrupamento
-    const groupedData = filteredData.reduce((acc, row) => {
-      const key = row.atividade;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(row);
-      return acc;
-    }, {});
-
-    return (
-      <div className="max-w-7xl mx-auto space-y-8 pb-12 animate-in fade-in duration-500">
-        
-        {/* CABEÇALHO DA PÁGINA */}
-        <div className="flex flex-col md:flex-row justify-between items-end border-b-2 border-black pb-4 mb-6">
-          <div>
-            <h3 className="text-3xl font-black text-gray-900 uppercase tracking-tighter flex items-center">
-              Dicionário de Slots
-            </h3>
-            <p className="text-sm text-gray-500 font-medium mt-1">
-              Consulte as definições dos slots.
-            </p>
-          </div>
-          
-          <div className="relative mt-4 md:mt-0 w-full md:w-80">
-            <input 
-                type="text" 
-                placeholder="Buscar por nome, tipo ou regra..." 
-                className="pl-10 pr-4 py-2.5 w-full text-sm border-2 border-black rounded-lg focus:ring-4 focus:ring-purple-200 focus:outline-none transition-shadow font-medium"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {Search && <Search className="absolute left-3 top-3 w-4 h-4 text-gray-500" />}
-          </div>
-        </div>
-
-        {/* LOADING */}
-        {isLoading && (
-           <div className="p-12 text-center text-gray-400 flex flex-col items-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-2"></div>
-             <p>Carregando definições...</p>
-           </div>
-        )}
-
-        {/* MENSAGEM DE VAZIO */}
-        {!isLoading && Object.keys(groupedData).length === 0 && (
-           <div className="p-12 text-center text-gray-500 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-             <p className="font-bold text-lg">Nenhum resultado encontrado.</p>
-             <p className="text-xs mt-1">Tente buscar por outro termo.</p>
-           </div>
-        )}
-
-        {/* RENDERIZAÇÃO DOS BLOCOS (TABELAS SEPARADAS) */}
-        {!isLoading && Object.entries(groupedData).map(([atividadeName, rows]) => (
-          <div key={atividadeName} className="flex flex-col">
-            
-            {/* Título do Bloco */}
-            <div className="flex items-center mb-3 ml-1">
-                <div className="bg-purple-600 w-1.5 h-1.5 rounded-full mr-2"></div>
-                <h4 className="text-lg font-black text-gray-800 uppercase tracking-wide">
-                    {atividadeName}
-                </h4>
-                <span className="ml-2 bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full border border-gray-200">
-                    {rows.length}
-                </span>
-            </div>
-
-            {/* Tabela do Bloco */}
-            {/* CORREÇÃO 1: Removido 'overflow-hidden' desta div para o tooltip poder sair */}
-            <div className="bg-white border-2 border-black rounded-lg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 relative z-0">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-1/4">Tipo de Slot</th>
-                    <th className="px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-2/4">Significado / Regra</th>
-                    <th className="px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-1/4">Classificação</th>
-                    <th className="px-5 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider w-16">Conv.</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {rows.map((row, idx) => (
-                    <tr key={idx} className="group hover:bg-purple-50/40 transition-colors">
-                      
-                      {/* Coluna Tipo */}
-                      <td className="px-5 py-3 align-top">
-                          <div className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-bold border shadow-sm ${getColor(row.tipo)}`}>
-                              {row.tipo}
-                          </div>
-                      </td>
-
-                      {/* Coluna Significado */}
-                      <td className="px-5 py-3 align-middle">
-                        <p className="text-sm text-gray-700 leading-snug font-medium">
-                          {row.significado}
-                        </p>
-                      </td>
-
-                      {/* Coluna Classificação */}
-                      <td className="px-5 py-3 align-middle">
-                         <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-[10px] font-bold uppercase border border-gray-200 group-hover:bg-white group-hover:border-purple-200 group-hover:text-purple-700 transition-colors">
-                            {row.classificacao}
-                         </span>
-                      </td>
-
-                      {/* Coluna Conversão com Tooltip */}
-                      <td className="px-5 py-3 text-center align-middle relative">
-                          <div className="group/tooltip relative inline-flex items-center justify-center">
-                              <div className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 cursor-help transition-colors">
-                                <span className="font-mono text-xs font-bold text-gray-800">{row.conversao}</span>
-                              </div>
-                              
-                              {/* Tooltip super moderno */}
-                              {/* CORREÇÃO 2: Alterado z-50 para z-[9999] para garantir sobreposição */}
-                              {/* CORREÇÃO 3: Texto alterado conforme solicitado */}
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-48 bg-black text-white text-[10px] font-medium rounded py-1.5 px-3 z-[9999] text-center shadow-xl animate-in zoom-in-95 duration-200 whitespace-normal break-words">
-                                  Como esse slot irá aparecer no planilhoss/DIM oficial
-                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-black"></div>
-                              </div>
-                          </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  // 2. Agrupamento
+  const groupedData = filteredData.reduce((acc, row) => {
+    const key = row.atividade;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(row);
+    return acc;
+  }, {});
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-7xl mx-auto space-y-8 pb-12 animate-in fade-in duration-500"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col md:flex-row justify-between items-end border-b-2 border-black pb-4 mb-6"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "text-3xl font-black text-gray-900 uppercase tracking-tighter flex items-center"
+  }, "Dicionário de Slots"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500 font-medium mt-1"
+  }, "Consulte as definições dos slots.")), /*#__PURE__*/React.createElement("div", {
+    className: "relative mt-4 md:mt-0 w-full md:w-80"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    placeholder: "Buscar por nome, tipo ou regra...",
+    className: "pl-10 pr-4 py-2.5 w-full text-sm border-2 border-black rounded-lg focus:ring-4 focus:ring-purple-200 focus:outline-none transition-shadow font-medium",
+    value: searchTerm,
+    onChange: e => setSearchTerm(e.target.value)
+  }), Search && /*#__PURE__*/React.createElement(Search, {
+    className: "absolute left-3 top-3 w-4 h-4 text-gray-500"
+  }))), isLoading && /*#__PURE__*/React.createElement("div", {
+    className: "p-12 text-center text-gray-400 flex flex-col items-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-2"
+  }), /*#__PURE__*/React.createElement("p", null, "Carregando definições...")), !isLoading && Object.keys(groupedData).length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "p-12 text-center text-gray-500 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "font-bold text-lg"
+  }, "Nenhum resultado encontrado."), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs mt-1"
+  }, "Tente buscar por outro termo.")), !isLoading && Object.entries(groupedData).map(([atividadeName, rows]) => /*#__PURE__*/React.createElement("div", {
+    key: atividadeName,
+    className: "flex flex-col"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center mb-3 ml-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-purple-600 w-1.5 h-1.5 rounded-full mr-2"
+  }), /*#__PURE__*/React.createElement("h4", {
+    className: "text-lg font-black text-gray-800 uppercase tracking-wide"
+  }, atividadeName), /*#__PURE__*/React.createElement("span", {
+    className: "ml-2 bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded-full border border-gray-200"
+  }, rows.length)), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border-2 border-black rounded-lg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 relative z-0"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "min-w-full divide-y divide-gray-200"
+  }, /*#__PURE__*/React.createElement("thead", {
+    className: "bg-gray-50"
+  }, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+    className: "px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-1/4"
+  }, "Tipo de Slot"), /*#__PURE__*/React.createElement("th", {
+    className: "px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-2/4"
+  }, "Significado / Regra"), /*#__PURE__*/React.createElement("th", {
+    className: "px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider w-1/4"
+  }, "Classificação"), /*#__PURE__*/React.createElement("th", {
+    className: "px-5 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider w-16"
+  }, "Conv."))), /*#__PURE__*/React.createElement("tbody", {
+    className: "bg-white divide-y divide-gray-100"
+  }, rows.map((row, idx) => /*#__PURE__*/React.createElement("tr", {
+    key: idx,
+    className: "group hover:bg-purple-50/40 transition-colors"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "px-5 py-3 align-top"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: `inline-flex items-center px-2.5 py-1 rounded text-xs font-bold border shadow-sm ${getColor(row.tipo)}`
+  }, row.tipo)), /*#__PURE__*/React.createElement("td", {
+    className: "px-5 py-3 align-middle"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-700 leading-snug font-medium"
+  }, row.significado)), /*#__PURE__*/React.createElement("td", {
+    className: "px-5 py-3 align-middle"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-[10px] font-bold uppercase border border-gray-200 group-hover:bg-white group-hover:border-purple-200 group-hover:text-purple-700 transition-colors"
+  }, row.classificacao)), /*#__PURE__*/React.createElement("td", {
+    className: "px-5 py-3 text-center align-middle relative"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "group/tooltip relative inline-flex items-center justify-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 cursor-help transition-colors"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-mono text-xs font-bold text-gray-800"
+  }, row.conversao)), /*#__PURE__*/React.createElement("div", {
+    className: "absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-48 bg-black text-white text-[10px] font-medium rounded py-1.5 px-3 z-[9999] text-center shadow-xl animate-in zoom-in-95 duration-200 whitespace-normal break-words"
+  }, "Como esse slot irá aparecer no planilhoss/DIM oficial", /*#__PURE__*/React.createElement("div", {
+    className: "absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-black"
+  }))))))))))));
+}
 </script>

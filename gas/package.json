@@ -4,6 +4,7 @@
   "description": "Use **[INSTALAR-NO-GAS-EXISTENTE.md](INSTALAR-NO-GAS-EXISTENTE.md)** — só `Bridge.html` + `HubBridge.gs` + 5 linhas no `doGet`.",
   "main": "index.js",
   "scripts": {
+    "build:ui": "node scripts/build-gas-ui.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -11,6 +12,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@babel/standalone": "^8.0.2",
     "@google/clasp": "^3.3.0"
   }
 }

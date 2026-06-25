@@ -1,221 +1,264 @@
-<script type="text/babel">
-  /* ============================================================================
-  SEÇÃO 1: CONFIGURAÇÕES, ÍCONES E UTILITÁRIOS
-  ============================================================================ */
-  const { useState, useEffect, useRef, useMemo, useCallback } = React;
-
-  const loadIcons = () => {
-    const lib = window.lucideReact || {};
-    const requiredIcons = ["ChevronDown", "Save", "RefreshCw", "Calendar", "Settings", "FileText", "Plus", "X", "Search", "List", "Check", "Edit2", "Trash2", "Clock", "PieChart", "Eraser", "Info", "Undo2", "AlertTriangle", "Target", "HelpCircle", "Coffee"];
-    const SafeIcons = {};
-    requiredIcons.forEach(name => { const component = lib[name] || lib[name.replace('2', '')] || (() => null); SafeIcons[name] = component; });
-    return SafeIcons;
+<script>
+/* ============================================================================
+SEÇÃO 1: CONFIGURAÇÕES, ÍCONES E UTILITÁRIOS
+============================================================================ */
+const {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback
+} = React;
+const loadIcons = () => {
+  const lib = window.lucideReact || {};
+  const requiredIcons = ["ChevronDown", "Save", "RefreshCw", "Calendar", "Settings", "FileText", "Plus", "X", "Search", "List", "Check", "Edit2", "Trash2", "Clock", "PieChart", "Eraser", "Info", "Undo2", "AlertTriangle", "Target", "HelpCircle", "Coffee"];
+  const SafeIcons = {};
+  requiredIcons.forEach(name => {
+    const component = lib[name] || lib[name.replace('2', '')] || (() => null);
+    SafeIcons[name] = component;
+  });
+  return SafeIcons;
+};
+const {
+  ChevronDown,
+  Save,
+  RefreshCw,
+  Calendar,
+  Settings,
+  FileText,
+  Plus,
+  X,
+  Search,
+  List,
+  Check,
+  Edit2,
+  Trash2,
+  Clock,
+  PieChart,
+  Eraser,
+  Info,
+  Undo2,
+  AlertTriangle,
+  Target,
+  HelpCircle,
+  Coffee
+} = loadIcons();
+const TASK_TYPES = [{
+  id: '',
+  label: '(Limpar Slot)',
+  color: getColor('')
+}, ...RAW_OPTIONS.map(opt => ({
+  id: opt,
+  label: opt,
+  color: getColor(opt)
+}))];
+const DETAILED_SLOTS = ["Planilha", "Deep Dive", "Docs", "Playbook", "RFC", "Slides", "Jira/Atlassian", "Drive", "Project Meet", "Databricks", "Quicksight"];
+const normalizeDetailsForComparison = details => {
+  if (!details) return '{"action":"","project":"","otherSpec":""}';
+  const clean = {
+    action: details.action || "",
+    project: details.project || "",
+    otherSpec: details.otherSpec || ""
   };
-  
-  const { ChevronDown, Save, RefreshCw, Calendar, Settings, FileText, Plus, X, Search, List, Check, Edit2, Trash2, Clock, PieChart, Eraser, Info, Undo2, AlertTriangle, Target, HelpCircle, Coffee } = loadIcons();
-
-  const TASK_TYPES = [{ id: '', label: '(Limpar Slot)', color: getColor('') }, ...RAW_OPTIONS.map(opt => ({ id: opt, label: opt, color: getColor(opt) }))];
-  const DETAILED_SLOTS = ["Planilha", "Deep Dive", "Docs", "Playbook", "RFC", "Slides", "Jira/Atlassian", "Drive", "Project Meet", "Databricks", "Quicksight"];
-
-  const normalizeDetailsForComparison = (details) => {
-      if (!details) return '{"action":"","project":"","otherSpec":""}';
-      const clean = {
-          action: details.action || "",
-          project: details.project || "",
-          otherSpec: details.otherSpec || ""
-      };
-      return JSON.stringify(clean);
-  };
-
-  const getRectCells = (anchor, end) => {
-    const d0 = DAYS.indexOf(anchor.day);
-    const d1 = DAYS.indexOf(end.day);
-    const t0 = HOURS.indexOf(anchor.hour);
-    const t1 = HOURS.indexOf(end.hour);
-    if (d0 < 0 || d1 < 0 || t0 < 0 || t1 < 0) return [];
-    const minD = Math.min(d0, d1);
-    const maxD = Math.max(d0, d1);
-    const minT = Math.min(t0, t1);
-    const maxT = Math.max(t0, t1);
-    const cells = [];
-    for (let d = minD; d <= maxD; d++) {
-      for (let t = minT; t <= maxT; t++) {
-        if (DAYS[d] && HOURS[t]) cells.push({ day: DAYS[d], hour: HOURS[t] });
-      }
+  return JSON.stringify(clean);
+};
+const getRectCells = (anchor, end) => {
+  const d0 = DAYS.indexOf(anchor.day);
+  const d1 = DAYS.indexOf(end.day);
+  const t0 = HOURS.indexOf(anchor.hour);
+  const t1 = HOURS.indexOf(end.hour);
+  if (d0 < 0 || d1 < 0 || t0 < 0 || t1 < 0) return [];
+  const minD = Math.min(d0, d1);
+  const maxD = Math.max(d0, d1);
+  const minT = Math.min(t0, t1);
+  const maxT = Math.max(t0, t1);
+  const cells = [];
+  for (let d = minD; d <= maxD; d++) {
+    for (let t = minT; t <= maxT; t++) {
+      if (DAYS[d] && HOURS[t]) cells.push({
+        day: DAYS[d],
+        hour: HOURS[t]
+      });
     }
-    return cells;
-  };
+  }
+  return cells;
+};
+const isCellSelected = (day, hour, selectedCells) => {
+  return selectedCells.some(c => c.day === day && c.hour === hour);
+};
 
-  const isCellSelected = (day, hour, selectedCells) => {
-    return selectedCells.some(c => c.day === day && c.hour === hour);
+/* ============================================================================
+SEÇÃO 2: COMPONENTE PRINCIPAL (APP)
+============================================================================ */
+function App() {
+  const [activeView, setActiveView] = useState('escala');
+  const [selectedWeek, setSelectedWeek] = useState(String(getCurrentWeekNumber()));
+  const [scheduleData, setScheduleData] = useState(generateInitialData());
+  const scheduleRef = useRef(generateInitialData());
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [ajustesSearch, setAjustesSearch] = useState("");
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [currentUser, setCurrentUser] = useState("Carregando...");
+  const [slotDefinitions, setSlotDefinitions] = useState(STATIC_SLOT_DATA);
+
+  // Engine de Salvamento
+  const dirtyDaysQueueRef = useRef(new Set());
+  const isProcessingRef = useRef(false);
+  const lastSaveTimeRef = useRef(0);
+  const lastActionRef = useRef(null);
+  const previousStateRef = useRef(null);
+  const [editingCell, setEditingCell] = useState(null);
+  const [modalConfig, setModalConfig] = useState(null);
+  const [selectedCells, setSelectedCells] = useState([]);
+  const [isWeekMenuOpen, setIsWeekMenuOpen] = useState(false);
+  const [showUndoToast, setShowUndoToast] = useState(false);
+  const undoTimerRef = useRef(null);
+  const weekMenuRef = useRef(null);
+  const activeWeekRef = useRef(null);
+  const selectionAnchorRef = useRef(null);
+  const isSelectingRef = useRef(false);
+  const selectMovedRef = useRef(false);
+  const selectedCellsRef = useRef([]);
+  const gridWrapRef = useRef(null);
+  const {
+    dateMap,
+    visualMap
+  } = useMemo(() => getDatesForWeek(parseInt(selectedWeek)), [selectedWeek]);
+  useEffect(() => {
+    if (isWeekMenuOpen && activeWeekRef.current) setTimeout(() => activeWeekRef.current.scrollIntoView({
+      block: "center",
+      behavior: "auto"
+    }), 50);
+  }, [isWeekMenuOpen]);
+  const setGlobalSavingState = state => {
+    setIsSaving(state);
   };
 
   /* ============================================================================
-  SEÇÃO 2: COMPONENTE PRINCIPAL (APP)
+  SEÇÃO 3: SINCRONIZAÇÃO (LOAD)
   ============================================================================ */
-  function App() {
-    const [activeView, setActiveView] = useState('escala');
-    const [selectedWeek, setSelectedWeek] = useState(String(getCurrentWeekNumber()));
-    const [scheduleData, setScheduleData] = useState(generateInitialData());
-    const scheduleRef = useRef(generateInitialData()); 
-
-    const [isSaving, setIsSaving] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [ajustesSearch, setAjustesSearch] = useState("");
-    const [lastUpdate, setLastUpdate] = useState(null);
-    const [currentUser, setCurrentUser] = useState("Carregando...");
-    const [slotDefinitions, setSlotDefinitions] = useState(STATIC_SLOT_DATA);
-    
-    // Engine de Salvamento
-    const dirtyDaysQueueRef = useRef(new Set()); 
-    const isProcessingRef = useRef(false);        
-    const lastSaveTimeRef = useRef(0);
-    
-    const lastActionRef = useRef(null);
-    const previousStateRef = useRef(null); 
-
-    const [editingCell, setEditingCell] = useState(null); 
-    const [modalConfig, setModalConfig] = useState(null);
-    const [selectedCells, setSelectedCells] = useState([]);
-    const [isWeekMenuOpen, setIsWeekMenuOpen] = useState(false);
-    const [showUndoToast, setShowUndoToast] = useState(false);
-    
-    const undoTimerRef = useRef(null);
-    const weekMenuRef = useRef(null);
-    const activeWeekRef = useRef(null); 
-    const selectionAnchorRef = useRef(null);
-    const isSelectingRef = useRef(false);
-    const selectMovedRef = useRef(false);
-    const selectedCellsRef = useRef([]);
-    const gridWrapRef = useRef(null);
-
-    const { dateMap, visualMap } = useMemo(() => getDatesForWeek(parseInt(selectedWeek)), [selectedWeek]);
-
-    useEffect(() => { if (isWeekMenuOpen && activeWeekRef.current) setTimeout(() => activeWeekRef.current.scrollIntoView({ block: "center", behavior: "auto" }), 50); }, [isWeekMenuOpen]);
-
-    const setGlobalSavingState = (state) => {
-        setIsSaving(state);
-    };
-
-    /* ============================================================================
-    SEÇÃO 3: SINCRONIZAÇÃO (LOAD)
-    ============================================================================ */
-    const loadData = () => {
-      const isUserBusy = dirtyDaysQueueRef.current.size > 0 || isProcessingRef.current || modalConfig !== null || editingCell !== null;
-      
-      if (isUserBusy) {
-          console.log("Sincronização pausada: Usuário ativo.");
-          return;
-      }
-      
-      if (Date.now() - lastSaveTimeRef.current < 10000) return; 
-      
-      if (typeof google === 'undefined' || !google.script) { setIsLoading(false); setLastUpdate(new Date()); setCurrentUser("Dev Mode"); return; }
-
-      const loadTimeoutId = setTimeout(() => {
+  const loadData = () => {
+    const isUserBusy = dirtyDaysQueueRef.current.size > 0 || isProcessingRef.current || modalConfig !== null || editingCell !== null;
+    if (isUserBusy) {
+      console.log("Sincronização pausada: Usuário ativo.");
+      return;
+    }
+    if (Date.now() - lastSaveTimeRef.current < 10000) return;
+    if (typeof google === 'undefined' || !google.script) {
+      setIsLoading(false);
+      setLastUpdate(new Date());
+      setCurrentUser("Dev Mode");
+      return;
+    }
+    const loadTimeoutId = setTimeout(() => {
+      setIsLoading(false);
+      setCurrentUser(prev => prev === "Carregando..." ? "Timeout ao carregar escala" : prev);
+    }, 120000);
+    google.script.run.withSuccessHandler(response => {
+      clearTimeout(loadTimeoutId);
+      if (dirtyDaysQueueRef.current.size > 0 || isProcessingRef.current || modalConfig !== null || editingCell !== null) return;
+      if (response.error) {
+        console.error(response.error);
+        setCurrentUser(response.userEmail || String(response.error));
         setIsLoading(false);
-        setCurrentUser(prev => prev === "Carregando..." ? "Timeout ao carregar escala" : prev);
-      }, 120000);
-      
-      google.script.run.withSuccessHandler(response => {
-           clearTimeout(loadTimeoutId);
-           if (dirtyDaysQueueRef.current.size > 0 || isProcessingRef.current || modalConfig !== null || editingCell !== null) return; 
-
-           if (response.error) {
-             console.error(response.error);
-             setCurrentUser(response.userEmail || String(response.error));
-             setIsLoading(false);
-             return;
-           }
-           
-           if (response.schedule) {
-               const merged = generateInitialData();
-               Object.keys(response.schedule).forEach(wk => {
-                   if (!merged[wk]) merged[wk] = {};
-                   Object.keys(response.schedule[wk]).forEach(d => {
-                       const dData = response.schedule[wk][d];
-                       Object.keys(dData).forEach(t => {
-                           if (HOURS.includes(normalizeTime(t))) {
-                               let c = dData[t];
-                               if (c.details) c.details = parseDetails(c.details);
-                               merged[wk][d][normalizeTime(t)] = { ...merged[wk][d][normalizeTime(t)], ...c };
-                           }
-                       });
-                   });
-               });
-               
-               const currentJson = JSON.stringify(scheduleRef.current);
-               const newJson = JSON.stringify(merged);
-               
-               if (currentJson !== newJson && !showUndoToast) {
-                   setScheduleData(merged); 
-                   scheduleRef.current = merged;
-                   setLastUpdate(new Date()); 
-               } else if (currentJson === newJson) {
-                   setLastUpdate(new Date());
-               }
-               setCurrentUser(response.userEmail || "Usuário não identificado");
-           } else {
-             setCurrentUser(response.userEmail || "Usuário não identificado");
-           }
-           setIsLoading(false);
-        }).withFailureHandler(e => {
-          clearTimeout(loadTimeoutId);
-          console.error(e);
-          const msg = String((e && e.message) || e || '');
-          if (/auth|autoriz|permission|permiss|access denied|required/i.test(msg)) {
-            setCurrentUser('Autorize o app Google (permissão da planilha)');
-          } else {
-            setCurrentUser('Erro ao carregar escala');
-          }
-          setIsLoading(false);
-        }).getUserSchedule({ week: selectedWeek });
-    };
-
-    useEffect(() => { selectedCellsRef.current = selectedCells; }, [selectedCells]);
-
-    useEffect(() => {
-      const onUp = () => {
-        if (!isSelectingRef.current && !selectMovedRef.current) return;
-        isSelectingRef.current = false;
-        const cells = selectedCellsRef.current;
-        if (cells.length === 1 && !selectMovedRef.current) {
-          const c = cells[0];
-          const el = gridWrapRef.current?.querySelector(`[data-day="${c.day}"][data-hour="${c.hour}"]`);
-          if (el) {
-            const rect = el.getBoundingClientRect();
-            setEditingCell({
-              day: c.day,
-              hour: c.hour,
-              top: Math.min(rect.bottom + window.scrollY, window.innerHeight + window.scrollY - 300),
-              left: Math.min(rect.left + window.scrollX, window.innerWidth - 250)
+        return;
+      }
+      if (response.schedule) {
+        const merged = generateInitialData();
+        Object.keys(response.schedule).forEach(wk => {
+          if (!merged[wk]) merged[wk] = {};
+          Object.keys(response.schedule[wk]).forEach(d => {
+            const dData = response.schedule[wk][d];
+            Object.keys(dData).forEach(t => {
+              if (HOURS.includes(normalizeTime(t))) {
+                let c = dData[t];
+                if (c.details) c.details = parseDetails(c.details);
+                merged[wk][d][normalizeTime(t)] = {
+                  ...merged[wk][d][normalizeTime(t)],
+                  ...c
+                };
+              }
             });
-            setSearchTerm("");
-          }
-        } else if (cells.length > 1) {
-          const anchor = selectionAnchorRef.current || cells[0];
-          const el = gridWrapRef.current?.querySelector(`[data-day="${anchor.day}"][data-hour="${anchor.hour}"]`);
-          if (el) {
-            const rect = el.getBoundingClientRect();
-            setEditingCell({
-              day: anchor.day,
-              hour: anchor.hour,
-              top: Math.min(rect.bottom + window.scrollY, window.innerHeight + window.scrollY - 300),
-              left: Math.min(rect.left + window.scrollX, window.innerWidth - 250),
-              multiCount: cells.length
-            });
-            setSearchTerm("");
-          }
+          });
+        });
+        const currentJson = JSON.stringify(scheduleRef.current);
+        const newJson = JSON.stringify(merged);
+        if (currentJson !== newJson && !showUndoToast) {
+          setScheduleData(merged);
+          scheduleRef.current = merged;
+          setLastUpdate(new Date());
+        } else if (currentJson === newJson) {
+          setLastUpdate(new Date());
         }
-        selectMovedRef.current = false;
-      };
-      document.addEventListener('mouseup', onUp);
-      return () => document.removeEventListener('mouseup', onUp);
-    }, []);
-
-    useEffect(() => { loadData(); const interval = setInterval(loadData, 60000); return () => clearInterval(interval); }, [selectedWeek]);
-    useEffect(() => { const h = e => {
+        setCurrentUser(response.userEmail || "Usuário não identificado");
+      } else {
+        setCurrentUser(response.userEmail || "Usuário não identificado");
+      }
+      setIsLoading(false);
+    }).withFailureHandler(e => {
+      clearTimeout(loadTimeoutId);
+      console.error(e);
+      const msg = String(e && e.message || e || '');
+      if (/auth|autoriz|permission|permiss|access denied|required/i.test(msg)) {
+        setCurrentUser('Autorize o app Google (permissão da planilha)');
+      } else {
+        setCurrentUser('Erro ao carregar escala');
+      }
+      setIsLoading(false);
+    }).getUserSchedule({
+      week: selectedWeek
+    });
+  };
+  useEffect(() => {
+    selectedCellsRef.current = selectedCells;
+  }, [selectedCells]);
+  useEffect(() => {
+    const onUp = () => {
+      if (!isSelectingRef.current && !selectMovedRef.current) return;
+      isSelectingRef.current = false;
+      const cells = selectedCellsRef.current;
+      if (cells.length === 1 && !selectMovedRef.current) {
+        const c = cells[0];
+        const el = gridWrapRef.current?.querySelector(`[data-day="${c.day}"][data-hour="${c.hour}"]`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setEditingCell({
+            day: c.day,
+            hour: c.hour,
+            top: Math.min(rect.bottom + window.scrollY, window.innerHeight + window.scrollY - 300),
+            left: Math.min(rect.left + window.scrollX, window.innerWidth - 250)
+          });
+          setSearchTerm("");
+        }
+      } else if (cells.length > 1) {
+        const anchor = selectionAnchorRef.current || cells[0];
+        const el = gridWrapRef.current?.querySelector(`[data-day="${anchor.day}"][data-hour="${anchor.hour}"]`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setEditingCell({
+            day: anchor.day,
+            hour: anchor.hour,
+            top: Math.min(rect.bottom + window.scrollY, window.innerHeight + window.scrollY - 300),
+            left: Math.min(rect.left + window.scrollX, window.innerWidth - 250),
+            multiCount: cells.length
+          });
+          setSearchTerm("");
+        }
+      }
+      selectMovedRef.current = false;
+    };
+    document.addEventListener('mouseup', onUp);
+    return () => document.removeEventListener('mouseup', onUp);
+  }, []);
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 60000);
+    return () => clearInterval(interval);
+  }, [selectedWeek]);
+  useEffect(() => {
+    const h = e => {
       if (weekMenuRef.current && !weekMenuRef.current.contains(e.target)) setIsWeekMenuOpen(false);
       if (editingCell && !e.target.closest('.editing-popup')) setEditingCell(null);
       if (!e.target.closest('.dim-schedule-grid') && !e.target.closest('.editing-popup')) {
@@ -224,823 +267,1131 @@
           selectionAnchorRef.current = null;
         }
       }
-    }; document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); }, [editingCell]);
-
-    /* ============================================================================
-    SEÇÃO 4: LÓGICA DE SALVAMENTO (SMART MERGE CORRIGIDO)
-    ============================================================================ */
-    
-    // --- FUNÇÃO DE CONSOLIDAÇÃO INTELIGENTE (HERANÇA DE DETALHES) ---
-    const consolidateDayBlocks = (dayData) => {
-        const blocks = [];
-        let currentBlock = null;
-        
-        // Padrão de detalhe vazio (usado para identificar perda de memória no load)
-        const emptyDetailsPattern = '{"action":"","project":"","otherSpec":""}';
-
-        HOURS.forEach(h => {
-            const slot = dayData[h];
-            const task = slot?.task;
-            
-            // Só aplica a lógica especial se for um slot detalhado (Playbook, Docs, etc.)
-            if (task && DETAILED_SLOTS.includes(task)) {
-                const slotDetailsStr = normalizeDetailsForComparison(slot.details);
-
-                if (currentBlock) {
-                    const isSameTask = currentBlock.task === task;
-                    
-                    if (isSameTask) {
-                        const isIdentical = currentBlock.detailsStr === slotDetailsStr;
-                        // CORREÇÃO: Se o slot atual está "sem detalhes" (padrão vazio),
-                        // assumimos que ele perdeu a referência no Load e deve ser juntado ao anterior.
-                        const isLostDetails = slotDetailsStr === emptyDetailsPattern;
-
-                        if (isIdentical || isLostDetails) {
-                            // Junta no bloco anterior
-                            currentBlock.quantity++;
-                        } else {
-                            // Se tem detalhes preenchidos mas são REALMENTE DIFERENTES do anterior, separa
-                            blocks.push(currentBlock);
-                            currentBlock = { 
-                                task, 
-                                startTime: h, 
-                                quantity: 1, 
-                                details: parseDetails(slot.details),
-                                detailsStr: slotDetailsStr
-                            };
-                        }
-                    } else {
-                        // Tarefa mudou: Separa
-                        blocks.push(currentBlock);
-                        currentBlock = { 
-                            task, 
-                            startTime: h, 
-                            quantity: 1, 
-                            details: parseDetails(slot.details),
-                            detailsStr: slotDetailsStr
-                        };
-                    }
-                } else {
-                    // Início de um novo bloco
-                    currentBlock = { 
-                        task, 
-                        startTime: h, 
-                        quantity: 1, 
-                        details: parseDetails(slot.details),
-                        detailsStr: slotDetailsStr
-                    };
-                }
-            } else {
-                // Buraco/Outro tipo: Fecha bloco
-                if (currentBlock) {
-                    blocks.push(currentBlock);
-                    currentBlock = null;
-                }
-            }
-        });
-
-        if (currentBlock) {
-            blocks.push(currentBlock);
-        }
-
-        return blocks.map(b => {
-            const { detailsStr, ...rest } = b;
-            return rest;
-        });
     };
-
-    const processSaveQueue = () => {
-        if (isProcessingRef.current) return;
-        if (dirtyDaysQueueRef.current.size === 0) {
-            setGlobalSavingState(false);
-            setLastUpdate(new Date());
-            lastSaveTimeRef.current = Date.now();
-            return;
-        }
-
-        isProcessingRef.current = true;
-        setGlobalSavingState(true);
-
-        const dayToSave = dirtyDaysQueueRef.current.values().next().value;
-        dirtyDaysQueueRef.current.delete(dayToSave);
-
-        const currentWeekKey = selectedWeek;
-        const currentWeekData = scheduleRef.current[currentWeekKey]?.[dayToSave];
-
-        if (!currentWeekData) {
-            isProcessingRef.current = false;
-            processSaveQueue(); 
-            return;
-        }
-
-        const batchPayload = { slots: [], details: [] };
-        
-        HOURS.forEach(h => {
-            const slot = currentWeekData[h];
-            const task = slot ? slot.task : "";
-            batchPayload.slots.push({ dayDate: dateMap[dayToSave], time: h, task: task || "" });
-        });
-
-        const finalBlocks = consolidateDayBlocks(currentWeekData);
-        finalBlocks.forEach(block => {
-            batchPayload.details.push({
-                slot: block.task, quantity: block.quantity, date: dateMap[dayToSave], startTime: block.startTime,
-                action: block.details.action || "", project: block.details.project || "", other: block.details.otherSpec || ""
-            });
-        });
-
-        // Limpeza de slots detalhados que não existem mais
-        DETAILED_SLOTS.forEach(slotType => {
-            const exists = finalBlocks.some(b => b.task === slotType);
-            if (!exists) batchPayload.details.push({ slot: slotType, quantity: 0, date: dateMap[dayToSave], startTime: "00:00", analyst: currentUser });
-        });
-
-        google.script.run
-            .withSuccessHandler(() => {
-                console.log(`Salvo: ${dayToSave}`);
-                isProcessingRef.current = false;
-                processSaveQueue();
-            })
-            .withFailureHandler(err => {
-                console.error(err);
-                dirtyDaysQueueRef.current.add(dayToSave);
-                isProcessingRef.current = false;
-                setTimeout(processSaveQueue, 1000); 
-            })
-            .saveBatchData(batchPayload);
-    };
-
-    const triggerSave = (day) => {
-        dirtyDaysQueueRef.current.add(day);
-        setGlobalSavingState(true);
-        
-        if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-        setTimeout(() => {
-            processSaveQueue();
-        }, 1000);
-    };
-
-    // --- LÓGICA LOCAL (MANTIDA IGUAL A ANTERIOR QUE FUNCIONAVA) ---
-    const applySingleCell = (weekData, day, startHour, taskLabel, details, quantity) => {
-      const effectiveTaskLabel = taskLabel === "(Limpar)" ? "AVLB" : taskLabel;
-      const startIdx = HOURS.indexOf(startHour);
-
-      if (taskLabel === "Break") {
-        for (let i = 0; i < Math.min(2, HOURS.length - startIdx); i++) {
-          if (HOURS[startIdx + i]) weekData[day][HOURS[startIdx + i]] = { task: "Break" };
-        }
-      } else if (taskLabel === "(Limpar)" || taskLabel === "") {
-        for (let i = 0; i < quantity; i++) {
-          const h = HOURS[startIdx + i];
-          if (!h) break;
-          delete weekData[day][h];
-        }
-      } else {
-        let processed = 0;
-        for (let i = 0; i < 16; i++) {
-          const h = HOURS[startIdx + i];
-          if (!h) break;
-          if (processed >= quantity) break;
-          if (effectiveTaskLabel === "AVLB" || effectiveTaskLabel === "") {
-            weekData[day][h] = { task: "AVLB" };
-          } else {
-            weekData[day][h] = { task: effectiveTaskLabel, details: details };
-          }
-          processed++;
-        }
-      }
-    };
-
-    const applyTaskToCells = (cells, taskLabel, details = null, quantity = 1) => {
-      if (!cells || !cells.length) return;
-
-      setGlobalSavingState(true);
-      previousStateRef.current = JSON.parse(JSON.stringify(scheduleRef.current));
-      lastActionRef.current = { cells: cells.slice(), week: selectedWeek };
-
-      const newData = JSON.parse(JSON.stringify(scheduleRef.current));
-      const weekKey = selectedWeek;
-      if (!newData[weekKey]) newData[weekKey] = {};
-      const isMulti = cells.length > 1;
-      const effectiveQty = isMulti ? 1 : quantity;
-      const dirtyDays = new Set();
-
-      cells.forEach(({ day, hour }) => {
-        if (!newData[weekKey][day]) newData[weekKey][day] = {};
-        applySingleCell(newData[weekKey], day, hour, taskLabel, details, effectiveQty);
-        dirtyDays.add(day);
-      });
-
-      scheduleRef.current = newData;
-      setScheduleData(newData);
-      setModalConfig(null);
-      setEditingCell(null);
-      setSelectedCells([]);
-      selectionAnchorRef.current = null;
-
-      setShowUndoToast(true);
-      setTimeout(() => setShowUndoToast(false), 4000);
-
-      if (typeof google === 'undefined' || !google.script) return;
-      dirtyDays.forEach(d => triggerSave(d));
-    };
-
-    const saveTask = (day, startHour, taskLabel, details = null, quantity = 1) => {
-      applyTaskToCells([{ day, hour: startHour }], taskLabel, details, quantity);
-    };
-
-    const handleUndo = () => {
-        if (previousStateRef.current && lastActionRef.current) {
-            const restoredData = JSON.parse(JSON.stringify(previousStateRef.current));
-            scheduleRef.current = restoredData;
-            setScheduleData(restoredData);
-            setShowUndoToast(false);
-            
-            const action = lastActionRef.current;
-            previousStateRef.current = null;
-            lastActionRef.current = null;
-
-            if (action.cells && action.cells.length) {
-              const days = new Set(action.cells.map(c => c.day));
-              days.forEach(d => triggerSave(d));
-            } else if (action.day) {
-              triggerSave(action.day);
-            }
-        }
-    };
-
-    const handleCellMouseDown = (e, day, hour) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (e.shiftKey && selectionAnchorRef.current) {
-        const cells = getRectCells(selectionAnchorRef.current, { day, hour });
-        setSelectedCells(cells);
-        selectMovedRef.current = true;
-        isSelectingRef.current = false;
-        setEditingCell(null);
-        return;
-      }
-
-      isSelectingRef.current = true;
-      selectMovedRef.current = false;
-      selectionAnchorRef.current = { day, hour };
-      setSelectedCells([{ day, hour }]);
-      setEditingCell(null);
-    };
-
-    const handleCellMouseEnter = (e, day, hour) => {
-      if (!isSelectingRef.current || !selectionAnchorRef.current) return;
-      const cells = getRectCells(selectionAnchorRef.current, { day, hour });
-      if (cells.length > 1) selectMovedRef.current = true;
-      setSelectedCells(cells);
-    };
-
-    /* ============================================================================
-    SEÇÃO 5: VISUALIZAÇÃO E EVENTOS
-    ============================================================================ */
-    const handleTaskSelect = (newTaskLabel) => {
-      const cells = selectedCells.length > 1
-        ? selectedCells
-        : (editingCell ? [{ day: editingCell.day, hour: editingCell.hour }] : []);
-      if (!cells.length) return;
-      setEditingCell(null);
-
-      const isClearing = newTaskLabel === "";
-      const isMulti = cells.length > 1;
-      const isDetail = DETAILED_SLOTS.includes(newTaskLabel);
-
-      if (isMulti) {
-        if (isDetail) {
-          setModalConfig({
-            taskLabel: isClearing ? "(Limpar)" : newTaskLabel,
-            cells: cells,
-            multi: true,
-            initialData: null,
-            initialQuantity: 1
-          });
-        } else {
-          applyTaskToCells(cells, isClearing ? "(Limpar)" : newTaskLabel, null, 1);
-        }
-        return;
-      }
-
-      const { day, hour } = cells[0];
-      
-      let currentQtd = 1;
-      if (!isClearing) {
-          const weekData = scheduleRef.current[selectedWeek] || {};
-          const startIdx = HOURS.indexOf(hour);
-          const currentDetails = parseDetails(scheduleRef.current[selectedWeek]?.[day]?.[hour]?.details);
-          if (weekData[day]?.[hour]?.task === newTaskLabel) { 
-            let count = 0;
-            for (let i=0; i<20; i++) {
-                const h = HOURS[startIdx+i];
-                if (!h) break;
-                const slot = weekData[day][h];
-                const slotDetailsStr = normalizeDetailsForComparison(slot?.details);
-                const currentDetailsStr = normalizeDetailsForComparison(currentDetails);
-                const emptyJson = '{"action":"","project":"","otherSpec":""}';
-                const isMatch = slotDetailsStr === currentDetailsStr || slotDetailsStr === emptyJson;
-                if (slot && slot.task === newTaskLabel && isMatch) count++;
-                else break; 
-            }
-            if (count > 0) currentQtd = count;
-          }
-      }
-      setModalConfig({ taskLabel: isClearing ? "(Limpar)" : newTaskLabel, day, hour, initialData: isClearing ? null : parseDetails(scheduleRef.current[selectedWeek]?.[day]?.[hour]?.details), initialQuantity: currentQtd });
-    };
-
-    // --- AGRUPAMENTO INTELIGENTE (VISUAL) ---
-    const getGroupedRecords = (filterTask = null) => {
-        const weekData = scheduleData[selectedWeek];
-        if (!weekData) return [];
-        let flatRecords = [];
-        DAYS.forEach(day => {
-          if (weekData[day]) {
-              Object.entries(weekData[day]).forEach(([hour, data]) => {
-              const taskName = typeof data === 'string' ? data : data.task;
-              if (!taskName || taskName === "Break") return; 
-              if (filterTask && taskName !== filterTask) return;
-              flatRecords.push({ day, hour, hourIndex: HOURS.indexOf(hour), data: typeof data === 'string' ? { task: data } : data, taskName: taskName });
-            });
-          }
-        });
-        flatRecords.sort((a, b) => { const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day); return dayDiff !== 0 ? dayDiff : a.hourIndex - b.hourIndex; });
-        if (flatRecords.length === 0) return [];
-        
-        const groups = [];
-        let currentGroup = { ...flatRecords[0], count: 1, endHourIndex: flatRecords[0].hourIndex };
-        
-        for (let i = 1; i < flatRecords.length; i++) {
-          const rec = flatRecords[i];
-          const prev = currentGroup;
-          
-          const isSameDay = rec.day === prev.day;
-          const isSameTask = rec.taskName === prev.taskName;
-          
-          const recDetailsRaw = parseDetails(rec.data.details);
-          const prevDetailsRaw = parseDetails(prev.data.details);
-
-          const recStr = normalizeDetailsForComparison(recDetailsRaw);
-          const prevStr = normalizeDetailsForComparison(prevDetailsRaw);
-
-          const emptyJson = '{"action":"","project":"","otherSpec":""}';
-          const isRecEmpty = recStr === emptyJson;
-          const isPrevFull = prevStr !== emptyJson;
-          
-          let isSameDetails = recStr === prevStr;
-          
-          if (isSameTask && isSameDay && isRecEmpty && isPrevFull) {
-              isSameDetails = true; // Herança visual
-          }
-          if (isSameTask && isSameDay && !isRecEmpty && isPrevFull && isRecEmpty) {
-               isSameDetails = true; // Herança visual inversa
-          }
-
-          const gap = rec.hourIndex - prev.endHourIndex;
-          let isConsecutiveLogic = false;
-          if (gap === 1) isConsecutiveLogic = true; 
-          else if (gap > 1 && isSameDay) {
-            const currentDayBreaks = Object.keys(weekData[rec.day] || {}).filter(h => weekData[rec.day][h]?.task === 'Break');
-            let allBreaksInGap = true;
-            for (let k = prev.endHourIndex + 1; k < rec.hourIndex; k++) { if (!currentDayBreaks.includes(HOURS[k])) { allBreaksInGap = false; break; } }
-            isConsecutiveLogic = allBreaksInGap;
-          }
-
-          if (isSameDay && isSameTask && isConsecutiveLogic && isSameDetails) { 
-              currentGroup.count++; 
-              currentGroup.endHourIndex = rec.hourIndex; 
-          } else { 
-              groups.push(currentGroup); 
-              currentGroup = { ...rec, count: 1, endHourIndex: rec.hourIndex }; 
-          }
-        }
-        groups.push(currentGroup);
-        return groups;
-    };
-
-    const getSummaryData = () => {
-        const weekData = scheduleData[selectedWeek]; 
-        if (!weekData) return [];
-        const summaryMap = {};
-        DAYS.forEach(day => { if (weekData[day]) Object.values(weekData[day]).forEach(data => { const taskName = typeof data === 'string' ? data : data.task; if (taskName && taskName !== 'Break') { if (!summaryMap[taskName]) summaryMap[taskName] = 0; summaryMap[taskName]++; } }); });
-        return Object.entries(summaryMap).map(([slot, count]) => ({ slot, count, hours: count * 0.5 })).sort((a, b) => b.count - a.count);
-    };
-
-    const filteredOptions = TASK_TYPES.filter(opt => opt.label.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const rawAdjustmentsRecords = getGroupedRecords(null).filter(r => DETAILED_SLOTS.includes(r.taskName));
-    
-    const filteredAdjustmentRecords = rawAdjustmentsRecords.filter(r => 
-        r.taskName.toLowerCase().includes(ajustesSearch.toLowerCase()) || 
-        r.day.toLowerCase().includes(ajustesSearch.toLowerCase())
-    );
-
-    /* ============================================================================
-    SEÇÃO 6: LAYOUT
-    ============================================================================ */
-    if (isLoading) {
-        return (
-            <div className="flex h-screen items-center justify-center bg-[#F5F5F7] flex-col" style={{ fontFamily: 'Arial, sans-serif' }}>
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#820AD1] mb-4"></div>
-                <p className="text-[#111827] font-medium">Carregando sua escala...</p>
-                <p className="text-xs text-[#6B7280] mt-2">Dimensionamento — sincronizando com a planilha</p>
-            </div>
-        );
-    }
-
-    return (
-      <div className="flex h-screen bg-[#F5F5F7] text-[#111827] overflow-hidden relative" style={{ fontFamily: 'Arial, sans-serif' }}>
-        {/* MODAL CONFIG */}
-        {modalConfig && (
-          <TaskConfigModal 
-            taskLabel={modalConfig.taskLabel}
-            onClose={() => setModalConfig(null)}
-            onSave={(details, qtd) => {
-              if (modalConfig.multi && modalConfig.cells) {
-                applyTaskToCells(modalConfig.cells, modalConfig.taskLabel, details, 1);
-              } else {
-                saveTask(modalConfig.day, modalConfig.hour, modalConfig.taskLabel, details, qtd);
-              }
-            }}
-            initialData={modalConfig.initialData}
-            hourContext={modalConfig.hour}
-            initialQuantity={modalConfig.initialQuantity}
-            dayContext={modalConfig.day}
-            currentSchedule={scheduleData}
-            weekKey={selectedWeek}
-            multiCount={modalConfig.multi ? modalConfig.cells.length : 0}
-          />
-        )}
-        
-        {/* POPUP SELEÇÃO */}
-        {editingCell && (
-            <div className="editing-popup fixed bg-white border border-[#D1D5DB] shadow-lg rounded-lg flex flex-col w-[280px] max-h-[400px] z-50 animate-in fade-in zoom-in-95 duration-100" style={{ top: editingCell.top, left: editingCell.left }}>
-              <div className="bg-[#F5F5F7] p-3 text-xs font-bold text-[#820AD1] border-b border-[#D1D5DB] flex justify-between items-center shrink-0">
-                  <span>{editingCell.multiCount > 1 ? `${editingCell.multiCount} slots selecionados` : `${editingCell.day.toUpperCase()} • ${editingCell.hour}`}</span>
-                  <button onClick={() => setEditingCell(null)} className="hover:bg-gray-200 rounded p-1 text-[#6B7280] transition-colors" title="Fechar"><X size={16}/></button>
-              </div>
-              <div className="p-2 border-b border-[#D1D5DB] bg-white sticky top-0">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-[#9CA3AF]" />
-                    <input autoFocus type="text" placeholder="Filtrar atividades..." className="w-full pl-8 pr-2 py-1.5 text-xs border border-[#D1D5DB] rounded focus:border-[#820AD1] focus:outline-none text-[#111827]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                  </div>
-              </div>
-              <div className="overflow-y-auto p-1 flex-1">
-                  {filteredOptions.length > 0 ? filteredOptions.map(type => (
-                  <button key={type.id || 'empty'} onClick={() => handleTaskSelect(type.id)} className={`w-full text-left px-3 py-2.5 text-xs font-medium rounded hover:bg-[#F5F5F7] flex items-center space-x-2 border-b border-[#F3F4F6] last:border-0 group transition-colors text-[#374151]`}>
-                      <div className={`w-3.5 h-3.5 rounded-full shrink-0 ${type.color.split(' ')[0]} border border-[#D1D5DB] group-hover:scale-110 transition-transform`}></div>
-                      <span className="truncate flex-1">{type.label}</span>
-                      {type.id === 'Planilha' && <List className="w-3.5 h-3.5 text-[#9CA3AF]" />}
-                      {type.id === 'Break' && <Coffee className="w-3.5 h-3.5 text-[#9CA3AF]" />}
-                      {type.id === '' && <Eraser className="w-3.5 h-3.5 text-red-400" />}
-                  </button>
-                  )) : <div className="p-4 text-center text-xs text-[#9CA3AF]">Nenhum slot encontrado</div>}
-              </div>
-            </div>
-        )}
-
-        {/* TOAST UNDO */}
-        {showUndoToast && (
-            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-[#111827] text-white px-6 py-3 rounded-full shadow-xl z-[10000] flex items-center space-x-4 toast-enter">
-                <span className="text-sm font-medium">Ação realizada</span>
-                <button onClick={handleUndo} className="flex items-center text-[#FCD34D] hover:text-[#fbbf24] font-bold text-sm bg-white/10 px-3 py-1 rounded transition-colors"><Undo2 size={14} className="mr-1.5"/> Desfazer</button>
-            </div>
-        )}
-        
-        {/* SIDEBAR */}
-        <aside className="w-64 bg-white border-r-2 border-[#D1D5DB] flex flex-col z-20 shadow-sm hidden md:flex shrink-0">
-          <div className="p-6 border-b-2 border-[#D1D5DB] bg-white">
-            <h2 className="font-bold text-xl tracking-tight text-[#111827]">DIM ID/CSAT</h2>
-          </div>
-          <nav className="flex-1 p-4 space-y-2">
-            <button onClick={() => setActiveView('escala')} className={`flex items-center w-full p-3 font-bold rounded-lg transition-all ${activeView === 'escala' ? 'bg-[#820AD1] text-white shadow-md' : 'text-[#6B7280] hover:bg-purple-50 hover:text-[#820AD1]'}`}><Calendar className="w-5 h-5 mr-3" /> Escala Semanal</button>
-            <button onClick={() => setActiveView('ajustes')} className={`flex items-center w-full p-3 font-bold rounded-lg transition-all ${activeView === 'ajustes' ? 'bg-[#820AD1] text-white shadow-md' : 'text-[#6B7280] hover:bg-purple-50 hover:text-[#820AD1]'}`}><Settings className="w-5 h-5 mr-3" /> Ajustes</button>
-            <button onClick={() => setActiveView('controle')} className={`flex items-center w-full p-3 font-bold rounded-lg transition-all ${activeView === 'controle' ? 'bg-[#820AD1] text-white shadow-md' : 'text-[#6B7280] hover:bg-purple-50 hover:text-[#820AD1]'}`}><Info className="w-5 h-5 mr-3" /> Controle de Slots</button>
-          </nav>
-          <div className="p-4 border-t-2 border-[#D1D5DB] bg-white">
-              <div className="text-[10px] font-bold uppercase text-[#9CA3AF] mb-1">Analista Logado</div>
-              <div className="font-medium text-sm text-[#374151] break-all leading-tight" title={currentUser}>
-                {currentUser}
-              </div>
-          </div>
-        </aside>
-
-        <main className="flex-1 flex flex-col h-full relative z-0 min-w-0">
-          {/* HEADER */}
-          <header className="bg-white border-b-2 border-[#D1D5DB] p-4 flex justify-between items-center z-40 shadow-sm shrink-0 gap-4">
-            <h1 className="text-lg md:text-2xl font-bold text-[#111827] truncate flex-1">
-                {activeView === 'escala' ? 'Dimensionamento ID Quality/Csat' : (activeView === 'ajustes' ? 'Detalhes de Planilha' : 'Controle de Slots')}
-            </h1>
-            <div className="flex items-center space-x-3 shrink-0">
-              <div className="hidden lg:flex flex-col items-end text-right mr-2 border-r-2 pr-4 border-[#D1D5DB]">
-                  <span className="text-[10px] text-[#9CA3AF] font-medium uppercase tracking-wide">Última atualização</span>
-                  <span className="text-xs font-bold text-[#6B7280] font-mono">{lastUpdate ? lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}</span>
-              </div>
-              <button onClick={() => setSelectedWeek(String(getCurrentWeekNumber()))} className="flex items-center bg-white border-2 border-[#D1D5DB] rounded-lg px-3 py-1.5 shadow-sm active:translate-y-[1px] transition-all hover:border-[#820AD1] hover:text-[#820AD1] group mr-2" title="Ir para semana atual"><Calendar className="w-4 h-4 mr-2 text-[#820AD1]" /><span className="text-xs font-bold uppercase">Semana Atual: {getCurrentWeekNumber()}</span></button>
-              <div className="relative" ref={weekMenuRef}>
-                <button onClick={() => setIsWeekMenuOpen(!isWeekMenuOpen)} className="flex items-center bg-white border-2 border-[#D1D5DB] rounded-lg px-3 py-1.5 shadow-sm active:translate-y-[1px] transition-all min-w-[150px] justify-between group hover:border-[#820AD1]">
-                  <div className="flex flex-col text-left"><span className="text-[10px] font-bold text-[#9CA3AF] uppercase leading-none mb-0.5">Semana</span><span className="font-bold text-base leading-none text-[#820AD1]">{selectedWeek}</span></div>
-                  <ChevronDown className={`w-4 h-4 text-[#6B7280] transition-transform ml-2 ${isWeekMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {isWeekMenuOpen && (
-                  <div className="absolute top-full right-0 mt-2 w-56 bg-white border-2 border-[#D1D5DB] rounded-lg shadow-xl z-50 max-h-[300px] overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                      {WEEKS_2026.map(week => (
-                        <button key={week.id} ref={selectedWeek === week.id ? activeWeekRef : null} onClick={() => { setSelectedWeek(week.id); setIsWeekMenuOpen(false); }} className={`w-full text-left px-4 py-3 font-medium text-sm border-b border-[#F3F4F6] last:border-0 hover:bg-purple-50 transition-colors flex justify-between items-center ${selectedWeek === week.id ? 'bg-purple-50 text-[#820AD1]' : 'text-[#374151]'}`}><span>Semana {week.label}</span>{selectedWeek === week.id && <Check size={14} />}</button>
-                      ))}
-                  </div>
-                )}
-              </div>
-              <div className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold border-2 transition-colors ${isSaving ? 'bg-yellow-50 text-yellow-800 border-yellow-200' : 'bg-green-50 text-green-800 border-green-200'}`}>
-                {isSaving ? <><RefreshCw className="w-3 h-3 mr-2 animate-spin" /><span className="hidden md:inline">SALVANDO...</span></> : <><Save className="w-3 h-3 mr-2" /><span className="hidden md:inline">SALVO</span></>}
-              </div>
-            </div>
-          </header>
-
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[#F5F5F7]">
-            <div className="flex-1 overflow-auto p-4 md:p-6">
-              {activeView === 'escala' && (
-                <div ref={gridWrapRef} className="dim-schedule-grid inline-block min-w-max pb-10">
-                  <div className="bg-white border-t-2 border-l-2 border-[#D1D5DB] relative overflow-visible shadow-sm">
-                    {/* CABEÇALHO TABELA */}
-                    <div className="flex sticky-header-fix bg-[#F9FAFB] w-full">
-                      <div className="w-32 flex-shrink-0 p-3 border-r-2 border-b-2 border-[#D1D5DB] font-bold text-center flex flex-col items-center justify-center bg-[#F9FAFB] text-sm uppercase tracking-wider sticky left-0 z-30 text-[#6B7280]"><span>Dia</span><span className="text-[11px] text-[#9CA3AF] mt-1">Data</span></div>
-                      {HOURS.map(hour => (<div key={hour} className="w-[88px] flex-shrink-0 py-2 border-r-2 border-b-2 border-[#D1D5DB] font-bold text-sm text-center bg-[#F9FAFB] text-[#6B7280] flex items-center justify-center">{hour}</div>))}
-                    </div>
-                    {/* CORPO TABELA */}
-                    {DAYS.map((day) => {
-                      const daySlots = scheduleData[selectedWeek]?.[day] || {};
-                      
-                      const occupiedSlots = HOURS.filter(h => {
-                          const slot = daySlots[h];
-                          const t = typeof slot === 'object' ? slot.task : slot;
-                          return t && t !== ""; 
-                      }).length;
-                      
-                      const isAlertColor = occupiedSlots !== 18; 
-
-                      return (
-                        <div key={day} className="flex hover:bg-[#F9FAFB] transition-colors w-full group/row">
-                          <div className={`w-32 flex-shrink-0 p-2 border-r-2 border-b-2 border-[#D1D5DB] font-bold uppercase text-base flex flex-col items-center justify-center sticky left-0 z-20 transition-colors ${isAlertColor ? 'bg-red-100 text-[#7F1D1D]' : 'bg-white text-[#111827]'}`}>
-                            <span>{day}</span>
-                            <span className={`text-sm font-bold mt-0.5 ${isAlertColor ? 'text-[#991B1B]' : 'text-[#820AD1]'}`}>{visualMap[day] || '-'}</span>
-                          </div>
-                          {HOURS.map((hour) => {
-                            const cellData = scheduleData[selectedWeek]?.[day]?.[hour];
-                            const taskName = typeof cellData === 'object' ? cellData?.task : cellData;
-                            const isBreak = taskName === 'Break';
-                            const isAVLB = taskName === 'AVLB';
-                            const isSelected = isCellSelected(day, hour, selectedCells);
-                            return (
-                              <div key={`${day}-${hour}`} data-day={day} data-hour={hour} className={`w-[88px] flex-shrink-0 border-r-2 border-b-2 border-[#D1D5DB] relative flex flex-col min-h-[3rem] ${isSelected ? 'ring-2 ring-inset ring-[#820AD1] z-10' : ''}`}>
-                                <div onMouseDown={(e) => handleCellMouseDown(e, day, hour)} onMouseEnter={(e) => handleCellMouseEnter(e, day, hour)} className="w-full h-full p-[2px] cursor-pointer transition-all flex items-center justify-center text-center group flex-grow select-none">
-                                  {taskName && !isAVLB ? (
-                                     <div className={`w-full h-full rounded-[3px] flex flex-col items-center justify-center text-[11px] font-bold border leading-none break-words px-0.5 hover:brightness-95 hover:shadow-sm transition-all overflow-hidden ${getColor(taskName)} relative`}>
-                                        <span className="line-clamp-2 px-1">{taskName}</span>{isBreak && <Coffee size={10} className="mt-1 opacity-50"/>}
-                                     </div>
-                                  ) : isAVLB ? (
-                                     <div className={`w-full h-full rounded-[3px] flex flex-col items-center justify-center text-[11px] font-bold border leading-none break-words px-0.5 hover:brightness-95 hover:shadow-sm transition-all overflow-hidden ${getColor('AVLB')} relative`}>
-                                        <span className="line-clamp-2 px-1">AVLB</span>
-                                     </div>
-                                  ) : (
-                                     <div className="w-full h-full rounded-[3px] hover:bg-gray-100 flex items-center justify-center text-gray-300"><Plus className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 text-[#9CA3AF]" /></div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {activeView === 'ajustes' && (
-                <div className="max-w-7xl mx-auto space-y-6 pb-10">
-                  <div className="bg-white border-2 border-[#D1D5DB] rounded-lg p-0 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b-2 border-[#D1D5DB] bg-[#F9FAFB] flex justify-between items-center">
-                        <h3 className="text-lg font-bold text-[#111827]">Detalhamento de Slots</h3>
-                        <div className="relative">
-                            <input type="text" placeholder="Digite aqui o nome do slot..." className="pl-8 pr-3 py-1.5 text-xs border border-[#D1D5DB] rounded focus:border-[#820AD1] focus:outline-none w-64 text-[#111827]" value={ajustesSearch} onChange={(e) => setAjustesSearch(e.target.value)} />
-                            <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-[#9CA3AF]" />
-                        </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-[#D1D5DB]">
-                        <thead className="bg-[#F9FAFB]">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider">Slot / Tipo</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider w-32">Data / Início</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider w-32">Duração</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider">Ação Realizada</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider">Qual o projeto?</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider">Outro</th>
-                            <th className="px-4 py-3 text-right text-xs font-bold text-[#6B7280] uppercase tracking-wider w-24">Ação</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-[#D1D5DB]">
-                          {filteredAdjustmentRecords.length > 0 ? (
-                            filteredAdjustmentRecords.map((record, idx) => {
-                              const details = parseDetails(record.data.details);
-                              const rowKey = `${record.day}-${record.hour}-${idx}-${record.count}`; 
-                              return (
-                                <tr key={rowKey} className="hover:bg-[#F9FAFB] transition-colors group">
-                                  <td className="px-4 py-3 whitespace-nowrap"><div className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border ${getColor(record.taskName)}`}>{record.taskName}</div></td>
-                                  <td className="px-4 py-3 whitespace-nowrap"><div className="text-sm font-bold text-[#111827] capitalize">{record.day} • {visualMap[record.day]}</div><div className="text-xs text-[#6B7280] font-mono mt-0.5">{record.hour}</div></td>
-                                  <td className="px-4 py-3 whitespace-nowrap"><span className="px-2 py-1 text-xs font-bold rounded bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]">{record.count * 0.5}h ({record.count} slots)</span></td>
-                                  <td className="px-4 py-3 text-sm text-[#374151]">{details.action ? <span className="font-medium">{details.action}</span> : <span className="text-red-400 italic text-xs">Pendente</span>}</td>
-                                  <td className="px-4 py-3 text-sm text-[#374151]">{details.project || <span className="text-[#9CA3AF]">-</span>}</td>
-                                  <td className="px-4 py-3 text-sm text-[#6B7280] italic">{details.otherSpec || <span className="text-[#9CA3AF]">-</span>}</td>
-                                  <td className="px-4 py-3 text-right whitespace-nowrap text-sm font-medium"><button onClick={() => { const startIdx = HOURS.indexOf(record.hour); const slotsSnapshot = {}; for(let i=0; i<20; i++) { const h = HOURS[startIdx + i]; if (h) slotsSnapshot[h] = scheduleData[selectedWeek]?.[record.day]?.[h] ? JSON.parse(JSON.stringify(scheduleData[selectedWeek][record.day][h])) : undefined; } setModalConfig({ taskLabel: record.taskName, day: record.day, hour: record.hour, initialData: details, initialQuantity: record.count }); }} className="text-[#820AD1] hover:text-[#6b08ac] bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-md transition-colors flex items-center ml-auto"><Edit2 size={14} className="mr-1.5"/>Editar</button></td>
-                                </tr>
-                              );
-                            })
-                          ) : (<tr><td colSpan={7} className="px-6 py-12 text-center text-[#9CA3AF] bg-[#F9FAFB]"><FileText size={32} className="mx-auto mb-2 opacity-20"/><p>Nenhum slot encontrado nesta semana.</p></td></tr>)}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {activeView === 'controle' && (
-                  <ControleSlots data={slotDefinitions} getColor={getColor} isLoading={isLoading && slotDefinitions.length === 0} HelpCircle={HelpCircle} />
-              )}
-            </div>
-            
-            {activeView === 'escala' && (
-             <div className="bg-white border-t-2 border-[#D1D5DB] p-0 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)] shrink-0 flex flex-col max-h-[160px]">
-               <div className="flex items-center justify-between px-4 py-2 border-b-2 border-[#D1D5DB] bg-[#F9FAFB] sticky top-0">
-                 <div className="flex items-center space-x-2"><PieChart className="text-[#820AD1]" size={16} /><h3 className="font-bold text-[#111827] text-xs uppercase tracking-wide">Resumo da Semana</h3></div>
-                 <div className="text-[10px] text-[#9CA3AF]">Total calculado automaticamente</div>
-               </div>
-               <div className="overflow-y-auto w-full p-2">
-                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                    {getSummaryData().map((item, idx) => (
-                       <div key={idx} className="bg-white border border-[#E5E7EB] rounded p-2 flex flex-col shadow-sm hover:border-[#D1D5DB] transition-colors">
-                         <div className="flex items-center mb-1"><div className={`w-2 h-2 rounded-full mr-1.5 ${getColor(item.slot).split(' ')[0]} border border-[#D1D5DB]`}></div><span className="text-[10px] font-bold text-[#6B7280] truncate" title={item.slot}>{item.slot}</span></div>
-                         <div className="flex justify-between items-end"><span className="text-[10px] text-[#9CA3AF]">{item.count} slots</span><span className="text-sm font-bold text-[#111827]">{item.hours}h</span></div>
-                       </div>
-                    ))}
-                 </div>
-               </div>
-             </div>
-            )}
-          </div>
-        </main>
-      </div>
-    );
-  }
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [editingCell]);
 
   /* ============================================================================
-  SEÇÃO 7: SUB-COMPONENTES
+  SEÇÃO 4: LÓGICA DE SALVAMENTO (SMART MERGE CORRIGIDO)
   ============================================================================ */
-  function TaskConfigModal({ taskLabel, onClose, onSave, initialData, hourContext, initialQuantity, dayContext, currentSchedule, weekKey, multiCount }) {
-    const isMulti = multiCount > 1;
-    const isPlanilha = taskLabel === "Planilha";
-    const isCleaning = taskLabel === "(Limpar)";
-    const isBreak = taskLabel === "Break"; 
-    
-    let actionOptions = [];
-    let projectOptions = [];
-    let hasProjectField = true;
-    let requiresDetails = false;
 
-    if (taskLabel === "Planilha") {
-       actionOptions = PLANILHA_ACTIONS; projectOptions = PLANILHA_PROJECTS; requiresDetails = true;
-    } else if (taskLabel === "Deep Dive") {
-       actionOptions = DEEPDIVE_ACTIONS; projectOptions = DEEPDIVE_PROJECTS; requiresDetails = true;
-    } else if (taskLabel === "Docs") {
-       actionOptions = DOCS_ACTIONS; projectOptions = DOCS_PROJECTS; requiresDetails = true;
-    } else if (taskLabel === "Playbook") {
-       actionOptions = PLAYBOOK_ACTIONS; projectOptions = PLAYBOOK_PROJECTS; requiresDetails = true;
-    } else if (taskLabel === "RFC") {
-       actionOptions = RFC_ACTIONS; projectOptions = RFC_PROJECTS; requiresDetails = true;
-    } else if (taskLabel === "Slides") {
-       actionOptions = SLIDES_ACTIONS; projectOptions = SLIDES_PROJECTS; requiresDetails = true;
-    } else if (taskLabel === "Jira/Atlassian") {
-       actionOptions = JIRA_ACTIONS; hasProjectField = false; requiresDetails = true;
-    } else if (taskLabel === "Drive") {
-       actionOptions = DRIVE_ACTIONS; hasProjectField = false; requiresDetails = true;
-    } else if (taskLabel === "Project Meet") {
-       actionOptions = PROJECTMEET_ACTIONS; projectOptions = PROJECTMEET_PROJECTS; requiresDetails = true;
-    } else if (taskLabel === "Databricks") {
-       actionOptions = DATABRICKS_ACTIONS; projectOptions = DATABRICKS_PROJECTS; requiresDetails = true;
-    } else if (taskLabel === "Quicksight") {
-       actionOptions = QUICKSIGHT_ACTIONS; projectOptions = QUICKSIGHT_PROJECTS; requiresDetails = true;
-    }
+  // --- FUNÇÃO DE CONSOLIDAÇÃO INTELIGENTE (HERANÇA DE DETALHES) ---
+  const consolidateDayBlocks = dayData => {
+    const blocks = [];
+    let currentBlock = null;
 
-    const [action, setAction] = useState(initialData?.action || "");
-    const [project, setProject] = useState(initialData?.project || "");
-    const [otherSpec, setOtherSpec] = useState(initialData?.otherSpec || "");
-    const [quantity, setQuantity] = useState(isBreak ? 2 : (initialQuantity || 1)); 
-    const [confirmOvertime, setConfirmOvertime] = useState(false);
-    const quantityNum = parseInt(quantity) || 0;
+    // Padrão de detalhe vazio (usado para identificar perda de memória no load)
+    const emptyDetailsPattern = '{"action":"","project":"","otherSpec":""}';
+    HOURS.forEach(h => {
+      const slot = dayData[h];
+      const task = slot?.task;
 
-    const calculateProjectedTotal = () => {
-        const dayData = currentSchedule[weekKey]?.[dayContext] || {};
-        const currentTotal = Object.values(dayData).filter(v => v.task).length;
-        let slotsNeeded = quantityNum;
-        let overwrittenWorkCount = 0;
-        const startIdx = HOURS.indexOf(hourContext);
-        for (let i = 0; i < HOURS.length - startIdx; i++) {
-            if (slotsNeeded <= 0) break;
-            const h = HOURS[startIdx + i];
-            const existingTask = dayData[h]?.task;
-            if (existingTask === "Break") continue; 
-            if (existingTask) overwrittenWorkCount++;
-            slotsNeeded--;
+      // Só aplica a lógica especial se for um slot detalhado (Playbook, Docs, etc.)
+      if (task && DETAILED_SLOTS.includes(task)) {
+        const slotDetailsStr = normalizeDetailsForComparison(slot.details);
+        if (currentBlock) {
+          const isSameTask = currentBlock.task === task;
+          if (isSameTask) {
+            const isIdentical = currentBlock.detailsStr === slotDetailsStr;
+            // CORREÇÃO: Se o slot atual está "sem detalhes" (padrão vazio),
+            // assumimos que ele perdeu a referência no Load e deve ser juntado ao anterior.
+            const isLostDetails = slotDetailsStr === emptyDetailsPattern;
+            if (isIdentical || isLostDetails) {
+              // Junta no bloco anterior
+              currentBlock.quantity++;
+            } else {
+              // Se tem detalhes preenchidos mas são REALMENTE DIFERENTES do anterior, separa
+              blocks.push(currentBlock);
+              currentBlock = {
+                task,
+                startTime: h,
+                quantity: 1,
+                details: parseDetails(slot.details),
+                detailsStr: slotDetailsStr
+              };
+            }
+          } else {
+            // Tarefa mudou: Separa
+            blocks.push(currentBlock);
+            currentBlock = {
+              task,
+              startTime: h,
+              quantity: 1,
+              details: parseDetails(slot.details),
+              detailsStr: slotDetailsStr
+            };
+          }
+        } else {
+          // Início de um novo bloco
+          currentBlock = {
+            task,
+            startTime: h,
+            quantity: 1,
+            details: parseDetails(slot.details),
+            detailsStr: slotDetailsStr
+          };
         }
-        return currentTotal - overwrittenWorkCount + quantityNum;
-    };
-
-    const projectedTotal = calculateProjectedTotal();
-    const isOvertime = projectedTotal > 18;
-
-    const handleSave = () => {
-      if (!quantity || quantityNum <= 0) { alert("Por favor, insira uma quantidade válida de slots (maior que 0)."); return; }
-      
-      if (requiresDetails) { 
-        if (!action) { alert("Selecione a Ação Realizada."); return; }
-        if (hasProjectField && !project) { alert("Selecione o Projeto."); return; }
+      } else {
+        // Buraco/Outro tipo: Fecha bloco
+        if (currentBlock) {
+          blocks.push(currentBlock);
+          currentBlock = null;
+        }
       }
-
-      if (isOvertime && !confirmOvertime && !isCleaning && !isMulti) { setConfirmOvertime(true); return; }
-      const details = requiresDetails ? { action, project, otherSpec } : null;
-      onSave(details, isMulti ? 1 : quantityNum);
+    });
+    if (currentBlock) {
+      blocks.push(currentBlock);
+    }
+    return blocks.map(b => {
+      const {
+        detailsStr,
+        ...rest
+      } = b;
+      return rest;
+    });
+  };
+  const processSaveQueue = () => {
+    if (isProcessingRef.current) return;
+    if (dirtyDaysQueueRef.current.size === 0) {
+      setGlobalSavingState(false);
+      setLastUpdate(new Date());
+      lastSaveTimeRef.current = Date.now();
+      return;
+    }
+    isProcessingRef.current = true;
+    setGlobalSavingState(true);
+    const dayToSave = dirtyDaysQueueRef.current.values().next().value;
+    dirtyDaysQueueRef.current.delete(dayToSave);
+    const currentWeekKey = selectedWeek;
+    const currentWeekData = scheduleRef.current[currentWeekKey]?.[dayToSave];
+    if (!currentWeekData) {
+      isProcessingRef.current = false;
+      processSaveQueue();
+      return;
+    }
+    const batchPayload = {
+      slots: [],
+      details: []
     };
+    HOURS.forEach(h => {
+      const slot = currentWeekData[h];
+      const task = slot ? slot.task : "";
+      batchPayload.slots.push({
+        dayDate: dateMap[dayToSave],
+        time: h,
+        task: task || ""
+      });
+    });
+    const finalBlocks = consolidateDayBlocks(currentWeekData);
+    finalBlocks.forEach(block => {
+      batchPayload.details.push({
+        slot: block.task,
+        quantity: block.quantity,
+        date: dateMap[dayToSave],
+        startTime: block.startTime,
+        action: block.details.action || "",
+        project: block.details.project || "",
+        other: block.details.otherSpec || ""
+      });
+    });
 
-    const isWarning = isCleaning; 
-    
-    // Condição para mostrar campo Outros (inclui MMP/NMP)
-    const showOtherSpec = action === "Outro" || 
-                          project === "Outro" || 
-                          project === "MMP (Projeto não mapeado)" ||
-                          project === "NMP (Projeto não mapeado)";
+    // Limpeza de slots detalhados que não existem mais
+    DETAILED_SLOTS.forEach(slotType => {
+      const exists = finalBlocks.some(b => b.task === slotType);
+      if (!exists) batchPayload.details.push({
+        slot: slotType,
+        quantity: 0,
+        date: dateMap[dayToSave],
+        startTime: "00:00",
+        analyst: currentUser
+      });
+    });
+    google.script.run.withSuccessHandler(() => {
+      console.log(`Salvo: ${dayToSave}`);
+      isProcessingRef.current = false;
+      processSaveQueue();
+    }).withFailureHandler(err => {
+      console.error(err);
+      dirtyDaysQueueRef.current.add(dayToSave);
+      isProcessingRef.current = false;
+      setTimeout(processSaveQueue, 1000);
+    }).saveBatchData(batchPayload);
+  };
+  const triggerSave = day => {
+    dirtyDaysQueueRef.current.add(day);
+    setGlobalSavingState(true);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setTimeout(() => {
+      processSaveQueue();
+    }, 1000);
+  };
 
-    return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200" style={{ fontFamily: 'Arial, sans-serif' }}>
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border-2 border-[#D1D5DB] overflow-hidden flex flex-col max-h-[90vh]">
-          <div className={`${isWarning ? 'bg-red-600' : (isBreak ? 'bg-yellow-500' : 'bg-[#820AD1]')} px-6 py-4 flex justify-between items-center shrink-0`}>
-            <div>
-                <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                    {isCleaning ? <Trash2 size={20}/> : (isBreak ? <Coffee size={20}/> : <Edit2 size={20}/>)}
-                    {taskLabel}
-                </h3>
-                <p className="text-white/80 text-xs mt-1 font-mono">{isMulti ? `${multiCount} slots selecionados` : `Início: ${hourContext} • ${dayContext.charAt(0).toUpperCase() + dayContext.slice(1)}`}</p>
-            </div>
-            <button onClick={onClose} className="text-white/70 hover:text-white transition-colors bg-white/10 p-2 rounded-full hover:bg-white/20" title="Fechar"><X size={24} /></button>
-          </div>
-          <div className="p-6 space-y-6 overflow-y-auto">
-            {isBreak && (
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-2 rounded-r-md">
-                    <div className="flex">
-                        <div className="flex-shrink-0">
-                            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                        </div>
-                        <div className="ml-3">
-                            <p className="text-sm font-bold text-yellow-800">
-                                Lembre-se de alterar os slots de Break no horário antigo.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-            
-            {!isMulti && (
-            <div className={`${isWarning ? 'bg-red-50 border-red-200' : 'bg-purple-50 border-purple-200'} p-5 rounded-lg border-2 flex flex-col justify-between`}>
-               <div className="flex items-center justify-between w-full mb-2">
-                 <div><label className={`text-sm font-bold ${isWarning ? 'text-red-800' : 'text-[#820AD1]'} block`}>{isCleaning ? 'Limpar quantos slots?' : 'Duração da atividade'}</label><p className={`text-xs mt-1 ${isWarning ? 'text-red-600' : 'text-[#9B4DDB]'}`}>Cada slot tem 30 minutos</p></div>
-                 <div className="flex items-center bg-white rounded-lg border-2 border-[#D1D5DB] shadow-sm">
-                   <button disabled={isBreak} onClick={() => setQuantity(Math.max(1, quantityNum-1))} className={`px-3 py-2 text-[#6B7280] hover:bg-[#F9FAFB] border-r-2 border-[#D1D5DB] hover:text-[#111827] font-bold ${isBreak ? 'opacity-50 cursor-not-allowed' : ''}`}>-</button>
-                   <input disabled={isBreak} type="number" min="1" max="20" value={quantity} onChange={(e) => { const val = e.target.value; setQuantity(val === '' ? '' : parseInt(val)); }} className={`w-12 text-center py-2 text-[#111827] font-bold focus:outline-none appearance-none m-0 ${isBreak ? 'bg-gray-100' : ''}`}/>
-                   <button disabled={isBreak} onClick={() => setQuantity(quantityNum+1)} className={`px-3 py-2 text-[#6B7280] hover:bg-[#F9FAFB] border-l-2 border-[#D1D5DB] hover:text-[#111827] font-bold ${isBreak ? 'opacity-50 cursor-not-allowed' : ''}`}>+</button>
-                 </div>
-               </div>
-               {quantityNum < initialQuantity && !isCleaning && !isBreak && (<div className="text-[10px] text-[#820AD1] bg-purple-100 px-2 py-1 rounded flex items-center"><Undo2 size={10} className="mr-1"/>Os slots excedentes ({initialQuantity - quantityNum}) virarão AVLB.</div>)}
-            </div>
-            )}
-            
-            {requiresDetails && (
-              <div className="space-y-4 pt-2 animate-in slide-in-from-bottom-2 duration-300">
-                <div className="space-y-1.5"><label className="text-sm font-bold text-[#374151] block">Ação Realizada <span className="text-red-500">*</span></label><div className="relative"><select value={action} onChange={(e) => setAction(e.target.value)} className="w-full p-3 bg-white border-2 border-[#D1D5DB] text-[#111827] text-sm rounded-lg focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] block appearance-none shadow-sm transition-shadow"><option value="" disabled>Selecione...</option>{actionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-[#9CA3AF] pointer-events-none" /></div></div>
-               
-                {hasProjectField && (
-                  <div className="space-y-1.5"><label className="text-sm font-bold text-[#374151] block">Qual o projeto? <span className="text-red-500">*</span></label><div className="relative"><select value={project} onChange={(e) => setProject(e.target.value)} className="w-full p-3 bg-white border-2 border-[#D1D5DB] text-[#111827] text-sm rounded-lg focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] block appearance-none shadow-sm transition-shadow"><option value="" disabled>Selecione...</option>{projectOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-[#9CA3AF] pointer-events-none" /></div></div>
-                )}
+  // --- LÓGICA LOCAL (MANTIDA IGUAL A ANTERIOR QUE FUNCIONAVA) ---
+  const applySingleCell = (weekData, day, startHour, taskLabel, details, quantity) => {
+    const effectiveTaskLabel = taskLabel === "(Limpar)" ? "AVLB" : taskLabel;
+    const startIdx = HOURS.indexOf(startHour);
+    if (taskLabel === "Break") {
+      for (let i = 0; i < Math.min(2, HOURS.length - startIdx); i++) {
+        if (HOURS[startIdx + i]) weekData[day][HOURS[startIdx + i]] = {
+          task: "Break"
+        };
+      }
+    } else if (taskLabel === "(Limpar)" || taskLabel === "") {
+      for (let i = 0; i < quantity; i++) {
+        const h = HOURS[startIdx + i];
+        if (!h) break;
+        delete weekData[day][h];
+      }
+    } else {
+      let processed = 0;
+      for (let i = 0; i < 16; i++) {
+        const h = HOURS[startIdx + i];
+        if (!h) break;
+        if (processed >= quantity) break;
+        if (effectiveTaskLabel === "AVLB" || effectiveTaskLabel === "") {
+          weekData[day][h] = {
+            task: "AVLB"
+          };
+        } else {
+          weekData[day][h] = {
+            task: effectiveTaskLabel,
+            details: details
+          };
+        }
+        processed++;
+      }
+    }
+  };
+  const applyTaskToCells = (cells, taskLabel, details = null, quantity = 1) => {
+    if (!cells || !cells.length) return;
+    setGlobalSavingState(true);
+    previousStateRef.current = JSON.parse(JSON.stringify(scheduleRef.current));
+    lastActionRef.current = {
+      cells: cells.slice(),
+      week: selectedWeek
+    };
+    const newData = JSON.parse(JSON.stringify(scheduleRef.current));
+    const weekKey = selectedWeek;
+    if (!newData[weekKey]) newData[weekKey] = {};
+    const isMulti = cells.length > 1;
+    const effectiveQty = isMulti ? 1 : quantity;
+    const dirtyDays = new Set();
+    cells.forEach(({
+      day,
+      hour
+    }) => {
+      if (!newData[weekKey][day]) newData[weekKey][day] = {};
+      applySingleCell(newData[weekKey], day, hour, taskLabel, details, effectiveQty);
+      dirtyDays.add(day);
+    });
+    scheduleRef.current = newData;
+    setScheduleData(newData);
+    setModalConfig(null);
+    setEditingCell(null);
+    setSelectedCells([]);
+    selectionAnchorRef.current = null;
+    setShowUndoToast(true);
+    setTimeout(() => setShowUndoToast(false), 4000);
+    if (typeof google === 'undefined' || !google.script) return;
+    dirtyDays.forEach(d => triggerSave(d));
+  };
+  const saveTask = (day, startHour, taskLabel, details = null, quantity = 1) => {
+    applyTaskToCells([{
+      day,
+      hour: startHour
+    }], taskLabel, details, quantity);
+  };
+  const handleUndo = () => {
+    if (previousStateRef.current && lastActionRef.current) {
+      const restoredData = JSON.parse(JSON.stringify(previousStateRef.current));
+      scheduleRef.current = restoredData;
+      setScheduleData(restoredData);
+      setShowUndoToast(false);
+      const action = lastActionRef.current;
+      previousStateRef.current = null;
+      lastActionRef.current = null;
+      if (action.cells && action.cells.length) {
+        const days = new Set(action.cells.map(c => c.day));
+        days.forEach(d => triggerSave(d));
+      } else if (action.day) {
+        triggerSave(action.day);
+      }
+    }
+  };
+  const handleCellMouseDown = (e, day, hour) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.shiftKey && selectionAnchorRef.current) {
+      const cells = getRectCells(selectionAnchorRef.current, {
+        day,
+        hour
+      });
+      setSelectedCells(cells);
+      selectMovedRef.current = true;
+      isSelectingRef.current = false;
+      setEditingCell(null);
+      return;
+    }
+    isSelectingRef.current = true;
+    selectMovedRef.current = false;
+    selectionAnchorRef.current = {
+      day,
+      hour
+    };
+    setSelectedCells([{
+      day,
+      hour
+    }]);
+    setEditingCell(null);
+  };
+  const handleCellMouseEnter = (e, day, hour) => {
+    if (!isSelectingRef.current || !selectionAnchorRef.current) return;
+    const cells = getRectCells(selectionAnchorRef.current, {
+      day,
+      hour
+    });
+    if (cells.length > 1) selectMovedRef.current = true;
+    setSelectedCells(cells);
+  };
 
-                {showOtherSpec && (<div className="space-y-1.5 animate-in fade-in slide-in-from-top-2"><label className="text-sm font-bold text-[#374151] block">Se "Outro", especificar <span className="text-red-500">*</span></label><textarea value={otherSpec} onChange={(e) => setOtherSpec(e.target.value)} placeholder="Detalhes adicionais..." className="w-full p-3 bg-white border-2 border-[#D1D5DB] rounded-lg text-sm focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] min-h-[80px] shadow-sm resize-none"/></div>)}
-              </div>
-            )}
+  /* ============================================================================
+  SEÇÃO 5: VISUALIZAÇÃO E EVENTOS
+  ============================================================================ */
+  const handleTaskSelect = newTaskLabel => {
+    const cells = selectedCells.length > 1 ? selectedCells : editingCell ? [{
+      day: editingCell.day,
+      hour: editingCell.hour
+    }] : [];
+    if (!cells.length) return;
+    setEditingCell(null);
+    const isClearing = newTaskLabel === "";
+    const isMulti = cells.length > 1;
+    const isDetail = DETAILED_SLOTS.includes(newTaskLabel);
+    if (isMulti) {
+      if (isDetail) {
+        setModalConfig({
+          taskLabel: isClearing ? "(Limpar)" : newTaskLabel,
+          cells: cells,
+          multi: true,
+          initialData: null,
+          initialQuantity: 1
+        });
+      } else {
+        applyTaskToCells(cells, isClearing ? "(Limpar)" : newTaskLabel, null, 1);
+      }
+      return;
+    }
+    const {
+      day,
+      hour
+    } = cells[0];
+    let currentQtd = 1;
+    if (!isClearing) {
+      const weekData = scheduleRef.current[selectedWeek] || {};
+      const startIdx = HOURS.indexOf(hour);
+      const currentDetails = parseDetails(scheduleRef.current[selectedWeek]?.[day]?.[hour]?.details);
+      if (weekData[day]?.[hour]?.task === newTaskLabel) {
+        let count = 0;
+        for (let i = 0; i < 20; i++) {
+          const h = HOURS[startIdx + i];
+          if (!h) break;
+          const slot = weekData[day][h];
+          const slotDetailsStr = normalizeDetailsForComparison(slot?.details);
+          const currentDetailsStr = normalizeDetailsForComparison(currentDetails);
+          const emptyJson = '{"action":"","project":"","otherSpec":""}';
+          const isMatch = slotDetailsStr === currentDetailsStr || slotDetailsStr === emptyJson;
+          if (slot && slot.task === newTaskLabel && isMatch) count++;else break;
+        }
+        if (count > 0) currentQtd = count;
+      }
+    }
+    setModalConfig({
+      taskLabel: isClearing ? "(Limpar)" : newTaskLabel,
+      day,
+      hour,
+      initialData: isClearing ? null : parseDetails(scheduleRef.current[selectedWeek]?.[day]?.[hour]?.details),
+      initialQuantity: currentQtd
+    });
+  };
 
-            {confirmOvertime && (<div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 animate-in fade-in slide-in-from-bottom-2"><div className="flex"><div className="flex-shrink-0"><AlertTriangle className="h-5 w-5 text-yellow-400" aria-hidden="true" /></div><div className="ml-3"><p className="text-sm text-yellow-700 font-bold">Atenção: Limite de 9 horas excedido.</p><p className="text-xs text-yellow-600 mt-1">Você está prestes a agendar mais de 18 slots (9h) para este dia. Isso configura hora extra.</p><p className="text-xs font-bold text-yellow-800 mt-2">Deseja confirmar mesmo assim?</p></div></div></div>)}
-          </div>
-          <div className="bg-[#F9FAFB] px-6 py-4 flex justify-end space-x-3 border-t-2 border-[#D1D5DB] shrink-0">
-            <button onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-[#374151] bg-white border-2 border-[#D1D5DB] rounded-lg hover:bg-[#F3F4F6] transition-colors shadow-sm">Cancelar</button>
-            <button onClick={handleSave} className={`px-5 py-2.5 text-sm font-bold text-white rounded-lg flex items-center shadow-md transition-transform active:scale-95 ${confirmOvertime ? 'bg-yellow-500 hover:bg-yellow-600 border-yellow-600' : (isWarning ? 'bg-red-600 hover:bg-red-700 border border-red-800' : (isBreak ? 'bg-yellow-500 hover:bg-yellow-600 border-yellow-600' : 'bg-[#820AD1] hover:bg-[#6b08ac] border-transparent'))}`}>{isCleaning ? <Trash2 size={16} className="mr-2" /> : <Check size={16} className="mr-2" />}{confirmOvertime ? 'Confirmar Extra' : (isCleaning ? 'Confirmar Limpeza' : (isBreak ? 'Confirmar Break' : 'Salvar Alterações'))}</button>
-          </div>
-        </div>
-      </div>
-    );
+  // --- AGRUPAMENTO INTELIGENTE (VISUAL) ---
+  const getGroupedRecords = (filterTask = null) => {
+    const weekData = scheduleData[selectedWeek];
+    if (!weekData) return [];
+    let flatRecords = [];
+    DAYS.forEach(day => {
+      if (weekData[day]) {
+        Object.entries(weekData[day]).forEach(([hour, data]) => {
+          const taskName = typeof data === 'string' ? data : data.task;
+          if (!taskName || taskName === "Break") return;
+          if (filterTask && taskName !== filterTask) return;
+          flatRecords.push({
+            day,
+            hour,
+            hourIndex: HOURS.indexOf(hour),
+            data: typeof data === 'string' ? {
+              task: data
+            } : data,
+            taskName: taskName
+          });
+        });
+      }
+    });
+    flatRecords.sort((a, b) => {
+      const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+      return dayDiff !== 0 ? dayDiff : a.hourIndex - b.hourIndex;
+    });
+    if (flatRecords.length === 0) return [];
+    const groups = [];
+    let currentGroup = {
+      ...flatRecords[0],
+      count: 1,
+      endHourIndex: flatRecords[0].hourIndex
+    };
+    for (let i = 1; i < flatRecords.length; i++) {
+      const rec = flatRecords[i];
+      const prev = currentGroup;
+      const isSameDay = rec.day === prev.day;
+      const isSameTask = rec.taskName === prev.taskName;
+      const recDetailsRaw = parseDetails(rec.data.details);
+      const prevDetailsRaw = parseDetails(prev.data.details);
+      const recStr = normalizeDetailsForComparison(recDetailsRaw);
+      const prevStr = normalizeDetailsForComparison(prevDetailsRaw);
+      const emptyJson = '{"action":"","project":"","otherSpec":""}';
+      const isRecEmpty = recStr === emptyJson;
+      const isPrevFull = prevStr !== emptyJson;
+      let isSameDetails = recStr === prevStr;
+      if (isSameTask && isSameDay && isRecEmpty && isPrevFull) {
+        isSameDetails = true; // Herança visual
+      }
+      if (isSameTask && isSameDay && !isRecEmpty && isPrevFull && isRecEmpty) {
+        isSameDetails = true; // Herança visual inversa
+      }
+      const gap = rec.hourIndex - prev.endHourIndex;
+      let isConsecutiveLogic = false;
+      if (gap === 1) isConsecutiveLogic = true;else if (gap > 1 && isSameDay) {
+        const currentDayBreaks = Object.keys(weekData[rec.day] || {}).filter(h => weekData[rec.day][h]?.task === 'Break');
+        let allBreaksInGap = true;
+        for (let k = prev.endHourIndex + 1; k < rec.hourIndex; k++) {
+          if (!currentDayBreaks.includes(HOURS[k])) {
+            allBreaksInGap = false;
+            break;
+          }
+        }
+        isConsecutiveLogic = allBreaksInGap;
+      }
+      if (isSameDay && isSameTask && isConsecutiveLogic && isSameDetails) {
+        currentGroup.count++;
+        currentGroup.endHourIndex = rec.hourIndex;
+      } else {
+        groups.push(currentGroup);
+        currentGroup = {
+          ...rec,
+          count: 1,
+          endHourIndex: rec.hourIndex
+        };
+      }
+    }
+    groups.push(currentGroup);
+    return groups;
+  };
+  const getSummaryData = () => {
+    const weekData = scheduleData[selectedWeek];
+    if (!weekData) return [];
+    const summaryMap = {};
+    DAYS.forEach(day => {
+      if (weekData[day]) Object.values(weekData[day]).forEach(data => {
+        const taskName = typeof data === 'string' ? data : data.task;
+        if (taskName && taskName !== 'Break') {
+          if (!summaryMap[taskName]) summaryMap[taskName] = 0;
+          summaryMap[taskName]++;
+        }
+      });
+    });
+    return Object.entries(summaryMap).map(([slot, count]) => ({
+      slot,
+      count,
+      hours: count * 0.5
+    })).sort((a, b) => b.count - a.count);
+  };
+  const filteredOptions = TASK_TYPES.filter(opt => opt.label.toLowerCase().includes(searchTerm.toLowerCase()));
+  const rawAdjustmentsRecords = getGroupedRecords(null).filter(r => DETAILED_SLOTS.includes(r.taskName));
+  const filteredAdjustmentRecords = rawAdjustmentsRecords.filter(r => r.taskName.toLowerCase().includes(ajustesSearch.toLowerCase()) || r.day.toLowerCase().includes(ajustesSearch.toLowerCase()));
+
+  /* ============================================================================
+  SEÇÃO 6: LAYOUT
+  ============================================================================ */
+  if (isLoading) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "flex h-screen items-center justify-center bg-[#F5F5F7] flex-col",
+      style: {
+        fontFamily: 'Arial, sans-serif'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "animate-spin rounded-full h-12 w-12 border-b-2 border-[#820AD1] mb-4"
+    }), /*#__PURE__*/React.createElement("p", {
+      className: "text-[#111827] font-medium"
+    }, "Carregando sua escala..."), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-[#6B7280] mt-2"
+    }, "Dimensionamento — sincronizando com a planilha"));
   }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex h-screen bg-[#F5F5F7] text-[#111827] overflow-hidden relative",
+    style: {
+      fontFamily: 'Arial, sans-serif'
+    }
+  }, modalConfig && /*#__PURE__*/React.createElement(TaskConfigModal, {
+    taskLabel: modalConfig.taskLabel,
+    onClose: () => setModalConfig(null),
+    onSave: (details, qtd) => {
+      if (modalConfig.multi && modalConfig.cells) {
+        applyTaskToCells(modalConfig.cells, modalConfig.taskLabel, details, 1);
+      } else {
+        saveTask(modalConfig.day, modalConfig.hour, modalConfig.taskLabel, details, qtd);
+      }
+    },
+    initialData: modalConfig.initialData,
+    hourContext: modalConfig.hour,
+    initialQuantity: modalConfig.initialQuantity,
+    dayContext: modalConfig.day,
+    currentSchedule: scheduleData,
+    weekKey: selectedWeek,
+    multiCount: modalConfig.multi ? modalConfig.cells.length : 0
+  }), editingCell && /*#__PURE__*/React.createElement("div", {
+    className: "editing-popup fixed bg-white border border-[#D1D5DB] shadow-lg rounded-lg flex flex-col w-[280px] max-h-[400px] z-50 animate-in fade-in zoom-in-95 duration-100",
+    style: {
+      top: editingCell.top,
+      left: editingCell.left
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#F5F5F7] p-3 text-xs font-bold text-[#820AD1] border-b border-[#D1D5DB] flex justify-between items-center shrink-0"
+  }, /*#__PURE__*/React.createElement("span", null, editingCell.multiCount > 1 ? `${editingCell.multiCount} slots selecionados` : `${editingCell.day.toUpperCase()} • ${editingCell.hour}`), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setEditingCell(null),
+    className: "hover:bg-gray-200 rounded p-1 text-[#6B7280] transition-colors",
+    title: "Fechar"
+  }, /*#__PURE__*/React.createElement(X, {
+    size: 16
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-2 border-b border-[#D1D5DB] bg-white sticky top-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement(Search, {
+    className: "absolute left-2.5 top-2 w-3.5 h-3.5 text-[#9CA3AF]"
+  }), /*#__PURE__*/React.createElement("input", {
+    autoFocus: true,
+    type: "text",
+    placeholder: "Filtrar atividades...",
+    className: "w-full pl-8 pr-2 py-1.5 text-xs border border-[#D1D5DB] rounded focus:border-[#820AD1] focus:outline-none text-[#111827]",
+    value: searchTerm,
+    onChange: e => setSearchTerm(e.target.value)
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "overflow-y-auto p-1 flex-1"
+  }, filteredOptions.length > 0 ? filteredOptions.map(type => /*#__PURE__*/React.createElement("button", {
+    key: type.id || 'empty',
+    onClick: () => handleTaskSelect(type.id),
+    className: `w-full text-left px-3 py-2.5 text-xs font-medium rounded hover:bg-[#F5F5F7] flex items-center space-x-2 border-b border-[#F3F4F6] last:border-0 group transition-colors text-[#374151]`
+  }, /*#__PURE__*/React.createElement("div", {
+    className: `w-3.5 h-3.5 rounded-full shrink-0 ${type.color.split(' ')[0]} border border-[#D1D5DB] group-hover:scale-110 transition-transform`
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "truncate flex-1"
+  }, type.label), type.id === 'Planilha' && /*#__PURE__*/React.createElement(List, {
+    className: "w-3.5 h-3.5 text-[#9CA3AF]"
+  }), type.id === 'Break' && /*#__PURE__*/React.createElement(Coffee, {
+    className: "w-3.5 h-3.5 text-[#9CA3AF]"
+  }), type.id === '' && /*#__PURE__*/React.createElement(Eraser, {
+    className: "w-3.5 h-3.5 text-red-400"
+  }))) : /*#__PURE__*/React.createElement("div", {
+    className: "p-4 text-center text-xs text-[#9CA3AF]"
+  }, "Nenhum slot encontrado"))), showUndoToast && /*#__PURE__*/React.createElement("div", {
+    className: "fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-[#111827] text-white px-6 py-3 rounded-full shadow-xl z-[10000] flex items-center space-x-4 toast-enter"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-medium"
+  }, "Ação realizada"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleUndo,
+    className: "flex items-center text-[#FCD34D] hover:text-[#fbbf24] font-bold text-sm bg-white/10 px-3 py-1 rounded transition-colors"
+  }, /*#__PURE__*/React.createElement(Undo2, {
+    size: 14,
+    className: "mr-1.5"
+  }), " Desfazer")), /*#__PURE__*/React.createElement("aside", {
+    className: "w-64 bg-white border-r-2 border-[#D1D5DB] flex flex-col z-20 shadow-sm hidden md:flex shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-6 border-b-2 border-[#D1D5DB] bg-white"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "font-bold text-xl tracking-tight text-[#111827]"
+  }, "DIM ID/CSAT")), /*#__PURE__*/React.createElement("nav", {
+    className: "flex-1 p-4 space-y-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActiveView('escala'),
+    className: `flex items-center w-full p-3 font-bold rounded-lg transition-all ${activeView === 'escala' ? 'bg-[#820AD1] text-white shadow-md' : 'text-[#6B7280] hover:bg-purple-50 hover:text-[#820AD1]'}`
+  }, /*#__PURE__*/React.createElement(Calendar, {
+    className: "w-5 h-5 mr-3"
+  }), " Escala Semanal"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActiveView('ajustes'),
+    className: `flex items-center w-full p-3 font-bold rounded-lg transition-all ${activeView === 'ajustes' ? 'bg-[#820AD1] text-white shadow-md' : 'text-[#6B7280] hover:bg-purple-50 hover:text-[#820AD1]'}`
+  }, /*#__PURE__*/React.createElement(Settings, {
+    className: "w-5 h-5 mr-3"
+  }), " Ajustes"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setActiveView('controle'),
+    className: `flex items-center w-full p-3 font-bold rounded-lg transition-all ${activeView === 'controle' ? 'bg-[#820AD1] text-white shadow-md' : 'text-[#6B7280] hover:bg-purple-50 hover:text-[#820AD1]'}`
+  }, /*#__PURE__*/React.createElement(Info, {
+    className: "w-5 h-5 mr-3"
+  }), " Controle de Slots")), /*#__PURE__*/React.createElement("div", {
+    className: "p-4 border-t-2 border-[#D1D5DB] bg-white"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] font-bold uppercase text-[#9CA3AF] mb-1"
+  }, "Analista Logado"), /*#__PURE__*/React.createElement("div", {
+    className: "font-medium text-sm text-[#374151] break-all leading-tight",
+    title: currentUser
+  }, currentUser))), /*#__PURE__*/React.createElement("main", {
+    className: "flex-1 flex flex-col h-full relative z-0 min-w-0"
+  }, /*#__PURE__*/React.createElement("header", {
+    className: "bg-white border-b-2 border-[#D1D5DB] p-4 flex justify-between items-center z-40 shadow-sm shrink-0 gap-4"
+  }, /*#__PURE__*/React.createElement("h1", {
+    className: "text-lg md:text-2xl font-bold text-[#111827] truncate flex-1"
+  }, activeView === 'escala' ? 'Dimensionamento ID Quality/Csat' : activeView === 'ajustes' ? 'Detalhes de Planilha' : 'Controle de Slots'), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center space-x-3 shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hidden lg:flex flex-col items-end text-right mr-2 border-r-2 pr-4 border-[#D1D5DB]"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] text-[#9CA3AF] font-medium uppercase tracking-wide"
+  }, "Última atualização"), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-bold text-[#6B7280] font-mono"
+  }, lastUpdate ? lastUpdate.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  }) : '--:--')), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSelectedWeek(String(getCurrentWeekNumber())),
+    className: "flex items-center bg-white border-2 border-[#D1D5DB] rounded-lg px-3 py-1.5 shadow-sm active:translate-y-[1px] transition-all hover:border-[#820AD1] hover:text-[#820AD1] group mr-2",
+    title: "Ir para semana atual"
+  }, /*#__PURE__*/React.createElement(Calendar, {
+    className: "w-4 h-4 mr-2 text-[#820AD1]"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-bold uppercase"
+  }, "Semana Atual: ", getCurrentWeekNumber())), /*#__PURE__*/React.createElement("div", {
+    className: "relative",
+    ref: weekMenuRef
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIsWeekMenuOpen(!isWeekMenuOpen),
+    className: "flex items-center bg-white border-2 border-[#D1D5DB] rounded-lg px-3 py-1.5 shadow-sm active:translate-y-[1px] transition-all min-w-[150px] justify-between group hover:border-[#820AD1]"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col text-left"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-bold text-[#9CA3AF] uppercase leading-none mb-0.5"
+  }, "Semana"), /*#__PURE__*/React.createElement("span", {
+    className: "font-bold text-base leading-none text-[#820AD1]"
+  }, selectedWeek)), /*#__PURE__*/React.createElement(ChevronDown, {
+    className: `w-4 h-4 text-[#6B7280] transition-transform ml-2 ${isWeekMenuOpen ? 'rotate-180' : ''}`
+  })), isWeekMenuOpen && /*#__PURE__*/React.createElement("div", {
+    className: "absolute top-full right-0 mt-2 w-56 bg-white border-2 border-[#D1D5DB] rounded-lg shadow-xl z-50 max-h-[300px] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+  }, WEEKS_2026.map(week => /*#__PURE__*/React.createElement("button", {
+    key: week.id,
+    ref: selectedWeek === week.id ? activeWeekRef : null,
+    onClick: () => {
+      setSelectedWeek(week.id);
+      setIsWeekMenuOpen(false);
+    },
+    className: `w-full text-left px-4 py-3 font-medium text-sm border-b border-[#F3F4F6] last:border-0 hover:bg-purple-50 transition-colors flex justify-between items-center ${selectedWeek === week.id ? 'bg-purple-50 text-[#820AD1]' : 'text-[#374151]'}`
+  }, /*#__PURE__*/React.createElement("span", null, "Semana ", week.label), selectedWeek === week.id && /*#__PURE__*/React.createElement(Check, {
+    size: 14
+  }))))), /*#__PURE__*/React.createElement("div", {
+    className: `flex items-center px-3 py-1.5 rounded-md text-xs font-bold border-2 transition-colors ${isSaving ? 'bg-yellow-50 text-yellow-800 border-yellow-200' : 'bg-green-50 text-green-800 border-green-200'}`
+  }, isSaving ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(RefreshCw, {
+    className: "w-3 h-3 mr-2 animate-spin"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "hidden md:inline"
+  }, "SALVANDO...")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Save, {
+    className: "w-3 h-3 mr-2"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "hidden md:inline"
+  }, "SALVO"))))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex flex-col min-h-0 overflow-hidden bg-[#F5F5F7]"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-auto p-4 md:p-6"
+  }, activeView === 'escala' && /*#__PURE__*/React.createElement("div", {
+    ref: gridWrapRef,
+    className: "dim-schedule-grid inline-block min-w-max pb-10"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border-t-2 border-l-2 border-[#D1D5DB] relative overflow-visible shadow-sm"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex sticky-header-fix bg-[#F9FAFB] w-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-32 flex-shrink-0 p-3 border-r-2 border-b-2 border-[#D1D5DB] font-bold text-center flex flex-col items-center justify-center bg-[#F9FAFB] text-sm uppercase tracking-wider sticky left-0 z-30 text-[#6B7280]"
+  }, /*#__PURE__*/React.createElement("span", null, "Dia"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-[#9CA3AF] mt-1"
+  }, "Data")), HOURS.map(hour => /*#__PURE__*/React.createElement("div", {
+    key: hour,
+    className: "w-[88px] flex-shrink-0 py-2 border-r-2 border-b-2 border-[#D1D5DB] font-bold text-sm text-center bg-[#F9FAFB] text-[#6B7280] flex items-center justify-center"
+  }, hour))), DAYS.map(day => {
+    const daySlots = scheduleData[selectedWeek]?.[day] || {};
+    const occupiedSlots = HOURS.filter(h => {
+      const slot = daySlots[h];
+      const t = typeof slot === 'object' ? slot.task : slot;
+      return t && t !== "";
+    }).length;
+    const isAlertColor = occupiedSlots !== 18;
+    return /*#__PURE__*/React.createElement("div", {
+      key: day,
+      className: "flex hover:bg-[#F9FAFB] transition-colors w-full group/row"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: `w-32 flex-shrink-0 p-2 border-r-2 border-b-2 border-[#D1D5DB] font-bold uppercase text-base flex flex-col items-center justify-center sticky left-0 z-20 transition-colors ${isAlertColor ? 'bg-red-100 text-[#7F1D1D]' : 'bg-white text-[#111827]'}`
+    }, /*#__PURE__*/React.createElement("span", null, day), /*#__PURE__*/React.createElement("span", {
+      className: `text-sm font-bold mt-0.5 ${isAlertColor ? 'text-[#991B1B]' : 'text-[#820AD1]'}`
+    }, visualMap[day] || '-')), HOURS.map(hour => {
+      const cellData = scheduleData[selectedWeek]?.[day]?.[hour];
+      const taskName = typeof cellData === 'object' ? cellData?.task : cellData;
+      const isBreak = taskName === 'Break';
+      const isAVLB = taskName === 'AVLB';
+      const isSelected = isCellSelected(day, hour, selectedCells);
+      return /*#__PURE__*/React.createElement("div", {
+        key: `${day}-${hour}`,
+        "data-day": day,
+        "data-hour": hour,
+        className: `w-[88px] flex-shrink-0 border-r-2 border-b-2 border-[#D1D5DB] relative flex flex-col min-h-[3rem] ${isSelected ? 'ring-2 ring-inset ring-[#820AD1] z-10' : ''}`
+      }, /*#__PURE__*/React.createElement("div", {
+        onMouseDown: e => handleCellMouseDown(e, day, hour),
+        onMouseEnter: e => handleCellMouseEnter(e, day, hour),
+        className: "w-full h-full p-[2px] cursor-pointer transition-all flex items-center justify-center text-center group flex-grow select-none"
+      }, taskName && !isAVLB ? /*#__PURE__*/React.createElement("div", {
+        className: `w-full h-full rounded-[3px] flex flex-col items-center justify-center text-[11px] font-bold border leading-none break-words px-0.5 hover:brightness-95 hover:shadow-sm transition-all overflow-hidden ${getColor(taskName)} relative`
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "line-clamp-2 px-1"
+      }, taskName), isBreak && /*#__PURE__*/React.createElement(Coffee, {
+        size: 10,
+        className: "mt-1 opacity-50"
+      })) : isAVLB ? /*#__PURE__*/React.createElement("div", {
+        className: `w-full h-full rounded-[3px] flex flex-col items-center justify-center text-[11px] font-bold border leading-none break-words px-0.5 hover:brightness-95 hover:shadow-sm transition-all overflow-hidden ${getColor('AVLB')} relative`
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "line-clamp-2 px-1"
+      }, "AVLB")) : /*#__PURE__*/React.createElement("div", {
+        className: "w-full h-full rounded-[3px] hover:bg-gray-100 flex items-center justify-center text-gray-300"
+      }, /*#__PURE__*/React.createElement(Plus, {
+        className: "opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 text-[#9CA3AF]"
+      }))));
+    }));
+  }))), activeView === 'ajustes' && /*#__PURE__*/React.createElement("div", {
+    className: "max-w-7xl mx-auto space-y-6 pb-10"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border-2 border-[#D1D5DB] rounded-lg p-0 shadow-sm overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-4 border-b-2 border-[#D1D5DB] bg-[#F9FAFB] flex justify-between items-center"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-lg font-bold text-[#111827]"
+  }, "Detalhamento de Slots"), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    placeholder: "Digite aqui o nome do slot...",
+    className: "pl-8 pr-3 py-1.5 text-xs border border-[#D1D5DB] rounded focus:border-[#820AD1] focus:outline-none w-64 text-[#111827]",
+    value: ajustesSearch,
+    onChange: e => setAjustesSearch(e.target.value)
+  }), /*#__PURE__*/React.createElement(Search, {
+    className: "absolute left-2.5 top-2 w-3.5 h-3.5 text-[#9CA3AF]"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "overflow-x-auto"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "min-w-full divide-y divide-[#D1D5DB]"
+  }, /*#__PURE__*/React.createElement("thead", {
+    className: "bg-[#F9FAFB]"
+  }, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider"
+  }, "Slot / Tipo"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider w-32"
+  }, "Data / Início"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider w-32"
+  }, "Duração"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider"
+  }, "Ação Realizada"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider"
+  }, "Qual o projeto?"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider"
+  }, "Outro"), /*#__PURE__*/React.createElement("th", {
+    className: "px-4 py-3 text-right text-xs font-bold text-[#6B7280] uppercase tracking-wider w-24"
+  }, "Ação"))), /*#__PURE__*/React.createElement("tbody", {
+    className: "bg-white divide-y divide-[#D1D5DB]"
+  }, filteredAdjustmentRecords.length > 0 ? filteredAdjustmentRecords.map((record, idx) => {
+    const details = parseDetails(record.data.details);
+    const rowKey = `${record.day}-${record.hour}-${idx}-${record.count}`;
+    return /*#__PURE__*/React.createElement("tr", {
+      key: rowKey,
+      className: "hover:bg-[#F9FAFB] transition-colors group"
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 whitespace-nowrap"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: `inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border ${getColor(record.taskName)}`
+    }, record.taskName)), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 whitespace-nowrap"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-sm font-bold text-[#111827] capitalize"
+    }, record.day, " • ", visualMap[record.day]), /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-[#6B7280] font-mono mt-0.5"
+    }, record.hour)), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 whitespace-nowrap"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "px-2 py-1 text-xs font-bold rounded bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]"
+    }, record.count * 0.5, "h (", record.count, " slots)")), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-sm text-[#374151]"
+    }, details.action ? /*#__PURE__*/React.createElement("span", {
+      className: "font-medium"
+    }, details.action) : /*#__PURE__*/React.createElement("span", {
+      className: "text-red-400 italic text-xs"
+    }, "Pendente")), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-sm text-[#374151]"
+    }, details.project || /*#__PURE__*/React.createElement("span", {
+      className: "text-[#9CA3AF]"
+    }, "-")), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-sm text-[#6B7280] italic"
+    }, details.otherSpec || /*#__PURE__*/React.createElement("span", {
+      className: "text-[#9CA3AF]"
+    }, "-")), /*#__PURE__*/React.createElement("td", {
+      className: "px-4 py-3 text-right whitespace-nowrap text-sm font-medium"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        const startIdx = HOURS.indexOf(record.hour);
+        const slotsSnapshot = {};
+        for (let i = 0; i < 20; i++) {
+          const h = HOURS[startIdx + i];
+          if (h) slotsSnapshot[h] = scheduleData[selectedWeek]?.[record.day]?.[h] ? JSON.parse(JSON.stringify(scheduleData[selectedWeek][record.day][h])) : undefined;
+        }
+        setModalConfig({
+          taskLabel: record.taskName,
+          day: record.day,
+          hour: record.hour,
+          initialData: details,
+          initialQuantity: record.count
+        });
+      },
+      className: "text-[#820AD1] hover:text-[#6b08ac] bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-md transition-colors flex items-center ml-auto"
+    }, /*#__PURE__*/React.createElement(Edit2, {
+      size: 14,
+      className: "mr-1.5"
+    }), "Editar")));
+  }) : /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    colSpan: 7,
+    className: "px-6 py-12 text-center text-[#9CA3AF] bg-[#F9FAFB]"
+  }, /*#__PURE__*/React.createElement(FileText, {
+    size: 32,
+    className: "mx-auto mb-2 opacity-20"
+  }), /*#__PURE__*/React.createElement("p", null, "Nenhum slot encontrado nesta semana.")))))))), activeView === 'controle' && /*#__PURE__*/React.createElement(ControleSlots, {
+    data: slotDefinitions,
+    getColor: getColor,
+    isLoading: isLoading && slotDefinitions.length === 0,
+    HelpCircle: HelpCircle
+  })), activeView === 'escala' && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border-t-2 border-[#D1D5DB] p-0 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)] shrink-0 flex flex-col max-h-[160px]"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-4 py-2 border-b-2 border-[#D1D5DB] bg-[#F9FAFB] sticky top-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center space-x-2"
+  }, /*#__PURE__*/React.createElement(PieChart, {
+    className: "text-[#820AD1]",
+    size: 16
+  }), /*#__PURE__*/React.createElement("h3", {
+    className: "font-bold text-[#111827] text-xs uppercase tracking-wide"
+  }, "Resumo da Semana")), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] text-[#9CA3AF]"
+  }, "Total calculado automaticamente")), /*#__PURE__*/React.createElement("div", {
+    className: "overflow-y-auto w-full p-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2"
+  }, getSummaryData().map((item, idx) => /*#__PURE__*/React.createElement("div", {
+    key: idx,
+    className: "bg-white border border-[#E5E7EB] rounded p-2 flex flex-col shadow-sm hover:border-[#D1D5DB] transition-colors"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center mb-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: `w-2 h-2 rounded-full mr-1.5 ${getColor(item.slot).split(' ')[0]} border border-[#D1D5DB]`
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-bold text-[#6B7280] truncate",
+    title: item.slot
+  }, item.slot)), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between items-end"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] text-[#9CA3AF]"
+  }, item.count, " slots"), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-bold text-[#111827]"
+  }, item.hours, "h"))))))))));
+}
+
+/* ============================================================================
+SEÇÃO 7: SUB-COMPONENTES
+============================================================================ */
+function TaskConfigModal({
+  taskLabel,
+  onClose,
+  onSave,
+  initialData,
+  hourContext,
+  initialQuantity,
+  dayContext,
+  currentSchedule,
+  weekKey,
+  multiCount
+}) {
+  const isMulti = multiCount > 1;
+  const isPlanilha = taskLabel === "Planilha";
+  const isCleaning = taskLabel === "(Limpar)";
+  const isBreak = taskLabel === "Break";
+  let actionOptions = [];
+  let projectOptions = [];
+  let hasProjectField = true;
+  let requiresDetails = false;
+  if (taskLabel === "Planilha") {
+    actionOptions = PLANILHA_ACTIONS;
+    projectOptions = PLANILHA_PROJECTS;
+    requiresDetails = true;
+  } else if (taskLabel === "Deep Dive") {
+    actionOptions = DEEPDIVE_ACTIONS;
+    projectOptions = DEEPDIVE_PROJECTS;
+    requiresDetails = true;
+  } else if (taskLabel === "Docs") {
+    actionOptions = DOCS_ACTIONS;
+    projectOptions = DOCS_PROJECTS;
+    requiresDetails = true;
+  } else if (taskLabel === "Playbook") {
+    actionOptions = PLAYBOOK_ACTIONS;
+    projectOptions = PLAYBOOK_PROJECTS;
+    requiresDetails = true;
+  } else if (taskLabel === "RFC") {
+    actionOptions = RFC_ACTIONS;
+    projectOptions = RFC_PROJECTS;
+    requiresDetails = true;
+  } else if (taskLabel === "Slides") {
+    actionOptions = SLIDES_ACTIONS;
+    projectOptions = SLIDES_PROJECTS;
+    requiresDetails = true;
+  } else if (taskLabel === "Jira/Atlassian") {
+    actionOptions = JIRA_ACTIONS;
+    hasProjectField = false;
+    requiresDetails = true;
+  } else if (taskLabel === "Drive") {
+    actionOptions = DRIVE_ACTIONS;
+    hasProjectField = false;
+    requiresDetails = true;
+  } else if (taskLabel === "Project Meet") {
+    actionOptions = PROJECTMEET_ACTIONS;
+    projectOptions = PROJECTMEET_PROJECTS;
+    requiresDetails = true;
+  } else if (taskLabel === "Databricks") {
+    actionOptions = DATABRICKS_ACTIONS;
+    projectOptions = DATABRICKS_PROJECTS;
+    requiresDetails = true;
+  } else if (taskLabel === "Quicksight") {
+    actionOptions = QUICKSIGHT_ACTIONS;
+    projectOptions = QUICKSIGHT_PROJECTS;
+    requiresDetails = true;
+  }
+  const [action, setAction] = useState(initialData?.action || "");
+  const [project, setProject] = useState(initialData?.project || "");
+  const [otherSpec, setOtherSpec] = useState(initialData?.otherSpec || "");
+  const [quantity, setQuantity] = useState(isBreak ? 2 : initialQuantity || 1);
+  const [confirmOvertime, setConfirmOvertime] = useState(false);
+  const quantityNum = parseInt(quantity) || 0;
+  const calculateProjectedTotal = () => {
+    const dayData = currentSchedule[weekKey]?.[dayContext] || {};
+    const currentTotal = Object.values(dayData).filter(v => v.task).length;
+    let slotsNeeded = quantityNum;
+    let overwrittenWorkCount = 0;
+    const startIdx = HOURS.indexOf(hourContext);
+    for (let i = 0; i < HOURS.length - startIdx; i++) {
+      if (slotsNeeded <= 0) break;
+      const h = HOURS[startIdx + i];
+      const existingTask = dayData[h]?.task;
+      if (existingTask === "Break") continue;
+      if (existingTask) overwrittenWorkCount++;
+      slotsNeeded--;
+    }
+    return currentTotal - overwrittenWorkCount + quantityNum;
+  };
+  const projectedTotal = calculateProjectedTotal();
+  const isOvertime = projectedTotal > 18;
+  const handleSave = () => {
+    if (!quantity || quantityNum <= 0) {
+      alert("Por favor, insira uma quantidade válida de slots (maior que 0).");
+      return;
+    }
+    if (requiresDetails) {
+      if (!action) {
+        alert("Selecione a Ação Realizada.");
+        return;
+      }
+      if (hasProjectField && !project) {
+        alert("Selecione o Projeto.");
+        return;
+      }
+    }
+    if (isOvertime && !confirmOvertime && !isCleaning && !isMulti) {
+      setConfirmOvertime(true);
+      return;
+    }
+    const details = requiresDetails ? {
+      action,
+      project,
+      otherSpec
+    } : null;
+    onSave(details, isMulti ? 1 : quantityNum);
+  };
+  const isWarning = isCleaning;
+
+  // Condição para mostrar campo Outros (inclui MMP/NMP)
+  const showOtherSpec = action === "Outro" || project === "Outro" || project === "MMP (Projeto não mapeado)" || project === "NMP (Projeto não mapeado)";
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200",
+    style: {
+      fontFamily: 'Arial, sans-serif'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-xl shadow-2xl w-full max-w-lg border-2 border-[#D1D5DB] overflow-hidden flex flex-col max-h-[90vh]"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: `${isWarning ? 'bg-red-600' : isBreak ? 'bg-yellow-500' : 'bg-[#820AD1]'} px-6 py-4 flex justify-between items-center shrink-0`
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "text-white font-bold text-lg flex items-center gap-2"
+  }, isCleaning ? /*#__PURE__*/React.createElement(Trash2, {
+    size: 20
+  }) : isBreak ? /*#__PURE__*/React.createElement(Coffee, {
+    size: 20
+  }) : /*#__PURE__*/React.createElement(Edit2, {
+    size: 20
+  }), taskLabel), /*#__PURE__*/React.createElement("p", {
+    className: "text-white/80 text-xs mt-1 font-mono"
+  }, isMulti ? `${multiCount} slots selecionados` : `Início: ${hourContext} • ${dayContext.charAt(0).toUpperCase() + dayContext.slice(1)}`)), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-white/70 hover:text-white transition-colors bg-white/10 p-2 rounded-full hover:bg-white/20",
+    title: "Fechar"
+  }, /*#__PURE__*/React.createElement(X, {
+    size: 24
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 space-y-6 overflow-y-auto"
+  }, isBreak && /*#__PURE__*/React.createElement("div", {
+    className: "bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-2 rounded-r-md"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-shrink-0"
+  }, /*#__PURE__*/React.createElement(AlertTriangle, {
+    className: "h-5 w-5 text-yellow-500"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "ml-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-bold text-yellow-800"
+  }, "Lembre-se de alterar os slots de Break no horário antigo.")))), !isMulti && /*#__PURE__*/React.createElement("div", {
+    className: `${isWarning ? 'bg-red-50 border-red-200' : 'bg-purple-50 border-purple-200'} p-5 rounded-lg border-2 flex flex-col justify-between`
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between w-full mb-2"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: `text-sm font-bold ${isWarning ? 'text-red-800' : 'text-[#820AD1]'} block`
+  }, isCleaning ? 'Limpar quantos slots?' : 'Duração da atividade'), /*#__PURE__*/React.createElement("p", {
+    className: `text-xs mt-1 ${isWarning ? 'text-red-600' : 'text-[#9B4DDB]'}`
+  }, "Cada slot tem 30 minutos")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center bg-white rounded-lg border-2 border-[#D1D5DB] shadow-sm"
+  }, /*#__PURE__*/React.createElement("button", {
+    disabled: isBreak,
+    onClick: () => setQuantity(Math.max(1, quantityNum - 1)),
+    className: `px-3 py-2 text-[#6B7280] hover:bg-[#F9FAFB] border-r-2 border-[#D1D5DB] hover:text-[#111827] font-bold ${isBreak ? 'opacity-50 cursor-not-allowed' : ''}`
+  }, "-"), /*#__PURE__*/React.createElement("input", {
+    disabled: isBreak,
+    type: "number",
+    min: "1",
+    max: "20",
+    value: quantity,
+    onChange: e => {
+      const val = e.target.value;
+      setQuantity(val === '' ? '' : parseInt(val));
+    },
+    className: `w-12 text-center py-2 text-[#111827] font-bold focus:outline-none appearance-none m-0 ${isBreak ? 'bg-gray-100' : ''}`
+  }), /*#__PURE__*/React.createElement("button", {
+    disabled: isBreak,
+    onClick: () => setQuantity(quantityNum + 1),
+    className: `px-3 py-2 text-[#6B7280] hover:bg-[#F9FAFB] border-l-2 border-[#D1D5DB] hover:text-[#111827] font-bold ${isBreak ? 'opacity-50 cursor-not-allowed' : ''}`
+  }, "+"))), quantityNum < initialQuantity && !isCleaning && !isBreak && /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] text-[#820AD1] bg-purple-100 px-2 py-1 rounded flex items-center"
+  }, /*#__PURE__*/React.createElement(Undo2, {
+    size: 10,
+    className: "mr-1"
+  }), "Os slots excedentes (", initialQuantity - quantityNum, ") virarão AVLB.")), requiresDetails && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4 pt-2 animate-in slide-in-from-bottom-2 duration-300"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-sm font-bold text-[#374151] block"
+  }, "Ação Realizada ", /*#__PURE__*/React.createElement("span", {
+    className: "text-red-500"
+  }, "*")), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: action,
+    onChange: e => setAction(e.target.value),
+    className: "w-full p-3 bg-white border-2 border-[#D1D5DB] text-[#111827] text-sm rounded-lg focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] block appearance-none shadow-sm transition-shadow"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "",
+    disabled: true
+  }, "Selecione..."), actionOptions.map(opt => /*#__PURE__*/React.createElement("option", {
+    key: opt,
+    value: opt
+  }, opt))), /*#__PURE__*/React.createElement(ChevronDown, {
+    className: "absolute right-3 top-3.5 w-4 h-4 text-[#9CA3AF] pointer-events-none"
+  }))), hasProjectField && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-sm font-bold text-[#374151] block"
+  }, "Qual o projeto? ", /*#__PURE__*/React.createElement("span", {
+    className: "text-red-500"
+  }, "*")), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: project,
+    onChange: e => setProject(e.target.value),
+    className: "w-full p-3 bg-white border-2 border-[#D1D5DB] text-[#111827] text-sm rounded-lg focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] block appearance-none shadow-sm transition-shadow"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "",
+    disabled: true
+  }, "Selecione..."), projectOptions.map(opt => /*#__PURE__*/React.createElement("option", {
+    key: opt,
+    value: opt
+  }, opt))), /*#__PURE__*/React.createElement(ChevronDown, {
+    className: "absolute right-3 top-3.5 w-4 h-4 text-[#9CA3AF] pointer-events-none"
+  }))), showOtherSpec && /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5 animate-in fade-in slide-in-from-top-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-sm font-bold text-[#374151] block"
+  }, "Se \"Outro\", especificar ", /*#__PURE__*/React.createElement("span", {
+    className: "text-red-500"
+  }, "*")), /*#__PURE__*/React.createElement("textarea", {
+    value: otherSpec,
+    onChange: e => setOtherSpec(e.target.value),
+    placeholder: "Detalhes adicionais...",
+    className: "w-full p-3 bg-white border-2 border-[#D1D5DB] rounded-lg text-sm focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] min-h-[80px] shadow-sm resize-none"
+  }))), confirmOvertime && /*#__PURE__*/React.createElement("div", {
+    className: "bg-yellow-50 border-l-4 border-yellow-400 p-4 animate-in fade-in slide-in-from-bottom-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-shrink-0"
+  }, /*#__PURE__*/React.createElement(AlertTriangle, {
+    className: "h-5 w-5 text-yellow-400",
+    "aria-hidden": "true"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "ml-3"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-yellow-700 font-bold"
+  }, "Atenção: Limite de 9 horas excedido."), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-yellow-600 mt-1"
+  }, "Você está prestes a agendar mais de 18 slots (9h) para este dia. Isso configura hora extra."), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-bold text-yellow-800 mt-2"
+  }, "Deseja confirmar mesmo assim?"))))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-[#F9FAFB] px-6 py-4 flex justify-end space-x-3 border-t-2 border-[#D1D5DB] shrink-0"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "px-5 py-2.5 text-sm font-bold text-[#374151] bg-white border-2 border-[#D1D5DB] rounded-lg hover:bg-[#F3F4F6] transition-colors shadow-sm"
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSave,
+    className: `px-5 py-2.5 text-sm font-bold text-white rounded-lg flex items-center shadow-md transition-transform active:scale-95 ${confirmOvertime ? 'bg-yellow-500 hover:bg-yellow-600 border-yellow-600' : isWarning ? 'bg-red-600 hover:bg-red-700 border border-red-800' : isBreak ? 'bg-yellow-500 hover:bg-yellow-600 border-yellow-600' : 'bg-[#820AD1] hover:bg-[#6b08ac] border-transparent'}`
+  }, isCleaning ? /*#__PURE__*/React.createElement(Trash2, {
+    size: 16,
+    className: "mr-2"
+  }) : /*#__PURE__*/React.createElement(Check, {
+    size: 16,
+    className: "mr-2"
+  }), confirmOvertime ? 'Confirmar Extra' : isCleaning ? 'Confirmar Limpeza' : isBreak ? 'Confirmar Break' : 'Salvar Alterações'))));
+}
 </script>
