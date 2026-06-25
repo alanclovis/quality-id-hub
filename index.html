@@ -227,6 +227,9 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .status-bar.success{background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:var(--green);display:flex;}
 .status-bar.error{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:#f87171;display:flex;}
 .status-bar.loading{background:var(--purple-bg);border:1px solid rgba(139,92,246,0.25);color:var(--purple-l);display:flex;}
+.data-load-warning{display:none;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--rs);font-size:12px;margin-bottom:1rem;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:#f87171;flex-wrap:wrap;}
+.data-load-warning.visible{display:flex;}
+.data-load-warning .btn-sm{margin-left:auto;flex-shrink:0;}
 .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center;}
 .modal-backdrop.active{display:flex;}
 #configModal{z-index:650;}
@@ -1343,6 +1346,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <div class="search-overlay" id="searchOverlay"></div>
 <div id="contentWrap"><div class="layout">
 <div class="status-bar" id="statusBar"><i class="ti ti-circle-check"></i><span id="statusMsg"></span></div>
+<div class="data-load-warning" id="dataLoadWarning" data-load-warning><i class="ti ti-alert-triangle"></i><span id="dataLoadWarningMsg"></span><button type="button" class="btn-sm" onclick="retryLoadFromGist()"><i class="ti ti-refresh"></i> Tentar novamente</button></div>
 
 <!-- Header -->
 <div class="header">
@@ -1528,6 +1532,7 @@ let data={notice:{title:'',text:''},sections:[]};
 let editMode=false;
 const GIST_FILENAME='quality-hub-data.json';
 const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
+const DEFAULT_GIST_OWNER='alanclovis';
 const DIM_GAS_DIRECT_URL='https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec';
 // NÃO cole token aqui — o GitHub bloqueia o push (secret scanning).
 // Admin: salve o token compartilhado em Configuração → Técnico (vai pro Gist, não pro Git).
@@ -1549,7 +1554,7 @@ const DEFAULT_DATA={
       {id:"l2",name:"Quality Backlog",desc:"Jira · 2026",notes:"Board de tarefas e backlog do time de Quality.",url:"#",logo:"jira",tags:["id","csat","vp"]},
       {id:"l3",name:"SPOT Quality Team",desc:"Monitorias & alocação",notes:"Ferramenta de alocação e gestão de monitorias do time.",url:"#",logo:"spot",tags:["id","csat","vp"]},
       {id:"l4",name:"SPOT Contestação",desc:"Fluxo de contestações",notes:"Fluxo específico para contestações no SPOT.",url:"#",logo:"spot",tags:["vp"]},
-      {id:"l5",name:"Dimensionamento ID/CSAT",desc:"Planilha do dia",notes:"Planilha de dimensionamento diário dos distritos ID e CSAT.",url:"#",logo:"dim",isNew:true,tags:["id","csat"]},
+      {id:"l5",name:"Dimensionamento ID/CSAT",desc:"Planilha do dia",notes:"Planilha de dimensionamento diário dos distritos ID e CSAT.",url:DIM_GAS_DIRECT_URL,logo:"dim",isNew:true,tags:["id","csat"]},
     ]},
     {id:"s2",name:"Monitorias & Scorecards",links:[
       {id:"l6",name:"Qtde de Monitorias",desc:"Painel de quantidade",notes:"Painel com o volume de monitorias realizadas por período.",url:"#",logo:"monitoria"},
@@ -2586,16 +2591,64 @@ async function fetchGistApi(gistId,{auth=false}={}){
   const url=`https://api.github.com/gists/${gistId}?_=${Date.now()}`;
   return fetch(url,{headers,cache:'no-store'});
 }
+async function fetchGistRaw(gistId){
+  const url=`https://gist.githubusercontent.com/${DEFAULT_GIST_OWNER}/${gistId}/raw/${GIST_FILENAME}?_=${Date.now()}`;
+  return fetch(url,{cache:'no-store'});
+}
+async function fetchPackFromGist(gistId,{auth=false}={}){
+  const apiErrors=[];
+  try{
+    const res=await fetchGistApi(gistId,{auth});
+    if(res.ok){
+      const json=await res.json();
+      const file=json.files[GIST_FILENAME];
+      if(file?.content){
+        const parsed=JSON.parse(file.content);
+        if(parsed?.sections?.length) return {parsed,updatedAt:json.updated_at||null,source:'api'};
+        apiErrors.push('Dados do pack inválidos');
+      }else apiErrors.push('Arquivo não encontrado no Gist');
+    }else apiErrors.push('API '+res.status);
+  }catch(e){ apiErrors.push(e.message||String(e)); }
+  try{
+    const res=await fetchGistRaw(gistId);
+    if(!res.ok) throw new Error('Raw gist indisponível ('+res.status+')');
+    const parsed=await res.json();
+    if(!parsed?.sections?.length) throw new Error('Dados do pack inválidos (raw)');
+    return {parsed,updatedAt:null,source:'raw'};
+  }catch(e){
+    const detail=[...apiErrors,e.message||String(e)].filter(Boolean).join('; ');
+    throw new Error(detail||'Falha ao carregar gist');
+  }
+}
+function isUsingPlaceholderData(d){
+  if(!d) return true;
+  if(d.notice?.title==='Bem-vindos ao pack!') return true;
+  const links=(d.sections||[]).flatMap(s=>s.links||[]);
+  if(!links.length) return true;
+  const hashCount=links.filter(l=>l.url==='#').length;
+  return hashCount>links.length/2;
+}
+function showDataLoadWarning(msg){
+  const el=document.getElementById('dataLoadWarning');
+  const msgEl=document.getElementById('dataLoadWarningMsg');
+  if(!el) return;
+  if(msgEl) msgEl.textContent=msg;
+  el.classList.add('visible');
+}
+function hideDataLoadWarning(){
+  document.getElementById('dataLoadWarning')?.classList.remove('visible');
+}
+function retryLoadFromGist(){
+  hideDataLoadWarning();
+  showStatus('loading','Carregando do Gist...');
+  loadFromGist({force:true});
+}
 async function fetchRemotePackData(){
   const gistId=getGistId();
   if(!gistId) return null;
   try{
-    const res=await fetchGistApi(gistId,{auth:!!getToken()});
-    if(!res.ok) return null;
-    const json=await res.json();
-    const file=json.files[GIST_FILENAME];
-    if(!file?.content) return null;
-    return JSON.parse(file.content);
+    const {parsed}=await fetchPackFromGist(gistId,{auth:!!getToken()});
+    return parsed;
   }catch(e){ return null; }
 }
 function applyLoadedPackData(parsed,updatedAt){
@@ -2635,6 +2688,7 @@ function applyLoadedPackData(parsed,updatedAt){
   maybeShowOnboarding();
   refreshAuthAdminPanel();
   if(typeof dimScheduleWarmup==='function') dimScheduleWarmup();
+  if(!isUsingPlaceholderData(parsed)) hideDataLoadWarning();
   return roleSynced;
 }
 async function refreshPackData(opts={}){
@@ -2646,19 +2700,19 @@ async function refreshPackData(opts={}){
   }
   if(!quiet) showStatus('loading','Atualizando dados do pack...');
   try{
-    const res=await fetchGistApi(gistId,{auth:false});
-    if(!res.ok) throw new Error('Gist não encontrado');
-    const json=await res.json();
-    const file=json.files[GIST_FILENAME];
-    if(!file?.content) throw new Error('Arquivo não encontrado no Gist');
-    const parsed=JSON.parse(file.content);
-    if(!parsed?.sections?.length) throw new Error('Dados do pack inválidos');
-    const roleSynced=applyLoadedPackData(parsed,json.updated_at);
+    const {parsed,updatedAt}=await fetchPackFromGist(gistId,{auth:false});
+    const roleSynced=applyLoadedPackData(parsed,updatedAt);
     if(roleSynced&&canWriteGist()&&getGistId()) await saveToGist();
     if(!quiet){ showStatus('success','Dados atualizados!'); setTimeout(hideStatus,2500); }
     return true;
   }catch(e){
-    if(!quiet){ showStatus('error','Erro ao atualizar: '+e.message); setTimeout(hideStatus,5000); }
+    if(!quiet){
+      showStatus('error','Erro ao atualizar: '+e.message);
+      setTimeout(hideStatus,5000);
+    }
+    if(isUsingPlaceholderData(data)){
+      showDataLoadWarning('Não foi possível carregar os links do pack. Verifique VPN/rede ou tente novamente.');
+    }
     return false;
   }
 }
@@ -2717,22 +2771,12 @@ async function loadFromGistInner(){
   const gistId=getGistId();
   showStatus('loading','Carregando do Gist...');
   try{
-    const res=await fetchGistApi(gistId,{auth:false});
-    if(!res.ok)throw new Error('Gist não encontrado');
-    const json=await res.json();
-    const file=json.files[GIST_FILENAME];
-    if(!file)throw new Error('Arquivo não encontrado no Gist');
-    const parsed=JSON.parse(file.content);
-    if(!parsed?.sections?.length){
-      data=JSON.parse(JSON.stringify(DEFAULT_DATA));
-      ensurePageOrder();
-      applySidebarOrder();
-      render();
-      hideStatus();
-      return;
-    }
-    const roleSynced=applyLoadedPackData(parsed,json.updated_at);
+    const {parsed,updatedAt}=await fetchPackFromGist(gistId,{auth:false});
+    const roleSynced=applyLoadedPackData(parsed,updatedAt);
     hideStatus();
+    if(isUsingPlaceholderData(parsed)){
+      showDataLoadWarning('Não foi possível carregar os links do pack. Verifique VPN/rede ou tente novamente.');
+    }
     if(priArchivedRestorePending){
       priArchivedRestorePending=false;
       if(canWriteGist()&&getGistId()){
@@ -2745,8 +2789,14 @@ async function loadFromGistInner(){
       if(canWriteGist()&&getGistId()) await saveToGist();
     }
   }catch(e){
-    showStatus('error','Erro ao carregar Gist: '+e.message+'. Usando dados locais.');
-    loadLocal();setTimeout(hideStatus,4000);
+    hideStatus();
+    loadLocal();
+    if(isUsingPlaceholderData(data)){
+      showDataLoadWarning('Não foi possível carregar os links do pack. Verifique VPN/rede ou tente novamente.');
+    }else{
+      showStatus('error','Erro ao carregar Gist: '+e.message+'. Usando dados locais.');
+      setTimeout(hideStatus,4000);
+    }
     maybeShowOnboarding();
     refreshAuthAdminPanel();
   }
