@@ -77,6 +77,8 @@ function packHandleAction_(action, payload) {
       return packPatchPack_(payload);
     case 'patchPriorities':
       return packPatchPriorities_(payload);
+    case 'patchAccessUsers':
+      return packPatchAccessUsers_(payload);
     default:
       throw new Error('Ação desconhecida: ' + action);
   }
@@ -302,4 +304,16 @@ function packPatchPriorities_(payload) {
   pack.priorities = incoming;
   packPatchGist_(pack);
   return { priorities: pack.priorities, savedAt: new Date().toISOString() };
+}
+
+function packPatchAccessUsers_(payload) {
+  payload = payload || {};
+  var incoming = payload.accessUsers;
+  if (!Array.isArray(incoming)) throw new Error('Lista de usuários inválida');
+  var ctx = packValidateMember_(payload.inviteCode, payload.memberName || '', {});
+  if (ctx.user.role !== 'admin') throw new Error('Somente admins podem alterar usuários');
+  var pack = ctx.remote.pack;
+  pack.accessUsers = incoming;
+  packPatchGist_(pack);
+  return { accessUsers: pack.accessUsers, savedAt: new Date().toISOString() };
 }

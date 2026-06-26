@@ -2554,7 +2554,7 @@ function renderAccessUsersPanel(){
   data.accessUsers.forEach(u=>{
     if(u.status==='active'&&!u.inviteCode){ u.inviteCode=generateInviteCode(u.name); codesAdded=true; }
   });
-  if(codesAdded){ saveLocal(); saveToGist(); }
+  if(codesAdded){ saveLocal(); saveAccessUsersToPack(); }
   const users=[...data.accessUsers].sort((a,b)=>{
     const order={active:0,revoked:1};
     return (order[a.status]??9)-(order[b.status]??9)||a.name.localeCompare(b.name);
@@ -2608,8 +2608,30 @@ async function adminAddAccessUser(nameArg,roleArg){
   renderAccessUsersPanel();
   renderAccessStatusBox();
   updateEditButtonVisibility();
-  await saveToGist();
-  alert('Usuário cadastrado. Código de '+name+': '+u.inviteCode);
+  const ok=await saveAccessUsersToPack();
+  if(!ok) alert('Não foi possível publicar no pack. Verifique token/bridge em Configuração → Técnico.');
+  else alert('Usuário cadastrado. Código de '+name+': '+u.inviteCode);
+}
+async function saveAccessUsersToPack(){
+  sanitizeAuthConfig();
+  syncAccessUserEmailsFromProfiles();
+  saveLocal();
+  if(canSyncViaBridge()&&isAppAdmin()&&resolveBridgeInviteCode()){
+    showStatus('loading','Salvando usuários no pack...');
+    try{
+      await packJsonpApi('patchAccessUsers',{
+        inviteCode:resolveBridgeInviteCode(),
+        memberName:getUserName(),
+        accessUsers:data.accessUsers,
+      });
+      showStatus('success','Usuários salvos no pack!');setTimeout(hideStatus,3000);
+      return true;
+    }catch(e){
+      showStatus('error','Erro ao salvar: '+e.message);setTimeout(hideStatus,4000);
+      return false;
+    }
+  }
+  return saveToGist({ skipFeriasMerge:true });
 }
 async function adminEditUserEmail(id){
   if(!canManageAccess()) return;
@@ -2634,29 +2656,39 @@ async function adminSetUserRole(id,role){
   u.status='active';
   u.approvedAt=new Date().toISOString();
   u.approvedBy=getUserName()||'Admin';
+  saveLocal();
   renderAccessUsersPanel();
   renderAccessStatusBox();
-  await saveToGist();
+  const ok=await saveAccessUsersToPack();
+  if(!ok){
+    alert('Não foi possível salvar o papel de '+u.name+' no pack. Verifique token/bridge em Configuração → Técnico.');
+  }
 }
 async function adminRevokeUser(id){
   if(!canManageAccess()||!confirm('Revogar acesso deste usuário?')) return;
   const u=data.accessUsers.find(x=>x.id===id);
   if(u){ u.status='revoked'; u.revokedAt=new Date().toISOString(); }
+  saveLocal();
   renderAccessUsersPanel();
-  await saveToGist();
+  const ok=await saveAccessUsersToPack();
+  if(!ok) alert('Não foi possível salvar no pack.');
 }
 async function adminRestoreUser(id){
   if(!canManageAccess()) return;
   const u=data.accessUsers.find(x=>x.id===id);
   if(u){ u.status='active'; u.approvedAt=new Date().toISOString(); u.approvedBy=getUserName()||'Admin'; }
+  saveLocal();
   renderAccessUsersPanel();
-  await saveToGist();
+  const ok=await saveAccessUsersToPack();
+  if(!ok) alert('Não foi possível salvar no pack.');
 }
 async function adminDeleteUser(id){
   if(!canManageAccess()||!confirm('Remover usuário da lista?')) return;
   data.accessUsers=data.accessUsers.filter(x=>x.id!==id);
+  saveLocal();
   renderAccessUsersPanel();
-  await saveToGist();
+  const ok=await saveAccessUsersToPack();
+  if(!ok) alert('Não foi possível salvar no pack.');
 }
 async function saveConfig(){
   const setConfigSaveStatus=(type,msg)=>{
