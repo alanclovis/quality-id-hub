@@ -889,6 +889,15 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 .hub-build-footer a:hover{color:#0071e3;text-decoration:underline;}
 .hub-build-footer .hub-build-msg{opacity:.85;}
 .hub-build-footer .hub-build-date{opacity:.65;margin-left:6px;}
+.hub-hard-reset-btn{
+  display:inline-flex;align-items:center;gap:6px;margin-top:8px;
+  padding:6px 12px;font-size:11px;color:var(--text3);
+  background:transparent;border:1px solid var(--border);border-radius:8px;
+  cursor:pointer;font-family:inherit;
+}
+.hub-hard-reset-btn:hover{color:var(--text2);border-color:var(--text3);background:var(--surface2);}
+.hub-hard-reset-btn i{font-size:13px;}
+.dim-fallback-footer .hub-hard-reset-btn{margin-top:10px;}
 </style>
 </head>
 <body>
@@ -6161,11 +6170,46 @@ async function loadHubBuildFooter(){
     }
     const msg=message?`<span class="hub-build-msg"> · ${escapeHtml(message)}</span>`:'';
     const dateStr=date?`<span class="hub-build-date">${escapeHtml(new Date(date).toLocaleString('pt-BR'))}</span>`:'';
-    el.innerHTML=`<a href="${repo}/commit/${encodeURIComponent(commit)}" target="_blank" rel="noopener" title="Ver commit no GitHub">${escapeHtml(commit)}</a>${msg}${dateStr}`;
+    el.innerHTML=`<a href="${repo}/commit/${encodeURIComponent(commit)}" target="_blank" rel="noopener" title="Ver commit no GitHub">${escapeHtml(commit)}</a>${msg}${dateStr}${hubHardResetButtonHtml()}`;
   }catch(e){
-    el.textContent='Hub (versão não publicada)';
+    el.innerHTML=`<span class="hub-build-msg">Hub (versão não publicada)</span>${hubHardResetButtonHtml()}`;
     el.title=String(e&&e.message||e);
   }
+}
+function hubHardResetButtonHtml(){
+  return '<div><button type="button" class="hub-hard-reset-btn" onclick="hubHardReset()" title="Recarrega o Hub ignorando cache local (equivalente a Cmd+Shift+R no Mac ou Ctrl+Shift+R no Windows)"><i class="ti ti-refresh"></i> Recarregar do zero</button></div>';
+}
+function hubHardReset(){
+  const ok=confirm(
+    'Recarregar o Hub do zero?\n\n' +
+    'Isso limpa cache local da escala e baixa dados novos do pack (equivalente a Cmd+Shift+R / Ctrl+Shift+R).\n\n' +
+    'Seu login e e-mail no perfil são mantidos.'
+  );
+  if(!ok) return;
+  const preservePrefixes=['qhub_user_id','qhub_username','qhub_token','qhub_gist_id','qhub_claimed_name','qhub_saved_invite_code','qhub_guide_seen','qhub_avatar','qhub_dim_bridge_url','qhub_pack_bridge_url','qhub_page','qhub_sidebar','qhub_member_email_'];
+  const toRemove=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(!k||!k.startsWith('qhub_')) continue;
+    if(preservePrefixes.some(p=>k===p||k.startsWith(p))) continue;
+    toRemove.push(k);
+  }
+  toRemove.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){/* ignore */} });
+  try{ sessionStorage.clear(); }catch(e){/* ignore */}
+  if(typeof dimTeardownBridge==='function') dimTeardownBridge();
+  if('caches' in window){
+    caches.keys().then(function(names){
+      return Promise.all(names.map(function(n){ return caches.delete(n); }));
+    }).finally(hubHardResetNavigate);
+  }else{
+    hubHardResetNavigate();
+  }
+}
+function hubHardResetNavigate(){
+  const u=new URL(window.location.href);
+  u.searchParams.delete('_hr');
+  u.searchParams.set('_hr',String(Date.now()));
+  window.location.replace(u.toString());
 }
 window.addEventListener('DOMContentLoaded',async()=>{
   try{
@@ -6445,6 +6489,11 @@ window.addEventListener('DOMContentLoaded',async()=>{
   <footer class="dim-fallback-footer" aria-label="Alternativa App Script">
     Problemas no Hub?
     <a id="dimGasDirectLink" href="https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec" target="_blank" rel="noopener noreferrer">Abra o dimensionamento direto na plataforma</a>
+    <div>
+      <button type="button" class="hub-hard-reset-btn" onclick="hubHardReset()" title="Recarrega o Hub ignorando cache local (equivalente a Cmd+Shift+R no Mac ou Ctrl+Shift+R no Windows)">
+        <i class="ti ti-refresh"></i> Recarregar do zero
+      </button>
+    </div>
   </footer>
 </div>
 </div><!-- end layout -->
@@ -6562,7 +6611,14 @@ window.addEventListener('DOMContentLoaded',async()=>{
 </div>
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
-<footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
+<footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">
+  <span class="hub-build-msg">carregando…</span>
+  <div>
+    <button type="button" class="hub-hard-reset-btn" onclick="hubHardReset()" title="Recarrega o Hub ignorando cache local (equivalente a Cmd+Shift+R no Mac ou Ctrl+Shift+R no Windows)">
+      <i class="ti ti-refresh"></i> Recarregar do zero
+    </button>
+  </div>
+</footer>
 <script src="dimensionamento.js?v=37"></script>
 </body>
 </html>
