@@ -75,6 +75,8 @@ function packHandleAction_(action, payload) {
       return packSaveProfile_(payload);
     case 'patchPack':
       return packPatchPack_(payload);
+    case 'patchPriorities':
+      return packPatchPriorities_(payload);
     default:
       throw new Error('Ação desconhecida: ' + action);
   }
@@ -289,4 +291,15 @@ function packPatchPack_(payload) {
   if (remote.pack.ferias && !pack.ferias) pack.ferias = remote.pack.ferias;
   packPatchGist_(pack);
   return { savedAt: new Date().toISOString() };
+}
+
+function packPatchPriorities_(payload) {
+  payload = payload || {};
+  var incoming = payload.priorities;
+  if (!incoming || typeof incoming !== 'object') throw new Error('Dados de prioridades inválidos');
+  var ctx = packValidateMember_(payload.inviteCode, payload.memberName || '', { requireEditor: true });
+  var pack = ctx.remote.pack;
+  pack.priorities = incoming;
+  packPatchGist_(pack);
+  return { priorities: pack.priorities, savedAt: new Date().toISOString() };
 }

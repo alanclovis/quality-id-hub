@@ -1173,7 +1173,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
           <div class="guide-illustration guide-step-list">
             <div class="guide-step-item"><i class="ti ti-eye" style="color:var(--text2);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Visitante</strong> — entra sem código; só leitura</span></div>
             <div class="guide-step-item"><i class="ti ti-user-check" style="color:var(--green);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Membro</strong> — código pessoal; perfil e férias</span></div>
-            <div class="guide-step-item"><i class="ti ti-pencil" style="color:#0071e3;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Editor</strong> — edita links e prioridades (precisa do token GitHub)</span></div>
+            <div class="guide-step-item"><i class="ti ti-pencil" style="color:#0071e3;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Editor</strong> — edita links e prioridades (bridge do pack ou token GitHub)</span></div>
             <div class="guide-step-item"><i class="ti ti-shield" style="color:#7c3aed;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Admin</strong> — tudo + gerenciar papéis na aba Usuários</span></div>
           </div>
         </div>
@@ -2470,8 +2470,8 @@ function isAppAdmin(){
 function canWriteGist(){
   const role=getUserRole();
   if(role!=='admin'&&role!=='editor') return false;
-  if(getToken()) return true;
-  return canSyncViaBridge()&&!!getMemberInviteCode();
+  if(canWriteViaBridge()) return true;
+  return !!getToken();
 }
 function canEditContent(){
   return canWriteGist();
@@ -2791,8 +2791,26 @@ function packBridgeExecBase(){
 function getMemberInviteCode(){
   return normalizeInviteCode(localStorage.getItem('qhub_saved_invite_code')||'');
 }
+function resolveBridgeInviteCode(){
+  const saved=getMemberInviteCode();
+  if(saved) return saved;
+  const name=getUserName();
+  if(!name) return '';
+  const u=getAccessUserRecord(name);
+  if(u?.inviteCode){
+    const code=normalizeInviteCode(u.inviteCode);
+    try{ localStorage.setItem('qhub_saved_invite_code',code); }catch(e){/* ignore */}
+    return code;
+  }
+  return '';
+}
 function canSyncViaBridge(){
   return !!getPackBridgeUrl()&&!isVisitor()&&hasClaimedIdentity()&&!!getUserName();
+}
+function canWriteViaBridge(){
+  const role=getUserRole();
+  if(role!=='admin'&&role!=='editor') return false;
+  return canSyncViaBridge()&&!!resolveBridgeInviteCode();
 }
 function packJsonpApi(action,payload,timeoutMs){
   timeoutMs=timeoutMs||45000;
@@ -3126,7 +3144,7 @@ async function loadFromGistInner(){
 }
 async function saveToGistViaBridge(opts){
   opts=opts||{};
-  const code=getMemberInviteCode();
+  const code=resolveBridgeInviteCode();
   if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
   if(editMode){
     data.notice.title=document.getElementById('noticeTitleInput').value||data.notice.title;
@@ -3151,7 +3169,7 @@ async function saveToGistViaBridge(opts){
 async function saveToGist(opts){
   opts=opts||{};
   if(!canWriteGist()){openConfig();return false;}
-  if(!getToken()&&canSyncViaBridge()) return saveToGistViaBridge(opts);
+  if(!getToken()&&canWriteViaBridge()) return saveToGistViaBridge(opts);
   const token=getToken(),gistId=getGistId();
   if(editMode){
     data.notice.title=document.getElementById('noticeTitleInput').value||data.notice.title;
@@ -6137,6 +6155,29 @@ function clearPriQueueCounts(){
   priEditDraft.counts=priZeroQueueCounts();
   renderPriorities();
 }
+async function savePrioritiesViaBridge(){
+  const code=resolveBridgeInviteCode();
+  if(!code){
+    alert('Código de acesso não encontrado. Entre com seu código pessoal ou peça ao admin.');
+    return false;
+  }
+  showStatus('loading','Salvando prioridades via bridge...');
+  try{
+    await packJsonpApi('patchPriorities',{
+      inviteCode:code,
+      memberName:getUserName(),
+      priorities:data.priorities,
+    });
+    saveLocal();
+    const lastSaved=document.getElementById('lastSaved');
+    if(lastSaved) lastSaved.textContent='Salvo agora';
+    showStatus('success','Prioridades salvas!');setTimeout(hideStatus,3000);
+    return true;
+  }catch(e){
+    showStatus('error','Erro ao salvar: '+e.message);setTimeout(hideStatus,4000);
+    return false;
+  }
+}
 async function savePriorities(){
   if(!canEditContent()){ openConfig(); return; }
   collectPrioritiesFromUI();
@@ -6147,7 +6188,9 @@ async function savePriorities(){
   priResetSelection();
   updatePriEditUI();
   renderPriorities();
-  await saveToGist();
+  saveLocal();
+  if(canWriteViaBridge()) await savePrioritiesViaBridge();
+  else await saveToGist();
 }
 function renderPriorities(){
   const pri=ensurePrioritiesData();
