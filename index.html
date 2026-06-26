@@ -2616,6 +2616,7 @@ async function saveAccessUsersToPack(){
   sanitizeAuthConfig();
   syncAccessUserEmailsFromProfiles();
   saveLocal();
+  if(getToken()) return saveToGist({ skipFeriasMerge:true });
   if(canSyncViaBridge()&&isAppAdmin()&&resolveBridgeInviteCode()){
     showStatus('loading','Salvando usuários no pack...');
     try{
@@ -2662,6 +2663,8 @@ async function adminSetUserRole(id,role){
   const ok=await saveAccessUsersToPack();
   if(!ok){
     alert('Não foi possível salvar o papel de '+u.name+' no pack. Verifique token/bridge em Configuração → Técnico.');
+  }else{
+    showStatus('success',u.name+' agora é '+ACCESS_ROLE_LABELS[role]+' no pack.');setTimeout(hideStatus,3000);
   }
 }
 async function adminRevokeUser(id){
@@ -2914,22 +2917,21 @@ async function fetchPackSnapshot(){
 }
 async function fetchPackFromGist(gistId,{auth=false}={}){
   const errors=[];
-  if(!auth){
-    try{ return await fetchPackSnapshot(); }catch(e){ errors.push('snapshot: '+(e.message||String(e))); }
+  if(auth){
+    try{
+      const res=await fetchGistApi(gistId,{auth:true});
+      if(res.ok){
+        const json=await res.json();
+        const file=json.files[GIST_FILENAME];
+        if(file?.content){
+          const parsed=JSON.parse(file.content);
+          stripPackTokenFromParsed(parsed);
+          if(parsed?.sections?.length) return {parsed,updatedAt:json.updated_at||null,source:'api'};
+          errors.push('Dados do pack inválidos');
+        }else errors.push('Arquivo não encontrado no Gist');
+      }else errors.push('API '+res.status);
+    }catch(e){ errors.push(e.message||String(e)); }
   }
-  try{
-    const res=await fetchGistApi(gistId,{auth});
-    if(res.ok){
-      const json=await res.json();
-      const file=json.files[GIST_FILENAME];
-      if(file?.content){
-        const parsed=JSON.parse(file.content);
-        stripPackTokenFromParsed(parsed);
-        if(parsed?.sections?.length) return {parsed,updatedAt:json.updated_at||null,source:'api'};
-        errors.push('Dados do pack inválidos');
-      }else errors.push('Arquivo não encontrado no Gist');
-    }else errors.push('API '+res.status);
-  }catch(e){ errors.push(e.message||String(e)); }
   try{
     const res=await fetchGistRaw(gistId);
     if(!res.ok) throw new Error('Raw gist indisponível ('+res.status+')');
@@ -2937,10 +2939,8 @@ async function fetchPackFromGist(gistId,{auth=false}={}){
     stripPackTokenFromParsed(parsed);
     if(!parsed?.sections?.length) throw new Error('Dados do pack inválidos (raw)');
     return {parsed,updatedAt:null,source:'raw'};
-  }catch(e){ errors.push(e.message||String(e)); }
-  if(auth){
-    try{ return await fetchPackSnapshot(); }catch(e){ errors.push('snapshot: '+(e.message||String(e))); }
-  }
+  }catch(e){ errors.push('raw: '+(e.message||String(e))); }
+  try{ return await fetchPackSnapshot(); }catch(e){ errors.push('snapshot: '+(e.message||String(e))); }
   if(getPackBridgeUrl()){
     try{ return await fetchPackViaBridge(); }catch(e){ errors.push('bridge: '+(e.message||String(e))); }
   }
