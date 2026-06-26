@@ -3,16 +3,16 @@
     {
       "atividade": "Core Job (Jira + Monitoria)",
       "tipoSlot": "CSAT",
-      "significado": "Monitorias de qualidade no método CSAT",
-      "classificacao": "Exclusivo de quality",
-      "conversao": "qlt"
+      "significado": "Slot exclusivo de CSAT na BaseDim.",
+      "classificacao": "Exclusivo de Csat",
+      "conversao": "CSAT"
     },
     {
       "atividade": "Core Job (Jira + Monitoria)",
       "tipoSlot": "ProjCSAT",
-      "significado": "Monitorias de projetos CSAT",
-      "classificacao": "Exclusivo de quality",
-      "conversao": "qlt"
+      "significado": "Slot exclusivo de CSAT na BaseDim.",
+      "classificacao": "Exclusivo de Csat",
+      "conversao": "CSAT"
     },
     {
       "atividade": "Core Job (Jira + Monitoria)",
