@@ -2150,10 +2150,11 @@ function mergeProfileRecords(existing,incoming){
   return merged;
 }
 function profileEmailStorageKey(name){
+  const n=name||getUserName();
+  if(n) return 'qhub_member_email_'+normalizeNameKey(n);
   const uid=localStorage.getItem('qhub_user_id');
   if(uid&&uid!==VISITOR_PACK_USER_ID) return 'qhub_member_email_'+uid;
-  const n=name||getUserName();
-  return n?'qhub_member_email_'+normalizeNameKey(n):'';
+  return '';
 }
 function readProfileEmailFromLocal(name){
   const key=profileEmailStorageKey(name);
@@ -2165,12 +2166,24 @@ function saveProfileEmailToLocal(name,email){
   if(!key||!email) return;
   try{ localStorage.setItem(key,String(email).trim().toLowerCase()); }catch(e){/* ignore */}
 }
+function syncAccessUserEmailsFromProfiles(){
+  ensureAccessUsers();
+  ensureProfilesData();
+  data.accessUsers.forEach(u=>{
+    const profile=findProfile(u.name);
+    const profileEmail=profile&&profile.email?String(profile.email).trim().toLowerCase():'';
+    if(!u.email&&profileEmail) u.email=profileEmail;
+    else if(u.email&&!profileEmail){
+      const pk=Object.keys(data.profiles).find(k=>namesMatch(k,u.name))||u.name;
+      data.profiles[pk]={...(data.profiles[pk]||{}),email:u.email,updatedAt:Date.now()};
+    }
+  });
+}
 function syncMemberEmailInRemotePack(remote,name,email){
   if(!remote||!name||!email) return;
   email=String(email).trim().toLowerCase();
   if(!remote.accessUsers) remote.accessUsers=[];
-  const uid=localStorage.getItem('qhub_user_id');
-  let u=remote.accessUsers.find(x=>x.id===uid)||remote.accessUsers.find(x=>namesMatch(x.name,name));
+  let u=remote.accessUsers.find(x=>namesMatch(x.name,name));
   if(!u){
     ensureRegisteredMemberInData(remote,name);
     u=remote.accessUsers.find(x=>namesMatch(x.name,name));
@@ -2548,7 +2561,7 @@ function renderAccessUsersPanel(){
   panel.innerHTML=`<table class="access-users-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Código</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>${
     users.map(u=>`<tr>
       <td>${escapeHtml(u.name)}</td>
-      <td style="font-size:12px">${escapeHtml(u.email||'—')} ${canManageAccess()?`<button class="btn-sm" onclick="adminEditUserEmail('${u.id}')" title="Editar e-mail"><i class="ti ti-mail"></i></button>`:''}</td>
+      <td style="font-size:12px">${escapeHtml(getProfileEmail(u.name)||'—')} ${canManageAccess()?`<button class="btn-sm" onclick="adminEditUserEmail('${u.id}')" title="Editar e-mail"><i class="ti ti-mail"></i></button>`:''}</td>
       <td style="white-space:nowrap;font-family:monospace;font-size:12px">${escapeHtml(u.inviteCode||'—')} ${u.inviteCode?`<button class="btn-sm" onclick="copyInviteCode('${u.id}')" title="Copiar código"><i class="ti ti-copy"></i></button><button class="btn-sm" onclick="adminRegenerateInviteCode('${u.id}')" title="Novo código"><i class="ti ti-refresh"></i></button>`:''}</td>
       <td>${`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','visitor','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
       <td><span class="access-role-pill ${u.status==='active'?u.role:u.status}">${u.status==='active'?ACCESS_ROLE_LABELS[u.role]:u.status==='revoked'?'Revogado':u.status}</span></td>
@@ -2597,14 +2610,16 @@ async function adminEditUserEmail(id){
   if(!canManageAccess()) return;
   const u=data.accessUsers.find(x=>x.id===id);
   if(!u) return;
-  const email=(prompt('E-mail @nubank.com.br de '+u.name+':', u.email||'')||'').trim().toLowerCase();
+  const email=(prompt('E-mail @nubank.com.br de '+u.name+':', getProfileEmail(u.name)||'')||'').trim().toLowerCase();
   if(!email) return;
   if(!email.endsWith('@nubank.com.br')){ alert('Use e-mail @nubank.com.br.'); return; }
   u.email=email;
   saveProfileEmail(u.name,email);
-  renderAccessUsersPanel();
   saveLocal();
-  await saveToGist();
+  renderAccessUsersPanel();
+  const ok=await saveToGist();
+  if(ok) alert('E-mail de '+u.name+' salvo no pack.');
+  else alert('Não foi possível publicar no Gist. O e-mail ficou só neste navegador — verifique token/bridge em Configuração → Técnico.');
 }
 async function adminSetUserRole(id,role){
   if(!canManageAccess()) return;
@@ -2899,6 +2914,7 @@ function applyLoadedPackData(parsed,updatedAt){
   ensureAccessUsers();
   migratePendingToActiveMembers();
   syncMembersFromProfiles();
+  syncAccessUserEmailsFromProfiles();
   validateStoredIdentity();
   if(getUserName()) ensureRegisteredMember(getUserName());
   restoreMemberEmailFromLocal(getUserName());
@@ -3062,6 +3078,7 @@ async function saveToGistViaBridge(){
   showStatus('loading','Salvando...');
   if(getGistId()) await mergeRemoteFeriasBeforeSave();
   sanitizeAuthConfig();
+  syncAccessUserEmailsFromProfiles();
   try{
     await packJsonpApi('patchPack',{inviteCode:code,memberName:getUserName(),pack:data});
     const lastSaved=document.getElementById('lastSaved');
@@ -3085,6 +3102,7 @@ async function saveToGist(){
   showStatus('loading','Salvando...');
   if(gistId) await mergeRemoteFeriasBeforeSave();
   sanitizeAuthConfig();
+  syncAccessUserEmailsFromProfiles();
   const body={files:{[GIST_FILENAME]:{content:JSON.stringify(data,null,2)}}};
   const method=gistId?'PATCH':'POST';
   const url=gistId?`https://api.github.com/gists/${gistId}`:'https://api.github.com/gists';
@@ -3122,7 +3140,7 @@ function loadLocal(){
     data=getLoadingPackShell();
     localStorage.removeItem('qhub_data');
   }
-  normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName()){ensureRegisteredMember(getUserName());restoreMemberEmailFromLocal(getUserName());}syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();
+  normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();syncAccessUserEmailsFromProfiles();validateStoredIdentity();if(getUserName()){ensureRegisteredMember(getUserName());restoreMemberEmailFromLocal(getUserName());}syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();
 }
 function saveLocal(){
   if(isUsingPlaceholderData(data)||isLoadingPackShell(data)) return;
@@ -3944,19 +3962,21 @@ function setProfileNonOperational(){
   });
 }
 function getProfileEmail(name){
-  const fromLocal=readProfileEmailFromLocal(name);
-  if(fromLocal) return fromLocal;
+  name=name||getUserName();
+  if(name){
+    const fromLocal=readProfileEmailFromLocal(name);
+    if(fromLocal) return fromLocal;
+    const u=getAccessUserRecord(name);
+    if(u&&u.email) return String(u.email).toLowerCase().trim();
+    const profile=findProfile(name);
+    if(profile&&profile.email) return String(profile.email).toLowerCase().trim();
+    return '';
+  }
   const uid=localStorage.getItem('qhub_user_id');
   if(uid&&typeof getAccessUserById==='function'){
     const u=getAccessUserById(uid);
     if(u&&u.email) return String(u.email).toLowerCase().trim();
   }
-  if(name){
-    const u=getAccessUserRecord(name);
-    if(u&&u.email) return String(u.email).toLowerCase().trim();
-  }
-  const profile=findProfile(name||getUserName());
-  if(profile&&profile.email) return String(profile.email).toLowerCase().trim();
   return '';
 }
 function saveProfileEmail(name,email){
@@ -3964,11 +3984,11 @@ function saveProfileEmail(name,email){
   email=String(email).trim().toLowerCase();
   saveProfileEmailToLocal(name,email);
   ensureAccessUsers();
-  const uid=localStorage.getItem('qhub_user_id');
-  const u=(uid&&getAccessUserById(uid))||getAccessUserRecord(name);
+  const u=getAccessUserRecord(name);
   if(u) u.email=email;
   ensureProfilesData();
-  data.profiles[name]={...(data.profiles[name]||{}),email,updatedAt:Date.now()};
+  const pk=Object.keys(data.profiles).find(k=>namesMatch(k,name))||name;
+  data.profiles[pk]={...(data.profiles[pk]||{}),email,updatedAt:Date.now()};
 }
 function loadProfileFormValues(name){
   initProfileForm();
