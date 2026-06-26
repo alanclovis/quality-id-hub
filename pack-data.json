@@ -41,7 +41,7 @@
           "id": "l5",
           "name": "Dim ID/CSAT",
           "desc": "Dimensionamento ",
-          "url": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec",
+          "url": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec",
           "icon": "ti-calculator",
           "color": "icon-amber",
           "notes": "",
@@ -710,7 +710,7 @@
     "packToken": ""
   },
   "dimensionamento": {
-    "bridgeUrl": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec"
+    "bridgeUrl": "https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec"
   },
   "packUpdatedAt": "2026-06-25T14:39:41Z"
 }

@@ -120,10 +120,15 @@ function include(filename) {
 
 function _core_getSpreadsheet_() {
   try {
-    const active = SpreadsheetApp.getActiveSpreadsheet();
-    if (active) return active;
-  } catch (e) { /* web app sem contexto ativo */ }
-  return SpreadsheetApp.openById(SHEET_ID);
+    return SpreadsheetApp.openById(SHEET_ID);
+  } catch (e1) {
+    console.log('openById falhou (' + SHEET_ID + '): ' + e1);
+    try {
+      const active = SpreadsheetApp.getActiveSpreadsheet();
+      if (active) return active;
+    } catch (e2) { /* web app sem contexto ativo */ }
+    throw e1;
+  }
 }
 
 function _core_sheetNameForWeek_(weekNum) {

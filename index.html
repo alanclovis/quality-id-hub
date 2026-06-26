@@ -1531,7 +1531,11 @@ let editMode=false;
 const GIST_FILENAME='quality-hub-data.json';
 const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
 const DEFAULT_GIST_OWNER='alanclovis';
-const DIM_GAS_DIRECT_URL='https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec';
+const DIM_GAS_DIRECT_URL='https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec';
+const DIM_GAS_LEGACY_DEPLOY_IDS=[
+  'AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1',
+  'AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5'
+];
 // NÃO cole token no código nem no Gist — cada pessoa configura o PAT só no navegador (Config → Técnico).
 let logoCb=null,logoSelected=null;
 let tooltipTimeout=null;
@@ -3695,7 +3699,10 @@ function showPage(page){
 
 function normalizeDimGasUrl(url){
   const v=String(url||'').trim();
-  if(!v||v.indexOf('AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5')>=0) return DIM_GAS_DIRECT_URL;
+  if(!v) return DIM_GAS_DIRECT_URL;
+  for(const legacyId of DIM_GAS_LEGACY_DEPLOY_IDS){
+    if(v.indexOf(legacyId)>=0) return DIM_GAS_DIRECT_URL;
+  }
   return v;
 }
 function syncDimGasDirectLink(){
@@ -6316,7 +6323,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
   </div><!-- end dimAppContent -->
   <footer class="dim-fallback-footer" aria-label="Alternativa App Script">
     Problemas no Hub?
-    <a id="dimGasDirectLink" href="https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec" target="_blank" rel="noopener noreferrer">Abra o dimensionamento direto na plataforma</a>
+    <a id="dimGasDirectLink" href="https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec" target="_blank" rel="noopener noreferrer">Abra o dimensionamento direto na plataforma</a>
   </footer>
 </div>
 </div><!-- end layout -->

@@ -132,6 +132,36 @@
   const DIM_WEEK_CACHE_TTL = 21600000; // 6h
   const DIM_WEEK_CACHE_VERSION = 3;
   const DIM_SESSION_TTL = 28800000; // 8h
+  const DIM_GAS_EXEC_URL = 'https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec';
+  const DIM_GAS_LEGACY_DEPLOY_IDS = [
+    'AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1',
+    'AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5'
+  ];
+
+  function dimNormalizeBridgeUrl(url) {
+    const v = String(url || '').trim();
+    if (!v) return DIM_GAS_EXEC_URL;
+    for (let i = 0; i < DIM_GAS_LEGACY_DEPLOY_IDS.length; i++) {
+      if (v.indexOf(DIM_GAS_LEGACY_DEPLOY_IDS[i]) >= 0) return DIM_GAS_EXEC_URL;
+    }
+    return v;
+  }
+
+  function dimBootstrapSessionFromHub() {
+    const email = dimGetCacheEmail();
+    if (!email) return false;
+    if (!dimState.session || !dimState.session.email) {
+      dimState.session = {
+        email: email,
+        analystKey: email.split('@')[0],
+        isLeader: false,
+        fromHub: true
+      };
+      dimSaveSession(dimState.session);
+    }
+    dimState.bridgeReady = true;
+    return true;
+  }
 
   function dimLoadDictionaryFallback() {
     if (dimState.dictionaryFallback) {
@@ -266,14 +296,22 @@
   }
 
   function dimGetBridgeUrl() {
+    let raw = '';
     if (typeof data !== 'undefined' && data.dimensionamento && data.dimensionamento.bridgeUrl) {
-      return String(data.dimensionamento.bridgeUrl).trim();
+      raw = String(data.dimensionamento.bridgeUrl).trim();
+    } else {
+      raw = (localStorage.getItem('qhub_dim_bridge_url') || '').trim();
     }
-    return (localStorage.getItem('qhub_dim_bridge_url') || '').trim();
+    const normalized = dimNormalizeBridgeUrl(raw);
+    if (normalized !== raw && normalized) {
+      if (typeof dimSetBridgeUrl === 'function') dimSetBridgeUrl(normalized);
+      else try { localStorage.setItem('qhub_dim_bridge_url', normalized); } catch (e) { /* ignore */ }
+    }
+    return normalized;
   }
 
   function dimSetBridgeUrl(url) {
-    const v = String(url || '').trim();
+    const v = dimNormalizeBridgeUrl(url);
     localStorage.setItem('qhub_dim_bridge_url', v);
     if (typeof data !== 'undefined') {
       if (!data.dimensionamento) data.dimensionamento = {};
@@ -686,8 +724,20 @@
     const week = dimState.week || dimGetIsoWeek();
     const hadInstant = dimTryInstantWeek(week);
 
+    dimBootstrapSessionFromHub();
     dimEnsureIframe();
     dimUpdateStatus();
+
+    if (dimGetCacheEmail()) {
+      try {
+        await dimLoadWeek(week);
+        dimStartReloadTimer();
+        dimRefreshPendingBadge();
+        dimUpdateStatus();
+        dimShowToast('Conectado à planilha');
+        return;
+      } catch (e) { /* try JSONP session + popup */ }
+    }
 
     try {
       await dimJsonpApi('getSessionInfo', dimPayloadWithUserEmail({}), 12000).then(function (s) {
@@ -1761,6 +1811,7 @@
       const week = dimState.week;
 
       dimRestoreSession();
+      dimBootstrapSessionFromHub();
       const hadInstant = dimTryInstantWeek(week);
       dimUpdateStatus();
 
@@ -1875,14 +1926,18 @@
 
   function dimRenderConnectPrompt() {
     const grid = document.getElementById('dimGridWrap');
+    const missingEmail = !dimGetCacheEmail();
     if (grid) {
       grid.innerHTML =
         '<div class="dim-empty-state">' +
         '<i class="ti ti-plug-connected" style="font-size:44px;opacity:.6"></i>' +
-        '<p style="margin-top:14px;font-size:16px;font-weight:600">Conectar à planilha Google</p>' +
-        '<p style="font-size:13px;color:var(--text3);margin-top:8px;line-height:1.5">' +
-        'Clique no botão abaixo. Uma janela <strong>Dim Bridge</strong> vai abrir — ' +
-        '<strong>mantenha-a aberta</strong> enquanto usa esta página.</p>' +
+        (missingEmail
+          ? '<p style="margin-top:14px;font-size:16px;font-weight:600">Cadastro incompleto</p>' +
+            '<p style="font-size:13px;color:var(--text3);margin-top:8px;line-height:1.5">' +
+            'Peça ao admin para incluir seu <strong>e-mail @nubank.com.br</strong> em Configuração → Usuários, depois clique em Conectar.</p>'
+          : '<p style="margin-top:14px;font-size:16px;font-weight:600">Conectar à planilha Google</p>' +
+            '<p style="font-size:13px;color:var(--text3);margin-top:8px;line-height:1.5">' +
+            'Clique no botão abaixo. Se abrir um popup <strong>Dim Bridge</strong>, aguarde fechar sozinho.</p>') +
         '<p style="margin-top:20px">' +
         '<button type="button" class="btn primary" style="font-size:15px;padding:12px 28px" onclick="dimConnectBridge()">' +
         '<i class="ti ti-plug"></i> Conectar à planilha</button></p></div>';
