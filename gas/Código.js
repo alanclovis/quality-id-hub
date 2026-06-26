@@ -120,13 +120,25 @@ function include(filename) {
 
 function _core_getSpreadsheet_() {
   try {
+    const active = SpreadsheetApp.getActiveSpreadsheet();
+    if (active) {
+      if (active.getId() !== SHEET_ID) {
+        console.log('AVISO: planilha ativa (' + active.getId() + ') difere de SHEET_ID (' + SHEET_ID + '). Usando planilha ativa.');
+      }
+      return active;
+    }
+  } catch (e) { /* web app sem contexto ativo */ }
+  try {
     return SpreadsheetApp.openById(SHEET_ID);
   } catch (e1) {
-    console.log('openById falhou (' + SHEET_ID + '): ' + e1);
-    try {
-      const active = SpreadsheetApp.getActiveSpreadsheet();
-      if (active) return active;
-    } catch (e2) { /* web app sem contexto ativo */ }
+    const msg = String(e1.message || e1);
+    console.log('openById falhou (' + SHEET_ID + '): ' + msg);
+    if (msg.indexOf('permiss') >= 0 || msg.indexOf('permission') >= 0 || msg.indexOf('authorization') >= 0) {
+      throw new Error(
+        'Sem permissão para acessar a planilha. Abra o app pelo link oficial, clique em "Recarregar e autorizar" ' +
+        'e aceite o acesso ao Google Sheets. Se persistir, peça ao admin para compartilhar a planilha com seu e-mail.'
+      );
+    }
     throw e1;
   }
 }
