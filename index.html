@@ -2667,41 +2667,54 @@ async function saveConfig(){
     el.textContent=msg;
   };
   setConfigSaveStatus('loading','Salvando configuração...');
-  const t=document.getElementById('tokenInput').value.trim();
-  const g=document.getElementById('gistIdInput').value.trim();
-  const packUrl=document.getElementById('packBridgeUrlInput')?.value.trim()||'';
-  const dimUrl=document.getElementById('dimBridgeUrlInput')?.value.trim()||'';
-  if(t)localStorage.setItem('qhub_token',t);
-  if(g)localStorage.setItem('qhub_gist_id',g);
-  setPackBridgeUrl(packUrl);
-  if(typeof dimSetBridgeUrl==='function') dimSetBridgeUrl(dimUrl);
-  else localStorage.setItem('qhub_dim_bridge_url',dimUrl);
-  ensureDimensionamentoData();
-  ensurePackBridgeData();
-  saveLocal();
-  let published=false;
-  if(canWriteGist()&&getGistId()){
-    published=await saveToGist();
-  }
-  syncTokenHolderRole();
-  updateEditButtonVisibility();
-  if(published){
-    setConfigSaveStatus('success','Publicado no pack! A URL da bridge e demais ajustes já valem para todo o time.');
-    showStatus('success','Configuração publicada no pack!');
-    setTimeout(hideStatus,4000);
-    setTimeout(closeConfig,1400);
-  }else if(canWriteGist()&&getGistId()){
-    setConfigSaveStatus('error','Não foi possível publicar no Gist. Verifique o token GitHub (permissão gist) ou tente de novo.');
-  }else{
-    setConfigSaveStatus('warn','Salvo só neste navegador. Para o time ver a URL da bridge, entre como admin/editor com token ou bridge ativa e salve de novo.');
-    showStatus('success','Configuração salva neste navegador.');
-    setTimeout(hideStatus,4000);
-    setTimeout(closeConfig,2200);
-  }
-  if(!hasClaimedIdentity()) setTimeout(openNameModal,200);
-  else refreshAuthAdminPanel();
-  if(document.getElementById('nameBackdrop')?.classList.contains('active')){
-    refreshProfileModal();
+  try{
+    const t=document.getElementById('tokenInput').value.trim();
+    const g=document.getElementById('gistIdInput').value.trim();
+    const packUrl=document.getElementById('packBridgeUrlInput')?.value.trim()||'';
+    const dimUrl=document.getElementById('dimBridgeUrlInput')?.value.trim()||'';
+    if(t)localStorage.setItem('qhub_token',t);
+    if(g)localStorage.setItem('qhub_gist_id',g);
+    setPackBridgeUrl(packUrl);
+    if(typeof dimSetBridgeUrl==='function') dimSetBridgeUrl(dimUrl);
+    else localStorage.setItem('qhub_dim_bridge_url',dimUrl);
+    ensureDimensionamentoData();
+    ensurePackBridgeData();
+    saveLocal();
+    let published=false;
+    if(canWriteGist()&&getGistId()){
+      if(getToken()){
+        setConfigSaveStatus('loading','Publicando no Gist...');
+        published=await saveToGist({ skipFeriasMerge:true });
+      }else{
+        setConfigSaveStatus('loading','Enviando via bridge do pack (até 45s)...');
+        published=await saveToGist({ skipFeriasMerge:true });
+      }
+    }
+    syncTokenHolderRole();
+    updateEditButtonVisibility();
+    if(published){
+      setConfigSaveStatus('success','Publicado no pack! A URL da bridge e demais ajustes já valem para todo o time.');
+      showStatus('success','Configuração publicada no pack!');
+      setTimeout(hideStatus,4000);
+      setTimeout(closeConfig,1400);
+    }else if(canWriteGist()&&getGistId()){
+      setConfigSaveStatus('error','Não foi possível publicar no Gist. Verifique o token GitHub (permissão gist) ou a URL da bridge.');
+    }else{
+      setConfigSaveStatus('warn','Salvo só neste navegador. Para o time ver a URL da bridge, entre como admin/editor com token ou bridge ativa e salve de novo.');
+      showStatus('success','Configuração salva neste navegador.');
+      setTimeout(hideStatus,4000);
+      setTimeout(closeConfig,2200);
+    }
+    if(!hasClaimedIdentity()) setTimeout(openNameModal,200);
+    else refreshAuthAdminPanel();
+    if(document.getElementById('nameBackdrop')?.classList.contains('active')){
+      refreshProfileModal();
+    }
+  }catch(e){
+    console.error('saveConfig',e);
+    setConfigSaveStatus('error',(e&&e.message)||'Erro ao salvar configuração.');
+    showStatus('error',(e&&e.message)||'Erro ao salvar configuração.');
+    setTimeout(hideStatus,5000);
   }
 }
 function updateVisitorUI(){
@@ -2819,7 +2832,20 @@ async function fetchGistApi(gistId,{auth=false}={}){
   const token=auth?getToken():null;
   if(token) headers['Authorization']=`token ${token}`;
   const url=`https://api.github.com/gists/${gistId}?_=${Date.now()}`;
-  return fetch(url,{headers,cache:'no-store'});
+  return fetchWithTimeout(url,{headers,cache:'no-store'},30000);
+}
+async function fetchWithTimeout(url,options,timeoutMs){
+  timeoutMs=timeoutMs||30000;
+  const ctrl=new AbortController();
+  const timer=setTimeout(function(){ ctrl.abort(); },timeoutMs);
+  try{
+    return await fetch(url,{...options,signal:ctrl.signal});
+  }catch(e){
+    if(e&&e.name==='AbortError') throw new Error('Tempo esgotado ('+Math.round(timeoutMs/1000)+'s). Verifique VPN/rede ou tente de novo.');
+    throw e;
+  }finally{
+    clearTimeout(timer);
+  }
 }
 const PACK_SNAPSHOT_FILE='pack-data.json';
 async function fetchGistRaw(gistId){
@@ -3098,7 +3124,8 @@ async function loadFromGistInner(){
     refreshAuthAdminPanel();
   }
 }
-async function saveToGistViaBridge(){
+async function saveToGistViaBridge(opts){
+  opts=opts||{};
   const code=getMemberInviteCode();
   if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
   if(editMode){
@@ -3106,7 +3133,7 @@ async function saveToGistViaBridge(){
     data.notice.text=document.getElementById('noticeTextInput').value||data.notice.text;
   }
   showStatus('loading','Salvando...');
-  if(getGistId()) await mergeRemoteFeriasBeforeSave();
+  if(getGistId()&&!opts.skipFeriasMerge) await mergeRemoteFeriasBeforeSave();
   sanitizeAuthConfig();
   syncAccessUserEmailsFromProfiles();
   try{
@@ -3121,24 +3148,25 @@ async function saveToGistViaBridge(){
     return false;
   }
 }
-async function saveToGist(){
+async function saveToGist(opts){
+  opts=opts||{};
   if(!canWriteGist()){openConfig();return false;}
-  if(!getToken()&&canSyncViaBridge()) return saveToGistViaBridge();
+  if(!getToken()&&canSyncViaBridge()) return saveToGistViaBridge(opts);
   const token=getToken(),gistId=getGistId();
   if(editMode){
     data.notice.title=document.getElementById('noticeTitleInput').value||data.notice.title;
     data.notice.text=document.getElementById('noticeTextInput').value||data.notice.text;
   }
   showStatus('loading','Salvando...');
-  if(gistId) await mergeRemoteFeriasBeforeSave();
+  if(gistId&&!opts.skipFeriasMerge) await mergeRemoteFeriasBeforeSave();
   sanitizeAuthConfig();
   syncAccessUserEmailsFromProfiles();
   const body={files:{[GIST_FILENAME]:{content:JSON.stringify(data,null,2)}}};
   const method=gistId?'PATCH':'POST';
-  const url=gistId?`https://api.github.com/gists/${gistId}`:'https://api.github.com/gists';
+  const url=gistId?`https://api.github.com/gists/${gistId}`:`https://api.github.com/gists`;
   if(!gistId){body.description='Quality/Csat ID Hub Data';body.public=false;}
   try{
-    const res=await fetch(url,{method,headers:{'Authorization':`token ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const res=await fetchWithTimeout(url,{method,headers:{'Authorization':`token ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)},opts.timeoutMs||30000);
     if(!res.ok)throw new Error('Erro '+res.status);
     const json=await res.json();
     if(!gistId){
