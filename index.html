@@ -3871,7 +3871,7 @@ function normalizeDimGasUrl(url){
   return v;
 }
 function syncDimGasDirectLink(){
-  ensureDimensionamentoData();
+  if(!data.dimensionamento) data.dimensionamento={bridgeUrl:''};
   const url=normalizeDimGasUrl(data.dimensionamento.bridgeUrl)||DIM_GAS_DIRECT_URL;
   data.dimensionamento.bridgeUrl=url;
   const a=document.getElementById('dimGasDirectLink');
