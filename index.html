@@ -2135,7 +2135,47 @@ function mergeProfileRecords(existing,incoming){
   if(!existing) return incoming?{...incoming}:null;
   if(!incoming) return {...existing};
   const exAt=existing.updatedAt||0,inAt=incoming.updatedAt||0;
-  return exAt>=inAt?{...incoming,...existing}:{...existing,...incoming};
+  const merged=exAt>=inAt?{...incoming,...existing}:{...existing,...incoming};
+  const incEmail=incoming.email?String(incoming.email).trim().toLowerCase():'';
+  if(incEmail) merged.email=incEmail;
+  return merged;
+}
+function profileEmailStorageKey(name){
+  const uid=localStorage.getItem('qhub_user_id');
+  if(uid&&uid!==VISITOR_PACK_USER_ID) return 'qhub_member_email_'+uid;
+  const n=name||getUserName();
+  return n?'qhub_member_email_'+normalizeNameKey(n):'';
+}
+function readProfileEmailFromLocal(name){
+  const key=profileEmailStorageKey(name);
+  if(!key) return '';
+  try{ return (localStorage.getItem(key)||'').trim().toLowerCase(); }catch(e){ return ''; }
+}
+function saveProfileEmailToLocal(name,email){
+  const key=profileEmailStorageKey(name);
+  if(!key||!email) return;
+  try{ localStorage.setItem(key,String(email).trim().toLowerCase()); }catch(e){/* ignore */}
+}
+function syncMemberEmailInRemotePack(remote,name,email){
+  if(!remote||!name||!email) return;
+  email=String(email).trim().toLowerCase();
+  if(!remote.accessUsers) remote.accessUsers=[];
+  const uid=localStorage.getItem('qhub_user_id');
+  let u=remote.accessUsers.find(x=>x.id===uid)||remote.accessUsers.find(x=>namesMatch(x.name,name));
+  if(!u){
+    ensureRegisteredMemberInData(remote,name);
+    u=remote.accessUsers.find(x=>namesMatch(x.name,name));
+  }
+  if(u) u.email=email;
+  if(!remote.profiles) remote.profiles={};
+  const pk=Object.keys(remote.profiles).find(k=>namesMatch(k,name))||name;
+  remote.profiles[pk]={...(remote.profiles[pk]||{}),email,updatedAt:Date.now()};
+}
+function restoreMemberEmailFromLocal(name){
+  name=name||getUserName();
+  const email=readProfileEmailFromLocal(name);
+  if(!email) return;
+  saveProfileEmail(name,email);
 }
 function canSyncProfileToGist(){
   if(isVisitor()) return false;
@@ -2254,11 +2294,23 @@ async function syncOwnProfileViaBridge(name,oldName){
   if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
   const profile=data.profiles[name];
   if(!profile) return false;
+  const email=profile.email||getProfileEmail(name)||'';
   showStatus('loading','Publicando perfil no pack...');
   try{
-    const res=await packJsonpApi('saveProfile',{inviteCode:code,name,memberName:name,oldName:oldName||'',profile});
-    if(res.profiles) data.profiles=res.profiles;
-    else data.profiles[name]=profile;
+    const res=await packJsonpApi('saveProfile',{inviteCode:code,name,memberName:name,oldName:oldName||'',profile,email});
+    if(res.profiles){
+      Object.keys(res.profiles).forEach(function(k){
+        data.profiles[k]=mergeProfileRecords(data.profiles[k],res.profiles[k])||res.profiles[k];
+      });
+    }else{
+      data.profiles[name]=profile;
+    }
+    if(email) saveProfileEmail(name,email);
+    if(res.accessUsers) data.accessUsers=res.accessUsers;
+    else if(email){
+      const u=getAccessUserRecord(name);
+      if(u) u.email=email;
+    }
     if(oldName&&oldName!==name){
       const lu=getAccessUserById(localStorage.getItem('qhub_user_id'));
       if(lu) lu.name=name;
@@ -2304,6 +2356,7 @@ async function syncOwnProfileToGist(name,oldName){
     }else{
       remote.profiles[name]=mergeProfileRecords(remote.profiles[name],profile)||{...profile};
     }
+    if(profile.email) syncMemberEmailInRemotePack(remote,name,profile.email);
     ensureRegisteredMemberInData(remote,name);
     const patchRes=await fetch(`https://api.github.com/gists/${gistId}`,{
       method:'PATCH',
@@ -2312,6 +2365,10 @@ async function syncOwnProfileToGist(name,oldName){
     });
     if(!patchRes.ok) throw new Error('Erro ao salvar ('+patchRes.status+')');
     data.profiles[name]=remote.profiles[name];
+    if(profile.email){
+      syncMemberEmailInRemotePack(data,name,profile.email);
+      saveProfileEmailToLocal(name,profile.email);
+    }
     if(oldName&&oldName!==name){
       const lu=getAccessUserById(localStorage.getItem('qhub_user_id'));
       if(lu) lu.name=name;
@@ -2835,6 +2892,7 @@ function applyLoadedPackData(parsed,updatedAt){
   syncMembersFromProfiles();
   validateStoredIdentity();
   if(getUserName()) ensureRegisteredMember(getUserName());
+  restoreMemberEmailFromLocal(getUserName());
   const roleSynced=syncTokenHolderRole();
   applySidebarOrder();
   renderFerias();
@@ -3055,7 +3113,7 @@ function loadLocal(){
     data=getLoadingPackShell();
     localStorage.removeItem('qhub_data');
   }
-  normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName())ensureRegisteredMember(getUserName());syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();
+  normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();validateStoredIdentity();if(getUserName()){ensureRegisteredMember(getUserName());restoreMemberEmailFromLocal(getUserName());}syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();
 }
 function saveLocal(){
   if(isUsingPlaceholderData(data)||isLoadingPackShell(data)) return;
@@ -3877,6 +3935,8 @@ function setProfileNonOperational(){
   });
 }
 function getProfileEmail(name){
+  const fromLocal=readProfileEmailFromLocal(name);
+  if(fromLocal) return fromLocal;
   const uid=localStorage.getItem('qhub_user_id');
   if(uid&&typeof getAccessUserById==='function'){
     const u=getAccessUserById(uid);
@@ -3892,6 +3952,8 @@ function getProfileEmail(name){
 }
 function saveProfileEmail(name,email){
   if(!name||!email) return;
+  email=String(email).trim().toLowerCase();
+  saveProfileEmailToLocal(name,email);
   ensureAccessUsers();
   const uid=localStorage.getItem('qhub_user_id');
   const u=(uid&&getAccessUserById(uid))||getAccessUserRecord(name);
@@ -4283,6 +4345,7 @@ async function saveProfile(){
   const {level,areas}=readProfileFormValues();
   cacheOperationalProfile(areas);
   const profilePatch={level,areas,updatedAt:Date.now()};
+  if(emailRaw) profilePatch.email=emailRaw;
   const avatarChange=pendingAvatar;
   if(avatarChange!==undefined){
     if(avatarChange){
@@ -4310,7 +4373,11 @@ async function saveProfile(){
   renderAccessStatusBox();
   if(document.getElementById('configPanelUsers')?.classList.contains('active')) renderAccessUsersPanel();
   saveLocal();
-  if(canSyncProfileToGist()) await syncOwnProfileToGist(val,oldName);
+  let synced=true;
+  if(canSyncProfileToGist()) synced=await syncOwnProfileToGist(val,oldName);
+  if(emailRaw&&!synced){
+    alert('E-mail salvo neste navegador, mas não foi possível publicar no pack. Tente de novo ou peça ao admin para cadastrar seu e-mail em Configuração → Usuários.');
+  }
   if(document.getElementById('pageDimensionamento')?.classList.contains('active')){
     syncDimensionamentoPageAccess();
   }
@@ -6496,6 +6563,6 @@ window.addEventListener('DOMContentLoaded',async()=>{
 
 </div><!-- end layout --></div><!-- end contentWrap --></div><!-- end main-area --></div><!-- end app-shell -->
 <footer class="hub-build-footer" id="hubBuildFooter" aria-label="Versão do Hub">carregando…</footer>
-<script src="dimensionamento.js?v=36"></script>
+<script src="dimensionamento.js?v=37"></script>
 </body>
 </html>

@@ -221,10 +221,13 @@ function packSaveProfile_(payload) {
   payload = payload || {};
   var name = payload.name || payload.memberName || '';
   var profile = payload.profile;
+  var email = payload.email ? String(payload.email).toLowerCase().trim() : '';
+  if (!email && profile && profile.email) email = String(profile.email).toLowerCase().trim();
   if (!name || !profile) throw new Error('Perfil inválido');
   var ctx = packValidateMember_(payload.inviteCode, name);
   var pack = ctx.remote.pack;
   if (!pack.profiles) pack.profiles = {};
+  if (email) profile.email = email;
   var oldName = payload.oldName || '';
   if (oldName && oldName !== name && pack.profiles[oldName]) {
     var merged = packMergeProfile_(pack.profiles[oldName], profile);
@@ -242,8 +245,16 @@ function packSaveProfile_(payload) {
     pack.profiles[name] = packMergeProfile_(pack.profiles[name], profile) || profile;
   }
   packEnsureMemberRegistered_(pack, name);
+  if (email && pack.accessUsers) {
+    for (var j = 0; j < pack.accessUsers.length; j++) {
+      if (packNamesMatch_(pack.accessUsers[j].name, name)) {
+        pack.accessUsers[j].email = email;
+        break;
+      }
+    }
+  }
   packPatchGist_(pack);
-  return { profiles: pack.profiles, name: name, savedAt: new Date().toISOString() };
+  return { profiles: pack.profiles, accessUsers: pack.accessUsers, name: name, savedAt: new Date().toISOString() };
 }
 
 function packEnsureMemberRegistered_(pack, name) {

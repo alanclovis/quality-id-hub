@@ -365,7 +365,25 @@
     return key + '@nubank.com.br';
   }
 
+  function dimMemberEmailStorageKey() {
+    const uid = localStorage.getItem('qhub_user_id');
+    if (uid && uid !== 'visitor') return 'qhub_member_email_' + uid;
+    if (typeof getUserName === 'function') {
+      const name = getUserName();
+      if (name) return 'qhub_member_email_' + String(name).trim().toLowerCase().replace(/\s+/g, '_');
+    }
+    return '';
+  }
+
+  function dimReadMemberEmailLocal() {
+    const key = dimMemberEmailStorageKey();
+    if (!key) return '';
+    try { return (localStorage.getItem(key) || '').trim().toLowerCase(); } catch (e) { return ''; }
+  }
+
   function dimGetCacheEmail() {
+    const fromLocal = dimReadMemberEmailLocal();
+    if (fromLocal) return fromLocal;
     if (dimState.session && dimState.session.email) {
       return dimState.session.email.toLowerCase();
     }
