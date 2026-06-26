@@ -5925,13 +5925,18 @@ function priStartCellEdit(td,key){
   td.classList.add('pri-cell-editing');
   td.innerHTML=`<select class="pri-cell-select" id="pri-cell-${key}">${priBuildQueueOptions(val)}</select>`;
   const sel=td.querySelector('select');
-  sel.focus();
   const finish=()=>{
+    if(!priEditDraft) return;
     priEditDraft.slots[key]=sel.value||'';
     renderPriorities();
   };
+  sel.addEventListener('mousedown',e=>{ e.stopPropagation(); });
   sel.addEventListener('change',finish);
   sel.addEventListener('blur',finish,{once:true});
+  setTimeout(()=>{
+    sel.focus();
+    try{ if(typeof sel.showPicker==='function') sel.showPicker(); }catch(_){}
+  },0);
 }
 function initPriGridEvents(){
   const wrap=document.querySelector('.pri-grid-wrap');
@@ -5943,14 +5948,17 @@ function initPriGridEvents(){
     if(!td||td.classList.contains('pri-cell-editing')) return;
     if(e.target.closest('.pri-cell-select')) return;
     e.preventDefault();
-    priToggleSlotSelection(td.dataset.priSlot,e.shiftKey);
-  });
-  wrap.addEventListener('dblclick',e=>{
-    if(!priEditMode) return;
-    const td=e.target.closest('.pri-cell-editable');
-    if(!td||td.classList.contains('pri-cell-editing')) return;
-    e.preventDefault();
-    priStartCellEdit(td,td.dataset.priSlot);
+    const key=td.dataset.priSlot;
+    if(e.shiftKey){
+      priToggleSlotSelection(key,true);
+      return;
+    }
+    if(e.ctrlKey||e.metaKey||e.altKey){
+      priToggleSlotSelection(key,false);
+      return;
+    }
+    priClearSelection();
+    priStartCellEdit(td,key);
   });
 }
 function togglePrioritiesEdit(){
@@ -6070,7 +6078,9 @@ function renderPriorities(){
   const configured=priIsConfiguredWeek();
   const wk=priGetWeekData(priWeekStart);
   const weekUpdated=wk?.updatedAt||pri.updatedAt;
-  if(configured&&weekUpdated){
+  if(priEditMode){
+    meta.textContent='Modo edição — clique em uma célula para escolher a fila · Shift+clique seleciona intervalo · Ctrl/Cmd+clique seleciona várias para aplicar em lote';
+  } else if(configured&&weekUpdated){
     meta.textContent='Atualizado em '+new Date(weekUpdated).toLocaleString('pt-BR');
   } else if(!configured){
     meta.textContent='Esta semana ainda não foi configurada.'+(canEditContent()?' Clique em Editar semana para definir.':'');
@@ -6089,7 +6099,7 @@ function renderPriorities(){
       if(priEditMode){
         const selCls=priSelectedSlots.has(key)?' pri-cell-selected':'';
         const emptyCls=val?'':' pri-cell-empty';
-        html+=`<td class="pri-cell pri-cell-editable${selCls}${emptyCls}" data-pri-slot="${key}" title="${escapeAttr(val||'Clique para selecionar · duplo clique para editar')}">`;
+        html+=`<td class="pri-cell pri-cell-editable${selCls}${emptyCls}" data-pri-slot="${key}" title="${escapeAttr(val||'Clique para escolher a fila')}">`;
         if(val){
           html+=`<span class="pri-queue-short">${escapeHtml(formatQueueShort(val))}</span>`;
           html+=`<span class="pri-queue-full">${escapeHtml(val)}</span>`;
@@ -6212,6 +6222,7 @@ function hubHardResetNavigate(){
   window.location.replace(u.toString());
 }
 window.addEventListener('DOMContentLoaded',async()=>{
+  initPriGridEvents();
   try{
     if(isVisitor()) clearPlaceholderPackCache();
     loadLocal();
@@ -6232,7 +6243,6 @@ window.addEventListener('DOMContentLoaded',async()=>{
     renderUserChip();
     if(!hasClaimedIdentity()||needsMandatoryToken()) openNameModal();
     await loadFromGist();
-    initPriGridEvents();
     loadHubBuildFooter();
   }catch(e){
     console.error('Hub init',e);
@@ -6362,7 +6372,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
   <div class="pri-grid-toolbar" id="priGridToolbar" style="display:none">
     <button type="button" class="btn-sm" onclick="clearPriGrid()"><i class="ti ti-eraser"></i> Limpar grade</button>
   </div>
-  <p class="pri-grid-hint" id="priGridHint" style="display:none">Clique para selecionar células · Shift+clique para intervalo · Duplo clique para editar uma célula · Use a barra abaixo para aplicar fila em lote</p>
+  <p class="pri-grid-hint" id="priGridHint" style="display:none">Clique em uma célula para escolher a fila · Shift+clique para intervalo · Ctrl/Cmd+clique para seleção múltipla · Use a barra abaixo para aplicar fila em lote</p>
   <div class="pri-grid-wrap">
     <div class="pri-bulk-bar" id="priBulkBar">
       <span class="pri-bulk-count"><strong id="priBulkCount">0</strong> célula(s) selecionada(s)</span>
