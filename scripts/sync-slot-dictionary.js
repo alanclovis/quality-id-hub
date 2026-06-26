@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Sincroniza dim-slot-dictionary.json e gas/SlotDictionaryStatic.gs
+ * Sincroniza dim-slot-dictionary.json, gas/SlotDictionaryStatic.gs e gas/SlotDictionaryStatic.js
  * a partir de gas/Config_Slots.html (STATIC_SLOT_DATA).
  */
 const fs = require('fs');
@@ -10,6 +10,7 @@ const ROOT = path.join(__dirname, '..');
 const configPath = path.join(ROOT, 'gas/Config_Slots.html');
 const jsonPath = path.join(ROOT, 'dim-slot-dictionary.json');
 const gsPath = path.join(ROOT, 'gas/SlotDictionaryStatic.gs');
+const jsPath = path.join(ROOT, 'gas/SlotDictionaryStatic.js');
 
 const src = fs.readFileSync(configPath, 'utf8');
 const m = src.match(/const STATIC_SLOT_DATA = (\[[\s\S]*?\n\]);/);
@@ -41,4 +42,5 @@ function hubGetStaticSlotDictionary_() {
 `;
 
 fs.writeFileSync(gsPath, gsContent);
-console.log('Synced', items.length, 'slots ->', path.basename(jsonPath), '+', path.basename(gsPath));
+fs.writeFileSync(jsPath, gsContent);
+console.log('Synced', items.length, 'slots ->', path.basename(jsonPath), '+', path.basename(gsPath), '+', path.basename(jsPath));

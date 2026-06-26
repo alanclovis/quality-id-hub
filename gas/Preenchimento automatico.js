@@ -544,6 +544,7 @@ function slotParaFamilia_(slot) {
   const s = String(slot || '').trim();
   if (s === 'MA - CR' || s === 'GS - MA' || s === 'PlanilhaMA' || s === 'MA') return 'MA';
   if (s === 'GS - ID' || s === 'PlanilhaID' || s === 'ID') return 'ID';
+  if (s === 'ID-VP') return 'ID';
   if (s === 'GS - VP' || s === 'PlanilhaVP' || s === 'VP') return 'VP';
   if (s === 'GS - GM' || s === 'PlanilhaGM' || s === 'GM') return 'GM';
   if (s === 'GS - TR' || s === 'PlanilhaTR' || s === 'TR') return 'TR';

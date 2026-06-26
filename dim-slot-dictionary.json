@@ -471,6 +471,13 @@
     },
     {
       "atividade": "OPS",
+      "tipoSlot": "ID-VP",
+      "significado": "Atividades combinadas de ID e VP",
+      "classificacao": "Uso geral",
+      "conversao": "ID-VP"
+    },
+    {
+      "atividade": "OPS",
       "tipoSlot": "VP",
       "significado": "JOBS DE VP",
       "classificacao": "Uso geral",

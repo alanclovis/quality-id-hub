@@ -2195,6 +2195,7 @@
     if (l === 'id' || l === 'gs - id' || l === 'planilhaid') {
       return { bg: '#bbf7d0', text: '#14532d', border: '#86efac' };
     }
+    if (l === 'id-vp') return { bg: '#5eead4', text: '#134e4a', border: '#2dd4bf' };
     if (l === 'vp' || l === 'gs - vp' || l === 'planilhavp') {
       return { bg: '#7dd3fc', text: '#0c4a6e', border: '#38bdf8' };
     }
