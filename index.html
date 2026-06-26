@@ -1042,6 +1042,11 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
           <p class="profile-field-hint">Atualiza sua ficha aqui e na lista de usuários do pack.</p>
         </div>
         <div class="profile-field">
+          <label for="profileEmailInput">E-mail Nubank</label>
+          <input type="email" id="profileEmailInput" placeholder="nome.sobrenome@nubank.com.br" autocomplete="email">
+          <p class="profile-field-hint">Necessário para carregar sua escala no <strong>Dimensionamento</strong> pelo Hub.</p>
+        </div>
+        <div class="profile-field">
           <label>Nível</label>
           <div class="profile-pills" id="profileLevelPills"></div>
         </div>
@@ -2477,7 +2482,7 @@ function renderAccessUsersPanel(){
   panel.innerHTML=`<table class="access-users-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Código</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>${
     users.map(u=>`<tr>
       <td>${escapeHtml(u.name)}</td>
-      <td style="font-size:12px">${escapeHtml(u.email||'—')}</td>
+      <td style="font-size:12px">${escapeHtml(u.email||'—')} ${canManageAccess()?`<button class="btn-sm" onclick="adminEditUserEmail('${u.id}')" title="Editar e-mail"><i class="ti ti-mail"></i></button>`:''}</td>
       <td style="white-space:nowrap;font-family:monospace;font-size:12px">${escapeHtml(u.inviteCode||'—')} ${u.inviteCode?`<button class="btn-sm" onclick="copyInviteCode('${u.id}')" title="Copiar código"><i class="ti ti-copy"></i></button><button class="btn-sm" onclick="adminRegenerateInviteCode('${u.id}')" title="Novo código"><i class="ti ti-refresh"></i></button>`:''}</td>
       <td>${`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','visitor','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
       <td><span class="access-role-pill ${u.status==='active'?u.role:u.status}">${u.status==='active'?ACCESS_ROLE_LABELS[u.role]:u.status==='revoked'?'Revogado':u.status}</span></td>
@@ -2492,6 +2497,7 @@ async function adminAddAccessUser(nameArg,roleArg){
   const role=roleArg||document.getElementById('accessNewRole').value||'member';
   const level=document.getElementById('accessNewLevel')?.value||'';
   if(!name){ alert('Informe o nome.'); return; }
+  if(email&&!email.endsWith('@nubank.com.br')){ alert('Use e-mail @nubank.com.br.'); return; }
   ensureAccessUsers();
   let u=data.accessUsers.find(x=>namesMatch(x.name,name));
   if(u){
@@ -2507,7 +2513,10 @@ async function adminAddAccessUser(nameArg,roleArg){
   if(level){
     ensureProfilesData();
     data.profiles[name]={...(data.profiles[name]||{}),level,updatedAt:Date.now()};
+    if(email) saveProfileEmail(name,email);
     saveLocal();
+  }else if(email){
+    saveProfileEmail(name,email);
   }
   document.getElementById('accessNewName').value='';
   if(document.getElementById('accessNewEmail')) document.getElementById('accessNewEmail').value='';
@@ -2517,6 +2526,19 @@ async function adminAddAccessUser(nameArg,roleArg){
   updateEditButtonVisibility();
   await saveToGist();
   alert('Usuário cadastrado. Código de '+name+': '+u.inviteCode);
+}
+async function adminEditUserEmail(id){
+  if(!canManageAccess()) return;
+  const u=data.accessUsers.find(x=>x.id===id);
+  if(!u) return;
+  const email=(prompt('E-mail @nubank.com.br de '+u.name+':', u.email||'')||'').trim().toLowerCase();
+  if(!email) return;
+  if(!email.endsWith('@nubank.com.br')){ alert('Use e-mail @nubank.com.br.'); return; }
+  u.email=email;
+  saveProfileEmail(u.name,email);
+  renderAccessUsersPanel();
+  saveLocal();
+  await saveToGist();
 }
 async function adminSetUserRole(id,role){
   if(!canManageAccess()) return;
@@ -3854,9 +3876,34 @@ function setProfileNonOperational(){
     p.classList.toggle('active', p.dataset.area==='none');
   });
 }
+function getProfileEmail(name){
+  const uid=localStorage.getItem('qhub_user_id');
+  if(uid&&typeof getAccessUserById==='function'){
+    const u=getAccessUserById(uid);
+    if(u&&u.email) return String(u.email).toLowerCase().trim();
+  }
+  if(name){
+    const u=getAccessUserRecord(name);
+    if(u&&u.email) return String(u.email).toLowerCase().trim();
+  }
+  const profile=findProfile(name||getUserName());
+  if(profile&&profile.email) return String(profile.email).toLowerCase().trim();
+  return '';
+}
+function saveProfileEmail(name,email){
+  if(!name||!email) return;
+  ensureAccessUsers();
+  const uid=localStorage.getItem('qhub_user_id');
+  const u=(uid&&getAccessUserById(uid))||getAccessUserRecord(name);
+  if(u) u.email=email;
+  ensureProfilesData();
+  data.profiles[name]={...(data.profiles[name]||{}),email,updatedAt:Date.now()};
+}
 function loadProfileFormValues(name){
   initProfileForm();
   const profile=findProfile(name)||{};
+  const emailInp=document.getElementById('profileEmailInput');
+  if(emailInp) emailInp.value=getProfileEmail(name)||'';
   const level=profile.level||'';
   document.querySelectorAll('#profileLevelPills .profile-pill').forEach(p=>{
     p.classList.toggle('active', p.dataset.level===level);
@@ -4227,6 +4274,11 @@ async function saveProfile(){
     if(!renamed) return;
     val=renamed;
   }
+  const emailRaw=(document.getElementById('profileEmailInput')?.value||'').trim().toLowerCase();
+  if(emailRaw&&!emailRaw.endsWith('@nubank.com.br')){
+    alert('Use seu e-mail corporativo @nubank.com.br.');
+    return;
+  }
   ensureProfilesData();
   const {level,areas}=readProfileFormValues();
   cacheOperationalProfile(areas);
@@ -4245,6 +4297,8 @@ async function saveProfile(){
     }
   }
   data.profiles[val]={...(data.profiles[val]||{}),...profilePatch};
+  if(emailRaw) saveProfileEmail(val,emailRaw);
+  else if(data.profiles[val]) delete data.profiles[val].email;
   if(avatarChange==='') delete data.profiles[val].avatar;
   pendingAvatar=undefined;
   document.getElementById('nameBackdrop').classList.remove('active');

@@ -1934,7 +1934,7 @@
         (missingEmail
           ? '<p style="margin-top:14px;font-size:16px;font-weight:600">Cadastro incompleto</p>' +
             '<p style="font-size:13px;color:var(--text3);margin-top:8px;line-height:1.5">' +
-            'Peça ao admin para incluir seu <strong>e-mail @nubank.com.br</strong> em Configuração → Usuários, depois clique em Conectar.</p>'
+            'Abra <strong>Seu perfil</strong> (ícone no canto), preencha <strong>E-mail Nubank</strong> e salve. Depois clique em Conectar.</p>'
           : '<p style="margin-top:14px;font-size:16px;font-weight:600">Conectar à planilha Google</p>' +
             '<p style="font-size:13px;color:var(--text3);margin-top:8px;line-height:1.5">' +
             'Clique no botão abaixo. Se abrir um popup <strong>Dim Bridge</strong>, aguarde fechar sozinho.</p>') +
