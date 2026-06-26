@@ -1,5 +1,5 @@
-# Quality ID Hub
-Central de links e recursos do pack Quality ID · Nubank.
+# Quality/Csat ID Hub
+Central de links e recursos do pack Quality/Csat ID · Nubank.
 
 ## 🔗 Acesso
 **[alanclovis.github.io/quality-id-hub](https://alanclovis.github.io/quality-id-hub)**

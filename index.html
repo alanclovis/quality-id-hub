@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quality ID Hub · Nubank</title>
+<title>Quality/Csat ID Hub · Nubank</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="dimensionamento.css">
 <style>
@@ -956,7 +956,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
   <div class="name-modal profile-modal">
     <button type="button" class="name-modal-close" onclick="closeName()" aria-label="Fechar"><i class="ti ti-x"></i></button>
     <div class="profile-step active" id="profileStepAuth">
-      <h3>Bem-vindo ao Hub</h3>
+      <h3>Bem-vindo ao Quality/Csat ID Hub</h3>
       <div id="authChoosePanel">
         <p class="profile-intro">Como você quer entrar?</p>
         <div class="auth-choice">
@@ -1084,8 +1084,8 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <div class="guide-step active" data-step="0">
         <div style="padding:20px 24px 0">
           <div class="guide-step-num">Passo 1 de 7</div>
-          <h3>Bem-vindo ao Quality ID Hub</h3>
-          <p>Ponto central do pack Quality ID: links, prioridades da semana e férias — tudo sincronizado pelo time.</p>
+          <h3>Bem-vindo ao Quality/Csat ID Hub</h3>
+          <p>Ponto central do pack Quality/Csat ID: links, prioridades da semana e férias — tudo sincronizado pelo time.</p>
           <div class="guide-illustration">
             <div class="guide-pill"><i class="ti ti-layout-grid"></i> Links</div>
             <div class="guide-pill"><i class="ti ti-calendar-week"></i> Prioridades</div>
@@ -1364,7 +1364,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 <div class="header">
   <div class="header-left">
     <div class="logo"><i class="ti ti-shield-check"></i></div>
-    <div><div class="title">Quality ID Hub</div><div class="subtitle">Identity · Csat</div></div>
+    <div><div class="title">Quality/Csat ID Hub</div><div class="subtitle">Nubank</div></div>
   </div>
   <div class="header-center">
     <div class="dt-time" id="dtClock">--:--</div>
@@ -1467,7 +1467,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 </div>
 
 <div class="footer">
-  <span class="footer-left">Quality ID · Nubank · 2026</span>
+  <span class="footer-left">Quality/Csat ID · Nubank · 2026</span>
   <div style="display:flex;gap:10px;align-items:center">
     <a href="#" class="gist-link" id="gistFooterLink" style="display:none"><i class="ti ti-brand-github"></i> Ver Gist</a>
     <span class="footer-left" id="lastSaved"></span>
@@ -3106,7 +3106,7 @@ async function saveToGist(){
   const body={files:{[GIST_FILENAME]:{content:JSON.stringify(data,null,2)}}};
   const method=gistId?'PATCH':'POST';
   const url=gistId?`https://api.github.com/gists/${gistId}`:'https://api.github.com/gists';
-  if(!gistId){body.description='Quality ID Hub Data';body.public=false;}
+  if(!gistId){body.description='Quality/Csat ID Hub Data';body.public=false;}
   try{
     const res=await fetch(url,{method,headers:{'Authorization':`token ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!res.ok)throw new Error('Erro '+res.status);
