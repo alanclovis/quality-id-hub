@@ -239,7 +239,11 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .modal input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:9px 12px;font-size:13px;font-family:monospace;outline:none;margin-bottom:12px;}
 .modal input:focus{border-color:var(--purple);}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;}
-.config-modal{max-width:520px;max-height:85vh;display:flex;flex-direction:column;}
+.config-save-status{display:none;margin-top:10px;padding:10px 12px;border-radius:var(--rs);font-size:12px;line-height:1.45;}
+.config-save-status.loading{display:block;background:var(--purple-bg);border:1px solid rgba(139,92,246,0.25);color:var(--purple-l);}
+.config-save-status.success{display:block;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);color:var(--green);}
+.config-save-status.error{display:block;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:#f87171;}
+.config-save-status.warn{display:block;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.35);color:#b45309;}
 .config-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
 .config-tab{font-size:12px;font-weight:500;padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;}
 .config-tab.active{background:var(--purple-bg);border-color:rgba(139,92,246,0.4);color:var(--purple-l);}
@@ -1243,6 +1247,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <input type="url" id="dimBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="access-hint" style="margin-top:6px">Web App publicado com <code>?view=bridge</code>. Conecta o Hub à planilha Google Sheets.</p>
       <p class="access-hint" style="margin-top:10px">Token GitHub (acima) é opcional se a bridge do pack estiver configurada. Caso contrário, fica <strong>só neste navegador</strong>.</p>
+      <div id="configSaveStatus" class="config-save-status" role="status" aria-live="polite"></div>
       <div class="modal-actions" style="margin-top:14px">
         <button class="btn" onclick="closeConfig()">Fechar</button>
         <button class="btn primary" onclick="saveConfig()"><i class="ti ti-check"></i> Salvar</button>
@@ -2654,6 +2659,14 @@ async function adminDeleteUser(id){
   await saveToGist();
 }
 async function saveConfig(){
+  const setConfigSaveStatus=(type,msg)=>{
+    const el=document.getElementById('configSaveStatus');
+    if(!el) return;
+    if(!msg){ el.className='config-save-status'; el.textContent=''; return; }
+    el.className='config-save-status '+type;
+    el.textContent=msg;
+  };
+  setConfigSaveStatus('loading','Salvando configuração...');
   const t=document.getElementById('tokenInput').value.trim();
   const g=document.getElementById('gistIdInput').value.trim();
   const packUrl=document.getElementById('packBridgeUrlInput')?.value.trim()||'';
@@ -2665,14 +2678,29 @@ async function saveConfig(){
   else localStorage.setItem('qhub_dim_bridge_url',dimUrl);
   ensureDimensionamentoData();
   ensurePackBridgeData();
-  if(canWriteGist()&&getGistId()) await saveToGist();
-  else saveLocal();
+  saveLocal();
+  let published=false;
+  if(canWriteGist()&&getGistId()){
+    published=await saveToGist();
+  }
   syncTokenHolderRole();
-  closeConfig();
   updateEditButtonVisibility();
+  if(published){
+    setConfigSaveStatus('success','Publicado no pack! A URL da bridge e demais ajustes já valem para todo o time.');
+    showStatus('success','Configuração publicada no pack!');
+    setTimeout(hideStatus,4000);
+    setTimeout(closeConfig,1400);
+  }else if(canWriteGist()&&getGistId()){
+    setConfigSaveStatus('error','Não foi possível publicar no Gist. Verifique o token GitHub (permissão gist) ou tente de novo.');
+  }else{
+    setConfigSaveStatus('warn','Salvo só neste navegador. Para o time ver a URL da bridge, entre como admin/editor com token ou bridge ativa e salve de novo.');
+    showStatus('success','Configuração salva neste navegador.');
+    setTimeout(hideStatus,4000);
+    setTimeout(closeConfig,2200);
+  }
   if(!hasClaimedIdentity()) setTimeout(openNameModal,200);
   else refreshAuthAdminPanel();
-  if(document.getElementById('nameBackdrop').classList.contains('active')){
+  if(document.getElementById('nameBackdrop')?.classList.contains('active')){
     refreshProfileModal();
   }
 }
@@ -2701,6 +2729,8 @@ function updateEditButtonVisibility(){
 }
 function openConfig(){
   document.getElementById('nameBackdrop')?.classList.remove('active');
+  const configSaveStatus=document.getElementById('configSaveStatus');
+  if(configSaveStatus){ configSaveStatus.className='config-save-status'; configSaveStatus.textContent=''; }
   try{
     document.getElementById('tokenInput').value=localStorage.getItem('qhub_token')||'';
     document.getElementById('gistIdInput').value=getGistId();
