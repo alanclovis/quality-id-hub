@@ -89,6 +89,7 @@
     bridgeReady: false,
     pendingSaves: {},
     saveQueue: [],
+    saveFailMeta: {},
     saving: false,
     undo: null,
     undoTimer: null,
@@ -516,7 +517,11 @@
     const url = dimBridgeBaseUrl();
     if (!url) return frame;
     const current = frame.src || '';
-    if (!current || current.indexOf('view=bridge') < 0) {
+    const execBase = dimExecBaseUrl();
+    const currentExec = current ? String(current).split('?')[0] : '';
+    const needReload = !current || current.indexOf('view=bridge') < 0 ||
+      (execBase && currentExec && currentExec !== execBase);
+    if (needReload) {
       dimState.bridgeReady = false;
       frame.src = url;
     }
@@ -922,12 +927,23 @@
     }
 
     if (action === 'saveBatchData' || action === 'saveDetail') {
-      return dimWaitForBridgeTarget(12000).then(function (target) {
-        if (!target) {
-          throw new Error('Conecte à planilha antes de salvar (clique em Conectar à planilha).');
-        }
-        return dimCallViaPostMessage(action, savePayload, timeoutMs);
-      });
+      const hasEmail = !!(savePayload.userEmail || dimResolveUserEmail());
+      const paths = [];
+      if (hasEmail) {
+        paths.push(dimJsonpApi(action, savePayload, timeoutMs));
+        paths.push(dimFetchApi(action, savePayload, Math.min(25000, timeoutMs)));
+      }
+      paths.push(
+        dimWaitForBridgeTarget(hasEmail ? 6000 : 12000).then(function (target) {
+          if (!target) {
+            throw new Error(hasEmail
+              ? 'Ponte indisponível — verifique a URL em Configuração → Técnico'
+              : 'Conecte à planilha antes de salvar (clique em Conectar à planilha).');
+          }
+          return dimCallViaPostMessage(action, savePayload, timeoutMs);
+        })
+      );
+      return hasEmail ? dimFirstResolved(paths) : paths[paths.length - 1];
     }
 
     if (action === 'getUserSchedule' && !callPayload.userEmail && typeof getUserName === 'function') {
@@ -2866,6 +2882,9 @@
     dimProcessSaveQueue();
   }
 
+  const DIM_SAVE_MAX_RETRIES = 2;
+  const DIM_SAVE_RETRY_DELAY_MS = 5000;
+
   async function dimProcessSaveQueue() {
     if (dimState.saving || !dimState.saveQueue.length) return;
     dimState.saving = true;
@@ -2873,6 +2892,7 @@
     const date = dimState.saveQueue.shift();
     const slots = dimState.pendingSaves[date];
     delete dimState.pendingSaves[date];
+    dimState.saveFailMeta = dimState.saveFailMeta || {};
 
     try {
       const res = await dimCall('saveBatchData', {
@@ -2882,6 +2902,7 @@
         slots: slots,
         userEmail: dimSaveUserEmail()
       });
+      delete dimState.saveFailMeta[date];
       if (res && res.validationRejected) {
         dimShowToast('Planilha rejeitou slot(s): verifique validação de dados', true);
       } else if (res && res.savedSlots === 0) {
@@ -2891,19 +2912,35 @@
         dimShowToast('Salvo na planilha' + (res && res.savedSlots ? ' (' + res.savedSlots + ' células)' : ''));
       }
     } catch (e) {
-      dimShowToast('Erro ao salvar: ' + e.message, true);
+      const fail = dimState.saveFailMeta[date] || { count: 0 };
+      fail.count++;
+      fail.lastError = String(e.message || e);
+      dimState.saveFailMeta[date] = fail;
+
       Object.keys(slots).forEach(function (time) {
         if (!dimState.pendingSaves[date]) dimState.pendingSaves[date] = {};
         dimState.pendingSaves[date][time] = slots[time];
       });
-      if (dimState.saveQueue.indexOf(date) < 0) dimState.saveQueue.unshift(date);
+
+      if (fail.count <= DIM_SAVE_MAX_RETRIES) {
+        if (dimState.saveQueue.indexOf(date) < 0) dimState.saveQueue.push(date);
+        dimShowToast('Erro ao salvar (tentativa ' + fail.count + '/' + DIM_SAVE_MAX_RETRIES + '): ' + fail.lastError, true);
+      } else {
+        delete dimState.saveFailMeta[date];
+        dimShowToast('Não foi possível salvar. Verifique a URL da ponte (Config → Técnico) ou use o GAS direto. ' + fail.lastError, true);
+      }
     }
 
     if (dimState.pendingMeta) delete dimState.pendingMeta[date];
 
     dimState.saving = false;
     dimUpdateStatus();
-    if (dimState.saveQueue.length) dimProcessSaveQueue();
+    if (!dimState.saveQueue.length) return;
+
+    const nextDate = dimState.saveQueue[0];
+    const nextFail = (dimState.saveFailMeta[nextDate] && dimState.saveFailMeta[nextDate].count) || 0;
+    const delay = nextFail > 0 ? DIM_SAVE_RETRY_DELAY_MS * nextFail : 0;
+    setTimeout(function () { dimProcessSaveQueue(); }, delay);
   }
 
   function dimShouldPauseReload() {

@@ -1,7 +1,7 @@
 <script type="text/babel">
   function ControleSlots({ data, getColor, isLoading, HelpCircle }) {
     const [searchTerm, setSearchTerm] = React.useState("");
-    const { Search, Layers } = window.lucideReact || {};
+    const { Search = (() => null), Layers = (() => null) } = window.lucideReact || {};
 
     // 1. Lógica de Pesquisa
     const filteredData = data.filter(row => 

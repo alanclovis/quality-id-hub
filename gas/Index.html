@@ -10,9 +10,29 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script>
+      (function () {
+        var span = function (ch) {
+          return function Icon(props) {
+            return React.createElement('span', {
+              className: props && props.className ? props.className : '',
+              'aria-hidden': true,
+              style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }
+            }, ch);
+          };
+        };
+        window.lucideReact = {
+          ChevronDown: span('▾'), Save: span('💾'), RefreshCw: span('↻'), Calendar: span('📅'),
+          Settings: span('⚙'), FileText: span('📄'), Plus: span('+'), X: span('×'),
+          Search: span('🔍'), List: span('☰'), Check: span('✓'), Edit2: span('✎'),
+          Trash2: span('🗑'), Clock: span('🕐'), PieChart: span('◔'), Eraser: span('⌫'),
+          Info: span('ℹ'), Undo2: span('↩'), AlertTriangle: span('⚠'), Target: span('◎'),
+          HelpCircle: span('?'), Coffee: span('☕'), Layers: span('▦')
+        };
+      })();
+    </script>
     
-    <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     
     <?!= include('Estilos_Cores'); ?>
   </head>
@@ -38,8 +58,8 @@
       };
       
       function getScriptUrl() {
-        return "https://script.google.com/a/macros/nubank.com.br/s/AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5/exec";
-      }
+  return "https://script.google.com/a/macros/nubank.com.br/s/AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1/exec";
+}
     </script>
 
     <?!= include('Config_Slots'); ?>

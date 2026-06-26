@@ -76,7 +76,9 @@
     const [slotDefinitions, setSlotDefinitions] = useState(STATIC_SLOT_DATA);
     
     // Engine de Salvamento
-    const dirtyDaysQueueRef = useRef(new Set()); 
+    const dirtyDaysQueueRef = useRef(new Set());
+    const dirtyCellsQueueRef = useRef([]);
+    const pendingCellsRef = useRef(new Set());
     const isProcessingRef = useRef(false);        
     const lastSaveTimeRef = useRef(0);
     
@@ -109,7 +111,76 @@
     /* ============================================================================
     SEÇÃO 3: SINCRONIZAÇÃO (LOAD)
     ============================================================================ */
-    const loadData = () => {
+    const mergeServerSchedule = (local, server) => {
+      const merged = generateInitialData();
+      for (let w = 1; w <= 53; w++) {
+        const wk = String(w);
+        DAYS.forEach(day => {
+          HOURS.forEach(hour => {
+            const srv = server?.[wk]?.[day]?.[hour];
+            const loc = local?.[wk]?.[day]?.[hour];
+            const srvTask = srv?.task ? String(srv.task).trim() : '';
+            const locTask = loc?.task ? String(loc.task).trim() : '';
+            if (srvTask) {
+              const cell = { ...loc, ...srv };
+              if (cell.details) cell.details = parseDetails(cell.details);
+              merged[wk][day][hour] = cell;
+            } else if (locTask) {
+              const cell = { ...loc };
+              if (cell.details) cell.details = parseDetails(cell.details);
+              merged[wk][day][hour] = cell;
+            }
+          });
+        });
+      }
+      return merged;
+    };
+
+    const loadingWeekRef = useRef(null);
+
+    const applyWeekScheduleFromServer = (local, server, weekKeys) => {
+      const out = local ? JSON.parse(JSON.stringify(local)) : generateInitialData();
+      (weekKeys || Object.keys(server || {})).forEach(wk => {
+        const wkData = server && server[wk];
+        if (!wkData) return;
+        if (!out[wk]) out[wk] = {};
+        Object.keys(wkData).forEach(day => {
+          if (!out[wk][day]) out[wk][day] = {};
+          Object.keys(wkData[day]).forEach(t => {
+            const norm = normalizeTime(t);
+            if (!norm || !HOURS.includes(norm)) return;
+            const pendingKey = wk + '|' + day + '|' + norm;
+            if (pendingCellsRef.current.has(pendingKey)) return;
+            const c = wkData[day][t];
+            const task = c && c.task != null ? String(c.task).trim() : '';
+            if (!task) return;
+            const cell = { ...c, task };
+            if (cell.details) cell.details = parseDetails(cell.details);
+            out[wk][day][norm] = cell;
+          });
+        });
+      });
+      return out;
+    };
+
+    const countWeekSlots = (data, wk) => {
+      let n = 0;
+      const wd = data && data[wk];
+      if (!wd) return 0;
+      DAYS.forEach(d => {
+        if (!wd[d]) return;
+        HOURS.forEach(h => {
+          const t = wd[d][h]?.task;
+          if (t && String(t).trim()) n++;
+        });
+      });
+      return n;
+    };
+
+    const loadData = (weekKey, options) => {
+      options = options || {};
+      weekKey = weekKey != null ? String(weekKey) : selectedWeek;
+      loadingWeekRef.current = weekKey;
       const isUserBusy = dirtyDaysQueueRef.current.size > 0 || isProcessingRef.current || modalConfig !== null || editingCell !== null;
       
       if (isUserBusy) {
@@ -117,7 +188,7 @@
           return;
       }
       
-      if (Date.now() - lastSaveTimeRef.current < 10000) return; 
+      if (!options.force && Date.now() - lastSaveTimeRef.current < 120000) return;
       
       if (typeof google === 'undefined' || !google.script) { setIsLoading(false); setLastUpdate(new Date()); setCurrentUser("Dev Mode"); return; }
 
@@ -128,6 +199,7 @@
       
       google.script.run.withSuccessHandler(response => {
            clearTimeout(loadTimeoutId);
+           if (loadingWeekRef.current !== weekKey) return;
            if (dirtyDaysQueueRef.current.size > 0 || isProcessingRef.current || modalConfig !== null || editingCell !== null) return; 
 
            if (response.error) {
@@ -138,31 +210,12 @@
            }
            
            if (response.schedule) {
-               const merged = generateInitialData();
-               Object.keys(response.schedule).forEach(wk => {
-                   if (!merged[wk]) merged[wk] = {};
-                   Object.keys(response.schedule[wk]).forEach(d => {
-                       const dData = response.schedule[wk][d];
-                       Object.keys(dData).forEach(t => {
-                           if (HOURS.includes(normalizeTime(t))) {
-                               let c = dData[t];
-                               if (c.details) c.details = parseDetails(c.details);
-                               merged[wk][d][normalizeTime(t)] = { ...merged[wk][d][normalizeTime(t)], ...c };
-                           }
-                       });
-                   });
-               });
-               
-               const currentJson = JSON.stringify(scheduleRef.current);
-               const newJson = JSON.stringify(merged);
-               
-               if (currentJson !== newJson && !showUndoToast) {
-                   setScheduleData(merged); 
-                   scheduleRef.current = merged;
-                   setLastUpdate(new Date()); 
-               } else if (currentJson === newJson) {
-                   setLastUpdate(new Date());
-               }
+               const merged = applyWeekScheduleFromServer(scheduleRef.current, response.schedule, [weekKey]);
+               const filled = countWeekSlots(merged, weekKey);
+               console.log('Semana ' + weekKey + ': ' + filled + ' slots na grade', response.meta || '');
+               scheduleRef.current = merged;
+               setScheduleData(merged);
+               setLastUpdate(new Date());
                setCurrentUser(response.userEmail || "Usuário não identificado");
            } else {
              setCurrentUser(response.userEmail || "Usuário não identificado");
@@ -170,13 +223,21 @@
            setIsLoading(false);
         }).withFailureHandler(e => {
           clearTimeout(loadTimeoutId);
+          if (loadingWeekRef.current !== weekKey) return;
           console.error(e);
           setCurrentUser("Erro ao carregar escala");
           setIsLoading(false);
-        }).getUserSchedule({});
+        }).getUserSchedule({ week: weekKey });
     };
 
     useEffect(() => { selectedCellsRef.current = selectedCells; }, [selectedCells]);
+
+    useEffect(() => {
+      setIsLoading(true);
+      loadData(selectedWeek, { force: true });
+      const interval = setInterval(() => loadData(selectedWeek), 60000);
+      return () => clearInterval(interval);
+    }, [selectedWeek]);
 
     useEffect(() => {
       const onUp = () => {
@@ -217,7 +278,6 @@
       return () => document.removeEventListener('mouseup', onUp);
     }, []);
 
-    useEffect(() => { loadData(); const interval = setInterval(loadData, 60000); return () => clearInterval(interval); }, []);
     useEffect(() => { const h = e => {
       if (weekMenuRef.current && !weekMenuRef.current.contains(e.target)) setIsWeekMenuOpen(false);
       if (editingCell && !e.target.closest('.editing-popup')) setEditingCell(null);
@@ -336,13 +396,32 @@
             return;
         }
 
-        const batchPayload = { slots: [], details: [] };
-        
-        HOURS.forEach(h => {
+        const batchPayload = { slots: [], details: [], week: currentWeekKey };
+
+        const pendingCells = dirtyCellsQueueRef.current.filter(c => c.day === dayToSave);
+        dirtyCellsQueueRef.current = dirtyCellsQueueRef.current.filter(c => c.day !== dayToSave);
+
+        if (pendingCells.length > 0) {
+          pendingCells.forEach(c => {
+            batchPayload.slots.push({
+              dayDate: dateMap[c.day],
+              time: c.hour,
+              task: c.task != null ? String(c.task) : ''
+            });
+          });
+        } else {
+          HOURS.forEach(h => {
             const slot = currentWeekData[h];
-            const task = slot ? slot.task : "";
-            batchPayload.slots.push({ dayDate: dateMap[dayToSave], time: h, task: task || "" });
-        });
+            const task = slot && slot.task ? String(slot.task) : '';
+            if (task) batchPayload.slots.push({ dayDate: dateMap[dayToSave], time: h, task });
+          });
+        }
+
+        if (!batchPayload.slots.length) {
+          isProcessingRef.current = false;
+          processSaveQueue();
+          return;
+        }
 
         const finalBlocks = consolidateDayBlocks(currentWeekData);
         finalBlocks.forEach(block => {
@@ -359,8 +438,24 @@
         });
 
         google.script.run
-            .withSuccessHandler(() => {
-                console.log(`Salvo: ${dayToSave}`);
+            .withSuccessHandler((res) => {
+                if (res && res.error) {
+                    console.error('Erro ao salvar:', res.error);
+                    dirtyDaysQueueRef.current.add(dayToSave);
+                    pendingCells.forEach(c => dirtyCellsQueueRef.current.push(c));
+                    isProcessingRef.current = false;
+                    setGlobalSavingState(false);
+                    setCurrentUser('Erro ao salvar: ' + res.error);
+                    return;
+                }
+                if (res && res.validationErrors && res.validationErrors.length) {
+                    console.warn('Validação planilha:', res.validationErrors);
+                    setCurrentUser('Salvo parcial — valor inválido na planilha: ' + res.validationErrors[0].task);
+                }
+                pendingCells.forEach(c => {
+                  pendingCellsRef.current.delete(currentWeekKey + '|' + c.day + '|' + c.hour);
+                });
+                console.log('Salvo: ' + dayToSave, res);
                 isProcessingRef.current = false;
                 processSaveQueue();
             })
@@ -428,10 +523,29 @@
       const effectiveQty = isMulti ? 1 : quantity;
       const dirtyDays = new Set();
 
+      const affectedHoursForCell = (day, hour, label, qty) => {
+        const startIdx = HOURS.indexOf(hour);
+        const hours = [];
+        if (label === 'Break') {
+          for (let i = 0; i < 2; i++) if (HOURS[startIdx + i]) hours.push(HOURS[startIdx + i]);
+        } else if (label === '(Limpar)' || label === '') {
+          for (let i = 0; i < qty; i++) if (HOURS[startIdx + i]) hours.push(HOURS[startIdx + i]);
+        } else {
+          for (let i = 0; i < Math.min(16, qty); i++) if (HOURS[startIdx + i]) hours.push(HOURS[startIdx + i]);
+        }
+        return hours;
+      };
+
       cells.forEach(({ day, hour }) => {
         if (!newData[weekKey][day]) newData[weekKey][day] = {};
         applySingleCell(newData[weekKey], day, hour, taskLabel, details, effectiveQty);
         dirtyDays.add(day);
+        affectedHoursForCell(day, hour, taskLabel, effectiveQty).forEach(h => {
+          const slot = newData[weekKey][day][h];
+          const task = slot && slot.task ? String(slot.task) : '';
+          dirtyCellsQueueRef.current.push({ day, hour: h, task });
+          pendingCellsRef.current.add(weekKey + '|' + day + '|' + h);
+        });
       });
 
       scheduleRef.current = newData;

@@ -76,19 +76,22 @@ var HUB_DAY_MAP_ = {
 /** Mapa dia da semana (segunda…) → ISO yyyy-mm-dd a partir da planilha */
 function hubGetWeekDateMap_(weekKey, userEmail) {
   var map = {};
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheetName = typeof MAIN_TAB_NAME !== 'undefined' ? MAIN_TAB_NAME : 'H1.2026';
-  var sheet = ss.getSheetByName(sheetName);
+  var ss = _core_getSpreadsheet_();
+  var half = parseInt(_core_parseWeekNum_(weekKey), 10) >= 27 ? 2 : 1;
+  var sheet = _core_findScheduleTab_(ss, half);
   if (!sheet || sheet.getLastRow() < 2) return map;
 
   userEmail = String(userEmail || '').toLowerCase().trim();
   weekKey = _core_parseWeekNum_(weekKey);
   var lastRow = sheet.getLastRow();
   var lastCol = Math.max(8, sheet.getLastColumn());
-  var headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
-  var cols = _core_mapSheetColumns_(headers);
+  var headerRange = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol) : null;
+  var headers = headerRange ? headerRange.getDisplayValues()[0] : [];
+  var headersRaw = headerRange ? headerRange.getValues()[0] : [];
+  var cols = _core_mapSheetColumns_(headers, headersRaw);
   var idColEnd = Math.max(cols.dia, cols.data, cols.semana, cols.analista, cols.email, 0) + 1;
-  var rows = sheet.getRange(2, 1, lastRow, idColEnd).getDisplayValues();
+  var numDataRows = Math.max(0, lastRow - 1);
+  var rows = numDataRows > 0 ? sheet.getRange(2, 1, numDataRows, idColEnd).getDisplayValues() : [];
 
   rows.forEach(function (row) {
     var email = cols.email >= 0 && row[cols.email] ? String(row[cols.email]).toLowerCase().trim() : '';
@@ -175,7 +178,7 @@ function hubGetUserSchedule_(payload) {
   var order = ['seg', 'ter', 'qua', 'qui', 'sex'];
   days.sort(function (a, b) { return order.indexOf(a.day) - order.indexOf(b.day); });
 
-  var config = hubGetConfig_();
+  var config = hubGetConfig_(weekKey);
   var adjustments = hubBuildAdjustmentsFromWeekData_(
     weekKey,
     weekData,
@@ -186,7 +189,7 @@ function hubGetUserSchedule_(payload) {
 
   return {
     week: Number(weekKey),
-    sheetName: typeof MAIN_TAB_NAME !== 'undefined' ? MAIN_TAB_NAME : 'H1.2026',
+    sheetName: _core_sheetNameForWeek_(weekKey),
     identity: hubGetSessionInfo_(),
     config: config,
     colors: hubGetSlotColors_(),
@@ -475,7 +478,7 @@ function hubGetAdjustments_(payload) {
   var weekKey = _core_parseWeekNum_(payload.week != null ? payload.week : hubGetCurrentWeek_());
   var weekData = _core_getScheduleWeek_(raw.schedule, weekKey);
   var userEmail = raw.userEmail || _core_resolveUserEmail_(payload);
-  var config = hubGetConfig_();
+  var config = hubGetConfig_(weekKey);
   return hubBuildAdjustmentsFromWeekData_(
     weekKey,
     weekData,
@@ -505,7 +508,7 @@ function hubSaveDetail_(payload) {
 }
 
 function hubReadSlotDictionaryFromSheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _core_getSpreadsheet_();
   var sh = ss.getSheetByName('Controle de Slots');
   if (!sh || sh.getLastRow() < 2) return [];
   var values = sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(sh.getLastColumn(), 5)).getValues();
@@ -610,17 +613,30 @@ function hubNormalizeTime_(t) {
 }
 
 /** Lê horários do cabeçalho da planilha (coluna I em diante) */
-function hubGetTimeSlotsFromSheet_() {
+function hubGetTimeSlotsFromSheet_(weekKey) {
   var startCol = typeof SLOT_START_COL_INDEX !== 'undefined' ? SLOT_START_COL_INDEX : 8;
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheetName = typeof MAIN_TAB_NAME !== 'undefined' ? MAIN_TAB_NAME : 'H1.2026';
-  var sheet = ss.getSheetByName(sheetName);
+  var ss = _core_getSpreadsheet_();
+  var half = weekKey != null && parseInt(_core_parseWeekNum_(weekKey), 10) >= 27 ? 2 : 1;
+  var sheet = _core_findScheduleTab_(ss, half);
   if (!sheet) return null;
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
+  var lastCol = sheet.getLastColumn();
+  var headerRange = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol) : null;
+  var headers = headerRange ? headerRange.getDisplayValues()[0] : [];
+  var headersRaw = headerRange ? headerRange.getValues()[0] : [];
+  var cols = _core_mapSheetColumns_(headers, headersRaw);
+  var slotStart = cols.slotStart >= 0 ? cols.slotStart : startCol;
+  var timeHeaders = _core_readTimeHeadersFromRow_(headers, headersRaw, slotStart);
+  if (!_core_timeHeadersHaveSlots_(timeHeaders) || lastCol <= slotStart + 1) {
+    var fallback = _core_loadH1TimeHeaders_(ss, slotStart);
+    if (fallback.length) timeHeaders = fallback;
+  }
   var slots = [];
-  for (var h = startCol; h < headers.length; h++) {
-    var n = hubNormalizeTime_(headers[h]);
+  for (var h = 0; h < timeHeaders.length; h++) {
+    var n = hubNormalizeTime_(timeHeaders[h]);
     if (n) slots.push(n);
+  }
+  if (!slots.length && half === 2) {
+    return hubGetTimeSlotsFromSheet_('26');
   }
   return slots.length ? slots : null;
 }
@@ -633,8 +649,8 @@ function hubDefaultTimeSlots_() {
   }
   return slots;
 }
-function hubGetConfig_() {
-  var slots = hubGetTimeSlotsFromSheet_() || hubDefaultTimeSlots_();
+function hubGetConfig_(weekKey) {
+  var slots = hubGetTimeSlotsFromSheet_(weekKey) || hubDefaultTimeSlots_();
   return {
     timeSlots: slots,
     days: ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira'],
