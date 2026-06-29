@@ -2207,15 +2207,16 @@ function restoreMemberEmailFromLocal(name){
 function canSyncProfileToGist(){
   if(isVisitor()) return false;
   if(!getUserName()||!canUseMemberFeatures()) return false;
+  if(canSyncViaBridge()&&resolveBridgeInviteCode()) return true;
   if(getToken()&&getGistId()) return true;
-  return canSyncViaBridge()&&!!getMemberInviteCode();
+  return false;
 }
 function canSyncFeriasToGist(){
   return canSyncProfileToGist();
 }
 function ensurePackTokenOrRedirect(){
+  if(canSyncViaBridge()&&resolveBridgeInviteCode()) return true;
   if(getToken()&&getGistId()) return true;
-  if(canSyncViaBridge()&&getMemberInviteCode()) return true;
   openNameModal();
   showProfileModalStep('token');
   return false;
@@ -2239,8 +2240,9 @@ async function syncFeriasViaBridge(){
 }
 async function syncFeriasToGist(){
   if(!canSyncFeriasToGist()) return false;
-  if(canSyncViaBridge()&&!getToken()) return syncFeriasViaBridge();
+  if(canSyncViaBridge()&&resolveBridgeInviteCode()) return syncFeriasViaBridge();
   const token=getToken(),gistId=getGistId();
+  if(!token||!gistId) return false;
   showStatus('loading','Publicando férias no pack...');
   try{
     const res=await fetchGistApi(gistId,{auth:true});
@@ -5224,7 +5226,7 @@ async function saveFerias(){
   renderFerias();
   renderUpcoming();
   const ok=await persistFeriasToPack();
-  if(!ok) alert('Registro salvo só neste navegador. Não foi possível publicar no pack — verifique a bridge ou token em Configuração → Técnico e tente de novo.');
+  if(!ok) alert('Registro salvo só neste navegador. Não foi possível publicar no pack. Se você tem token GitHub em Config → Técnico, apague o campo e deixe só a bridge — ou peça ao admin para publicar.');
 }
 
 function renderFerias(){
