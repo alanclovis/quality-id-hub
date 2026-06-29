@@ -2221,7 +2221,7 @@ function ensurePackTokenOrRedirect(){
   return false;
 }
 async function syncFeriasViaBridge(){
-  const code=getMemberInviteCode();
+  const code=resolveBridgeInviteCode();
   if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
   showStatus('loading','Publicando férias no pack...');
   try{
@@ -2271,8 +2271,8 @@ async function syncFeriasToGist(){
 async function persistFeriasToPack(){
   saveLocal();
   let ok=false;
-  if(canWriteGist()&&getGistId()) ok=await saveToGist();
-  else if(canSyncFeriasToGist()) ok=await syncFeriasToGist();
+  if(canSyncFeriasToGist()) ok=await syncFeriasToGist();
+  else if(canWriteGist()&&getGistId()) ok=await saveToGist({ skipFeriasMerge:true });
   if(ok&&getGistId()) await refreshPackData({quiet:true});
   return ok;
 }
@@ -5042,7 +5042,8 @@ async function saveFeriasEdit(){
   closeFeriasEdit();
   renderFerias();
   renderUpcoming();
-  await persistFeriasToPack();
+  const ok=await persistFeriasToPack();
+  if(!ok) alert('Alteração salva só neste navegador. Não foi possível publicar no pack — verifique a bridge ou token e tente de novo.');
 }
 async function deleteFeriasCurrent(){
   const id = document.getElementById('fEditId').value;
@@ -5209,7 +5210,8 @@ async function saveFerias(){
   closeFeriasForm();
   renderFerias();
   renderUpcoming();
-  await persistFeriasToPack();
+  const ok=await persistFeriasToPack();
+  if(!ok) alert('Registro salvo só neste navegador. Não foi possível publicar no pack — verifique a bridge ou token em Configuração → Técnico e tente de novo.');
 }
 
 function renderFerias(){
