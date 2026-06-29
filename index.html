@@ -3007,6 +3007,16 @@ async function fetchRemotePackData(){
   }catch(e){ return null; }
 }
 function applyLoadedPackData(parsed,updatedAt){
+  const localFerias=data?.ferias||[];
+  const me=getUserName();
+  const remoteFerias=parsed?.ferias||[];
+  let hasUnpublishedLocal=false;
+  if(me&&localFerias.length){
+    hasUnpublishedLocal=localFerias.some(f=>f?.id&&namesMatch(f.nome,me)&&!remoteFerias.some(r=>r.id===f.id));
+    parsed=Object.assign({},parsed,{
+      ferias:mergeFeriasForMemberSync(remoteFerias,localFerias,me),
+    });
+  }
   data=parsed;
   const hadPackToken=sanitizeAuthConfig();
   normalizeFeriasRecordsInData();
@@ -3053,6 +3063,9 @@ function applyLoadedPackData(parsed,updatedAt){
   }
   if(!isUsingPlaceholderData(parsed)) hideDataLoadWarning();
   if(document.getElementById('configModal')?.classList.contains('active')) refreshTechConfigFields();
+  if(hasUnpublishedLocal&&canSyncFeriasToGist()){
+    setTimeout(()=>{ syncFeriasToGist().catch(()=>{}); },800);
+  }
   return roleSynced||hadPackToken;
 }
 async function refreshPackData(opts={}){
