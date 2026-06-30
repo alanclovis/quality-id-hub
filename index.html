@@ -23,6 +23,7 @@
   --ferias-verde-bg:#dcfce7;
   --ferias-verde-text:#14532d;
 }
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
 body.light {
   --bg:#f0f0f3;--bg2:#ffffff;--bg3:#e4e4e8;
@@ -1235,17 +1236,21 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <p class="access-hint" id="accessHint"></p>
     </div>
     <div class="config-panel" id="configPanelTech">
-      <p class="access-hint" id="techConfigHint">Token GitHub com permissão <code>gist</code> para publicar perfil, férias e (se editor) links. O Gist ID já vem preenchido.</p>
+      <p class="access-hint" id="techConfigHint">Token GitHub com permissão <code>gist</code> para publicar perfil e (se editor) links. Férias usam a planilha (URL Férias abaixo). O Gist ID já vem preenchido.</p>
       <label>GitHub Token</label>
       <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
       <label style="margin-top:10px">Gist ID</label>
       <input type="text" id="gistIdInput" placeholder="ex: a1b2c3d4e5f6...">
       <label style="margin-top:14px">URL bridge do pack (Apps Script, sem planilha)</label>
       <input type="url" id="packBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
-      <p class="access-hint" style="margin-top:6px">Com a bridge ativa, membros publicam perfil e férias só com o <strong>código pessoal</strong> — sem token no navegador. O PAT fica no script.</p>
+      <p class="access-hint" style="margin-top:6px">Com a bridge ativa, membros publicam perfil só com o <strong>código pessoal</strong> — sem token no navegador. O PAT fica no script.</p>
       <label style="margin-top:14px">URL ponte Dimensionamento (Apps Script)</label>
       <input type="url" id="dimBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="access-hint" style="margin-top:6px">Web App publicado com <code>?view=bridge</code>. Conecta o Hub à planilha Google Sheets.</p>
+      <label style="margin-top:14px">URL Férias (Apps Script + planilha)</label>
+      <input type="url" id="feriasBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+      <p class="access-hint" style="margin-top:6px">Ponte da <strong>página Férias</strong> apenas. Admin configura uma vez; o time recebe ao carregar o pack.</p>
+      <button class="btn btn-sm" type="button" id="btnMigrateFeriasGist" style="margin-top:10px;display:none" onclick="migrateFeriasFromGistToSheet()"><i class="ti ti-database-import"></i> Importar férias do Gist para planilha</button>
       <p class="access-hint" style="margin-top:10px">Token GitHub (acima) é opcional se a bridge do pack estiver configurada. Caso contrário, fica <strong>só neste navegador</strong>.</p>
       <div id="configSaveStatus" class="config-save-status" role="status" aria-live="polite"></div>
       <div class="modal-actions" style="margin-top:14px">
@@ -1551,6 +1556,7 @@ const GIST_FILENAME='quality-hub-data.json';
 const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
 const DEFAULT_GIST_OWNER='alanclovis';
 const DIM_GAS_DIRECT_URL='https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec';
+const FERIAS_GAS_DIRECT_URL='';
 const DIM_GAS_LEGACY_DEPLOY_IDS=[
   'AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1',
   'AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5'
@@ -1605,7 +1611,8 @@ const DEFAULT_DATA={
       {id:"l26",name:"Gladis Chat",desc:"Assistente interno",notes:"Assistente de IA interno da Nubank (Glean).",url:"#",logo:"gladis"},
     ]}
   ],
-  dimensionamento:{bridgeUrl:DIM_GAS_DIRECT_URL}
+  dimensionamento:{bridgeUrl:DIM_GAS_DIRECT_URL},
+  feriasBridge:{url:''}
 };
 
 const PRI_DAYS=[
@@ -2493,6 +2500,10 @@ function refreshTechConfigFields(){
   if(packInp) packInp.value=getPackBridgeUrl();
   const dimInp=document.getElementById('dimBridgeUrlInput');
   if(dimInp) dimInp.value=(typeof dimGetBridgeUrl==='function'?dimGetBridgeUrl():localStorage.getItem('qhub_dim_bridge_url'))||'';
+  const feriasInp=document.getElementById('feriasBridgeUrlInput');
+  if(feriasInp) feriasInp.value=getFeriasBridgeUrl();
+  const migBtn=document.getElementById('btnMigrateFeriasGist');
+  if(migBtn) migBtn.style.display=(getUserRole()==='admin'||isAccessBootstrap())&&getFeriasBridgeUrl()?'inline-flex':'none';
 }
 function switchConfigTab(tab){
   document.querySelectorAll('.config-tab').forEach(b=>b.classList.toggle('active',b.dataset.configTab===tab));
@@ -2709,13 +2720,16 @@ async function saveConfig(){
     const g=document.getElementById('gistIdInput').value.trim();
     const packUrl=document.getElementById('packBridgeUrlInput')?.value.trim()||'';
     const dimUrl=document.getElementById('dimBridgeUrlInput')?.value.trim()||'';
+    const feriasUrl=document.getElementById('feriasBridgeUrlInput')?.value.trim()||'';
     if(t)localStorage.setItem('qhub_token',t);
     if(g)localStorage.setItem('qhub_gist_id',g);
     setPackBridgeUrl(packUrl);
+    setFeriasBridgeUrl(feriasUrl);
     if(typeof dimSetBridgeUrl==='function') dimSetBridgeUrl(dimUrl);
     else localStorage.setItem('qhub_dim_bridge_url',dimUrl);
     ensureDimensionamentoData();
     ensurePackBridgeData();
+    ensureFeriasBridgeData();
     saveLocal();
     let published=false;
     if(canWriteGist()&&getGistId()){
@@ -2881,6 +2895,147 @@ async function fetchPackViaBridge(){
   return {parsed:res.pack,updatedAt:res.updatedAt||null,source:'bridge'};
 }
 
+// ── Férias Bridge (planilha dedicada — só página Férias) ─────────────────────
+let feriasSheetData=[];
+let feriasSheetLoadState='idle';
+let feriasSheetLoadError='';
+
+function ensureFeriasBridgeData(){
+  if(!data.feriasBridge) data.feriasBridge={url:''};
+  if(data.feriasBridge.url==null) data.feriasBridge.url='';
+  const stored=localStorage.getItem('qhub_ferias_bridge_url');
+  if(stored&&!data.feriasBridge.url) data.feriasBridge.url=stored;
+  if(!data.feriasBridge.url&&FERIAS_GAS_DIRECT_URL) data.feriasBridge.url=FERIAS_GAS_DIRECT_URL;
+}
+function normalizeFeriasBridgeUrl(url){
+  const v=String(url||'').trim();
+  if(!v) return FERIAS_GAS_DIRECT_URL||'';
+  return v;
+}
+function getFeriasBridgeUrl(){
+  ensureFeriasBridgeData();
+  return normalizeFeriasBridgeUrl(data.feriasBridge.url||localStorage.getItem('qhub_ferias_bridge_url')||'');
+}
+function setFeriasBridgeUrl(url){
+  ensureFeriasBridgeData();
+  const v=normalizeFeriasBridgeUrl(url);
+  data.feriasBridge.url=v||'';
+  try{ localStorage.setItem('qhub_ferias_bridge_url',v||''); }catch(e){ /* ignore */ }
+  if(typeof saveLocal==='function') saveLocal();
+}
+function feriasBridgeExecBase(){
+  const url=getFeriasBridgeUrl();
+  if(!url) return '';
+  return url.replace(/\/dev$/,'/exec').replace(/\?.*$/,'');
+}
+function feriasJsonpApi(action,payload,timeoutMs){
+  timeoutMs=timeoutMs||45000;
+  const base=feriasBridgeExecBase();
+  if(!base) return Promise.reject(new Error('URL Férias não configurada. Admin: Configuração → Técnico → URL Férias.'));
+  return new Promise((resolve,reject)=>{
+    const cb='feriasCb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);
+    let timer,script;
+    function cleanup(){
+      if(timer) clearTimeout(timer);
+      try{ delete window[cb]; }catch(e){ window[cb]=undefined; }
+      if(script&&script.parentNode) script.parentNode.removeChild(script);
+    }
+    timer=setTimeout(()=>{ cleanup(); reject(new Error('Timeout ao comunicar com a ponte de férias')); },timeoutMs);
+    window[cb]=function(res){
+      cleanup();
+      if(res&&res.ok) resolve(res.data);
+      else reject(new Error((res&&res.error)||'Erro na ponte de férias'));
+    };
+    const sep=base.indexOf('?')>=0?'&':'?';
+    script=document.createElement('script');
+    script.src=base+sep+'ferias='+encodeURIComponent(action)+'&payload='+encodeURIComponent(JSON.stringify(payload||{}))+'&callback='+encodeURIComponent(cb);
+    script.onerror=()=>{ cleanup(); reject(new Error('Falha na comunicação com a ponte de férias')); };
+    document.head.appendChild(script);
+  });
+}
+function feriasApiPayloadExtra(){
+  return {
+    memberName:getUserName()||'',
+    userEmail:getProfileEmail(getUserName())||'',
+    isAdmin:getUserRole()==='admin'||!!isAccessBootstrap()
+  };
+}
+function normalizeFeriasSheetRecords(list){
+  (list||[]).forEach(f=>{
+    if(!f) return;
+    f.tipo=normalizeFeriasTipo(f.tipo);
+    if(!isFeriasRecord(f)) delete f.status;
+  });
+  return list||[];
+}
+async function loadFeriasFromSheet(){
+  const url=getFeriasBridgeUrl();
+  if(!url){
+    feriasSheetData=[];
+    feriasSheetLoadState='error';
+    feriasSheetLoadError='URL Férias não configurada. Peça ao admin para publicar em Configuração → Técnico.';
+    return false;
+  }
+  feriasSheetLoadState='loading';
+  feriasSheetLoadError='';
+  try{
+    const res=await feriasJsonpApi('getFerias',{});
+    feriasSheetData=normalizeFeriasSheetRecords(res?.ferias||[]);
+    feriasSheetLoadState='ready';
+    return true;
+  }catch(e){
+    feriasSheetData=[];
+    feriasSheetLoadState='error';
+    feriasSheetLoadError=(e&&e.message)||'Erro ao carregar férias da planilha.';
+    return false;
+  }
+}
+function ensureFeriasPageAccess(){
+  if(isVisitor()){
+    alert('Visitantes podem ver o calendário, mas não registrar períodos.');
+    return false;
+  }
+  if(!getUserName()){
+    openNameModal();
+    return false;
+  }
+  if(!canUseMemberFeatures()&&getUserRole()!=='admin'&&!isAccessBootstrap()){
+    alert('Seu acesso não permite registrar férias ou ausências. Solicite liberação em Configuração.');
+    return false;
+  }
+  if(!getFeriasBridgeUrl()){
+    alert('URL Férias não configurada. Admin: Configuração → Técnico → URL Férias.');
+    return false;
+  }
+  return true;
+}
+async function migrateFeriasFromGistToSheet(){
+  if(getUserRole()!=='admin'&&!isAccessBootstrap()){ alert('Somente admin.'); return; }
+  if(!getFeriasBridgeUrl()){ alert('Configure a URL Férias antes.'); return; }
+  let records=[];
+  try{
+    const remote=await fetchRemotePackData();
+    records=(remote?.ferias||data?.ferias||[]);
+  }catch(e){
+    records=data?.ferias||[];
+  }
+  if(!records.length){ alert('Nenhum registro de férias no Gist/pack local.'); return; }
+  if(!confirm('Importar '+records.length+' registro(s) do Gist para a planilha? IDs já existentes serão ignorados.')) return;
+  showStatus('loading','Importando férias para a planilha...');
+  try{
+    const res=await feriasJsonpApi('migrateFerias',Object.assign({ records },feriasApiPayloadExtra()));
+    showStatus('success','Importados: '+(res.imported||0)+', ignorados: '+(res.skipped||0));
+    setTimeout(hideStatus,4000);
+    await loadFeriasFromSheet();
+    renderFerias();
+    renderFeriasLegend();
+    renderUpcoming();
+  }catch(e){
+    showStatus('error','Erro na migração: '+(e.message||e));
+    setTimeout(hideStatus,5000);
+  }
+}
+
 // ── Gist API ───────────────────────────────────────────────────────────────────
 async function fetchGistApi(gistId,{auth=false}={}){
   const headers={};
@@ -2957,6 +3112,7 @@ function getLoadingPackShell(){
     sections:[],
     dimensionamento:{bridgeUrl:DIM_GAS_DIRECT_URL},
     packBridge:{url:''},
+    feriasBridge:{url:''},
   };
 }
 function clearPlaceholderPackCache(){
@@ -3012,9 +3168,7 @@ function applyLoadedPackData(parsed,updatedAt){
   const localFerias=data?.ferias||[];
   const me=getUserName();
   const remoteFerias=parsed?.ferias||[];
-  let hasUnpublishedLocal=false;
   if(me&&localFerias.length){
-    hasUnpublishedLocal=localFerias.some(f=>f?.id&&namesMatch(f.nome,me)&&!remoteFerias.some(r=>r.id===f.id));
     parsed=Object.assign({},parsed,{
       ferias:mergeFeriasForMemberSync(remoteFerias,localFerias,me),
     });
@@ -3027,7 +3181,9 @@ function applyLoadedPackData(parsed,updatedAt){
   ensurePrioritiesData();
   ensureDimensionamentoData();
   ensurePackBridgeData();
+  ensureFeriasBridgeData();
   if(data.packBridge?.url) localStorage.setItem('qhub_pack_bridge_url',data.packBridge.url);
+  if(data.feriasBridge?.url) localStorage.setItem('qhub_ferias_bridge_url',data.feriasBridge.url);
   ensureProfilesData();
   ensureAccessUsers();
   migratePendingToActiveMembers();
@@ -3038,9 +3194,13 @@ function applyLoadedPackData(parsed,updatedAt){
   restoreMemberEmailFromLocal(getUserName());
   const roleSynced=syncTokenHolderRole();
   applySidebarOrder();
-  renderFerias();
-  renderFeriasLegend();
-  renderUpcoming();
+  if(document.getElementById('pageFerias')?.classList.contains('active')){
+    loadFeriasFromSheet().then(()=>{
+      renderFerias();
+      renderFeriasLegend();
+      renderUpcoming();
+    });
+  }
   renderMural();
   render();
   renderUserChip();
@@ -3065,9 +3225,6 @@ function applyLoadedPackData(parsed,updatedAt){
   }
   if(!isUsingPlaceholderData(parsed)) hideDataLoadWarning();
   if(document.getElementById('configModal')?.classList.contains('active')) refreshTechConfigFields();
-  if(hasUnpublishedLocal&&canSyncFeriasToGist()){
-    setTimeout(()=>{ syncFeriasToGist().catch(()=>{}); },800);
-  }
   return roleSynced||hadPackToken;
 }
 async function refreshPackData(opts={}){
@@ -3263,7 +3420,7 @@ function loadLocal(){
     data=getLoadingPackShell();
     localStorage.removeItem('qhub_data');
   }
-  normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();migratePendingToActiveMembers();syncMembersFromProfiles();syncAccessUserEmailsFromProfiles();validateStoredIdentity();if(getUserName()){ensureRegisteredMember(getUserName());restoreMemberEmailFromLocal(getUserName());}syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();
+  normalizeFeriasRecordsInData();initKnownFeriasIds();ensurePageOrder();ensureProfilesData();ensureAccessUsers();ensureFeriasBridgeData();migratePendingToActiveMembers();syncMembersFromProfiles();syncAccessUserEmailsFromProfiles();validateStoredIdentity();if(getUserName()){ensureRegisteredMember(getUserName());restoreMemberEmailFromLocal(getUserName());}syncTokenHolderRole();applySidebarOrder();updateEditButtonVisibility();renderUserChip();render();
 }
 function saveLocal(){
   if(isUsingPlaceholderData(data)||isLoadingPackShell(data)) return;
@@ -3627,9 +3784,11 @@ function render(opts){
   renderSectionNav(totalVisible);
   renderRecents();
   renderFavs();
-  renderFerias();
-  renderFeriasLegend();
-  renderUpcoming();
+  if(document.getElementById('pageFerias')?.classList.contains('active')){
+    renderFerias();
+    renderFeriasLegend();
+    renderUpcoming();
+  }
   saveLocal();
   ensureLinksVisible();
   if(opts&&opts.animate){
@@ -3862,7 +4021,13 @@ function showPageAnimated(page){
   });
   const noticeEl=document.querySelector('.notice');
   if(noticeEl) noticeEl.style.display=page==='links'?'':'none';
-  if(page==='ferias'){ renderFerias(); renderFeriasLegend(); renderUpcoming(); }
+  if(page==='ferias'){
+    loadFeriasFromSheet().then(()=>{
+      renderFerias();
+      renderFeriasLegend();
+      renderUpcoming();
+    });
+  }
   if(page==='prioridades') renderPriorities();
   if(page==='dimensionamento'){
     document.body.classList.add('dim-page-active');
@@ -4241,8 +4406,10 @@ function namesMatch(a,b){
 }
 function canEditFeriasRecord(f){
   if(!f) return false;
-  if(canWriteGist()) return true;
+  if(getUserRole()==='admin'||isAccessBootstrap()) return true;
   const me=getUserName();
+  const email=getProfileEmail(me);
+  if(email&&f.email&&String(f.email).toLowerCase()===email) return true;
   return !!me&&namesMatch(f.nome,me);
 }
 function findProfile(name){
@@ -4521,7 +4688,9 @@ async function saveProfile(){
   syncTokenHolderRole();
   renderUserChip();
   renderMural();
-  renderFerias();
+  if(document.getElementById('pageFerias')?.classList.contains('active')){
+    loadFeriasFromSheet().then(()=>{ renderFerias(); renderUpcoming(); });
+  }
   renderAccessStatusBox();
   if(document.getElementById('configPanelUsers')?.classList.contains('active')) renderAccessUsersPanel();
   saveLocal();
@@ -5019,12 +5188,12 @@ function setFeriasEditModalMode(canEdit){
   document.getElementById('feriasEditTitle').textContent=canEdit?'Editar registro':'Detalhes do registro';
   const notice=document.getElementById('feriasEditNotice');
   notice.style.display=canEdit?'none':'block';
-  notice.textContent='Visualização apenas. Só o titular ou quem tem token de edição pode alterar este registro.';
+  notice.textContent='Visualização apenas. Só o titular ou um admin pode alterar este registro.';
   document.querySelector('#feriasEditBackdrop .btn.danger').style.display=canEdit?'':'none';
   document.querySelector('#feriasEditBackdrop .btn.primary').style.display=canEdit?'':'none';
 }
 function openFeriasEdit(fId){
-  const f = (data.ferias||[]).find(x=>x.id===fId);
+  const f = getFeriasData().find(x=>x.id===fId);
   if(!f) return;
   const canEdit=canEditFeriasRecord(f);
   document.getElementById('fEditId').value     = fId;
@@ -5045,34 +5214,48 @@ function closeFeriasEdit(){
 }
 async function saveFeriasEdit(){
   const id     = document.getElementById('fEditId').value;
-  const f = (data.ferias||[]).find(x=>x.id===id);
+  const f = getFeriasData().find(x=>x.id===id);
   if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para editar este registro.'); return; }
-  if(!ensurePackTokenOrRedirect()) return;
+  if(!ensureFeriasPageAccess()) return;
   const inicio = document.getElementById('fEditInicio').value;
   const fim    = document.getElementById('fEditFim').value;
   const tipo   = normalizeFeriasTipo(document.getElementById('fEditTipo')?.value);
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
-  f.inicio = inicio; f.fim = fim; f.tipo = tipo;
-  applyFeriasStatusFields(f,tipo,'fEditTipo','fEditStatus');
-  closeFeriasEdit();
-  renderFerias();
-  renderUpcoming();
-  const ok=await persistFeriasToPack();
-  if(!ok) alert('Alteração salva só neste navegador. Não foi possível publicar no pack — verifique a bridge ou token e tente de novo.');
+  const record={ id, inicio, fim, tipo };
+  if(tipo==='ferias') record.status=getFeriasStatusFromForm('fEditTipo','fEditStatus')||f.status||'verde';
+  showStatus('loading','Salvando na planilha...');
+  try{
+    await feriasJsonpApi('saveFerias',Object.assign({ record },feriasApiPayloadExtra()));
+    await loadFeriasFromSheet();
+    closeFeriasEdit();
+    renderFerias();
+    renderUpcoming();
+    showStatus('success','Salvo na planilha!');
+    setTimeout(hideStatus,3000);
+  }catch(e){
+    showStatus('error','Erro ao salvar: '+(e.message||e));
+    setTimeout(hideStatus,5000);
+  }
 }
 async function deleteFeriasCurrent(){
   const id = document.getElementById('fEditId').value;
-  const f = (data.ferias||[]).find(x=>x.id===id);
+  const f = getFeriasData().find(x=>x.id===id);
   if(!f||!canEditFeriasRecord(f)){ alert('Você não tem permissão para remover este registro.'); return; }
-  if(!ensurePackTokenOrRedirect()) return;
+  if(!ensureFeriasPageAccess()) return;
   if(!confirm('Remover este registro?')) return;
-  knownFeriasIds.add(id);
-  data.ferias = (data.ferias||[]).filter(x=>x.id!==id);
-  closeFeriasEdit();
-  renderFerias();
-  renderUpcoming();
-  const ok=await persistFeriasToPack();
-  if(!ok) alert('Não foi possível publicar a remoção no pack. Verifique o token e use o botão Atualizar.');
+  showStatus('loading','Removendo da planilha...');
+  try{
+    await feriasJsonpApi('deleteFerias',Object.assign({ id },feriasApiPayloadExtra()));
+    await loadFeriasFromSheet();
+    closeFeriasEdit();
+    renderFerias();
+    renderUpcoming();
+    showStatus('success','Registro removido da planilha.');
+    setTimeout(hideStatus,3000);
+  }catch(e){
+    showStatus('error','Erro ao remover: '+(e.message||e));
+    setTimeout(hideStatus,5000);
+  }
 }
 
 function renderUpcoming(){
@@ -5156,7 +5339,7 @@ function getPersonColor(name){
   return personColorMap[name];
 }
 
-function getFeriasData(){ return data.ferias || []; }
+function getFeriasData(){ return feriasSheetData || []; }
 
 function feriasChangeMonth(delta){
   feriasMonth += delta;
@@ -5170,20 +5353,22 @@ function openFeriasForm(){
   const nameEl = document.getElementById('fNome');
   const me=getUserName();
   if(!me){ openNameModal(); return; }
-  if(!canUseMemberFeatures()&&!canWriteGist()){
+  if(isVisitor()){
+    alert('Visitantes não podem registrar períodos.');
+    return;
+  }
+  if(!canUseMemberFeatures()&&getUserRole()!=='admin'&&!isAccessBootstrap()){
     alert('Seu acesso não permite registrar férias ou ausências. Solicite liberação em Configuração.');
     return;
   }
-  form.classList.add('active');
-  if(!canWriteGist()){
-    nameEl.value=me;
-    nameEl.readOnly=true;
-    nameEl.style.opacity='0.6';
-  }else{
-    if(!nameEl.value) nameEl.value=me;
-    nameEl.readOnly=false;
-    nameEl.style.opacity='';
+  if(!getFeriasBridgeUrl()){
+    alert('URL Férias não configurada. Admin: Configuração → Técnico → URL Férias.');
+    return;
   }
+  form.classList.add('active');
+  nameEl.value=me;
+  nameEl.readOnly=true;
+  nameEl.style.opacity='0.6';
   const tipoEl=document.getElementById('fTipo');
   if(tipoEl) tipoEl.value='ferias';
   document.getElementById('fStatus').value='verde';
@@ -5204,29 +5389,27 @@ async function saveFerias(){
   const tipo   = normalizeFeriasTipo(document.getElementById('fTipo')?.value);
   if(!nome||!inicio||!fim){ alert('Preencha todos os campos.'); return; }
   if(inicio > fim){ alert('Data de início deve ser antes do fim.'); return; }
-  if(!canUseMemberFeatures()&&!canWriteGist()){
-    alert('Seu acesso não permite registrar férias ou ausências. Solicite liberação em Configuração.');
+  if(!ensureFeriasPageAccess()) return;
+  const me=getUserName();
+  if(!namesMatch(nome,me)&&getUserRole()!=='admin'&&!isAccessBootstrap()){
+    alert('Você só pode registrar períodos no seu nome.');
     return;
   }
-  if(!ensurePackTokenOrRedirect()) return;
-  if(!canWriteGist()){
-    const me=getUserName();
-    if(!me){ openNameModal(); return; }
-    if(!namesMatch(nome,me)){
-      alert('Você só pode registrar períodos no seu nome.');
-      return;
-    }
+  const record={ inicio, fim, tipo };
+  if(tipo==='ferias') record.status=getFeriasStatusFromForm('fTipo','fStatus')||'verde';
+  showStatus('loading','Salvando na planilha...');
+  try{
+    await feriasJsonpApi('saveFerias',Object.assign({ record },feriasApiPayloadExtra()));
+    await loadFeriasFromSheet();
+    closeFeriasForm();
+    renderFerias();
+    renderUpcoming();
+    showStatus('success','Salvo na planilha!');
+    setTimeout(hideStatus,3000);
+  }catch(e){
+    showStatus('error','Erro ao salvar: '+(e.message||e));
+    setTimeout(hideStatus,5000);
   }
-  if(!data.ferias) data.ferias = [];
-  const newRec={ id:'f'+Date.now(), nome, inicio, fim, tipo };
-  applyFeriasStatusFields(newRec,tipo,'fTipo','fStatus');
-  data.ferias.push(newRec);
-  noteFeriasIds([newRec]);
-  closeFeriasForm();
-  renderFerias();
-  renderUpcoming();
-  const ok=await persistFeriasToPack();
-  if(!ok) alert('Registro salvo só neste navegador. Não foi possível publicar no pack. Se você tem token GitHub em Config → Técnico, apague o campo e deixe só a bridge — ou peça ao admin para publicar.');
 }
 
 function renderFerias(){
@@ -5236,6 +5419,15 @@ function renderFerias(){
   const card = document.getElementById('feriasCard');
   if(!card) return;
   card.innerHTML = '';
+
+  if(feriasSheetLoadState==='loading'){
+    card.innerHTML='<div class="tl-empty-state"><i class="ti ti-loader-2 tl-empty-icon" style="animation:spin 1s linear infinite"></i><h4>Carregando da planilha...</h4></div>';
+    return;
+  }
+  if(feriasSheetLoadState==='error'&&feriasSheetLoadError){
+    card.innerHTML=`<div class="tl-empty-state"><i class="ti ti-alert-circle tl-empty-icon"></i><h4>Não foi possível carregar férias</h4><p>${escapeHtml(feriasSheetLoadError)}</p></div>`;
+    return;
+  }
 
   const daysInMonth = new Date(feriasYear, feriasMonth+1, 0).getDate();
   const today = new Date();
@@ -6366,7 +6558,7 @@ function hubHardReset(){
     'Seu login e e-mail no perfil são mantidos.'
   );
   if(!ok) return;
-  const preservePrefixes=['qhub_user_id','qhub_username','qhub_token','qhub_gist_id','qhub_claimed_name','qhub_saved_invite_code','qhub_guide_seen','qhub_avatar','qhub_dim_bridge_url','qhub_pack_bridge_url','qhub_page','qhub_sidebar','qhub_member_email_'];
+  const preservePrefixes=['qhub_user_id','qhub_username','qhub_token','qhub_gist_id','qhub_claimed_name','qhub_saved_invite_code','qhub_guide_seen','qhub_avatar','qhub_dim_bridge_url','qhub_pack_bridge_url','qhub_ferias_bridge_url','qhub_page','qhub_sidebar','qhub_member_email_'];
   const toRemove=[];
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
