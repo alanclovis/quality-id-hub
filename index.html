@@ -620,18 +620,6 @@ body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo
 .pri-grid td.pri-col-today .pri-copy-badge{background:rgba(255,255,255,0.14);color:#e8e4ef;z-index:2;}
 .pri-grid td.pri-col-today .pri-copy-badge:hover{background:rgba(255,255,255,0.24);color:#fff;}
 .pri-grid td.pri-col-today.pri-cell-editable:hover{background:#5b21b6;}
-.pri-col-today::after{content:'';position:absolute;left:0;right:0;top:0;height:50%;background:linear-gradient(180deg,transparent 0%,rgba(255,255,255,0.06) 40%,rgba(216,204,232,0.22) 52%,transparent 100%);transform:translateY(-120%);pointer-events:none;z-index:0;animation:priTodayFlashSweep 2.4s ease-in-out infinite;}
-.pri-grid th.pri-col-today::after{animation-delay:0s;}
-.pri-grid tbody tr:nth-child(1) td.pri-col-today::after{animation-delay:.65s;}
-.pri-grid tbody tr:nth-child(2) td.pri-col-today::after{animation-delay:1.3s;}
-@keyframes priTodayFlashSweep{
-  0%{transform:translateY(-120%);opacity:0;}
-  6%{opacity:1;}
-  22%{transform:translateY(240%);opacity:0;}
-  100%{transform:translateY(240%);opacity:0;}
-}
-.pri-grid td.pri-col-today.pri-cell-selected::after,.pri-grid td.pri-col-today.pri-cell-queue-match::after{display:none;}
-@media(prefers-reduced-motion:reduce){.pri-col-today::after{display:none;}}
 .pri-grid td.pri-shift{background:#f3f0f9;font-size:12px;font-weight:700;color:#4c1d95;text-align:center;padding:10px 8px;width:88px;white-space:nowrap;}
 .pri-shift-icon{font-size:15px;vertical-align:-2px;margin-right:5px;color:#6d28d9;}
 .pri-cell{padding:10px 8px;min-height:52px;font-size:11px;line-height:1.4;color:var(--text);text-align:center;background:#fff;position:relative;}
