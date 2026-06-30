@@ -368,11 +368,18 @@
   }
 
   function dimMemberEmailStorageKey() {
+    if (typeof profileEmailStorageKey === 'function') {
+      const key = profileEmailStorageKey(typeof getUserName === 'function' ? getUserName() : '');
+      if (key) return key;
+    }
     const uid = localStorage.getItem('qhub_user_id');
     if (uid && uid !== 'visitor') return 'qhub_member_email_' + uid;
     if (typeof getUserName === 'function') {
       const name = getUserName();
-      if (name) return 'qhub_member_email_' + String(name).trim().toLowerCase().replace(/\s+/g, '_');
+      if (name && typeof normalizeNameKey === 'function') {
+        return 'qhub_member_email_' + normalizeNameKey(name);
+      }
+      if (name) return 'qhub_member_email_' + String(name).trim().toLowerCase();
     }
     return '';
   }
@@ -457,7 +464,7 @@
       if (shouldRender) dimRenderAll();
       return true;
     }
-    const cached = dimReadWeekCache(week);
+    const cached = dimReadWeekCache(week, { allowStale: true });
     if (cached) {
       dimApplySchedule(cached, { render: shouldRender });
       dimSetLastUpdate();
@@ -494,7 +501,10 @@
     return dimLoadWeek(week, { silent: true, skipCacheCheck: true }).catch(function () { /* ignore */ });
   }
 
-  function dimReadWeekCache(week) {
+  function dimReadWeekCache(week, options) {
+    options = options || {};
+    const allowStale = !!options.allowStale;
+
     function readKey(key) {
       if (!key) return null;
       try {
@@ -503,7 +513,7 @@
         const parsed = JSON.parse(raw);
         if (!parsed || !parsed.schedule) return null;
         if (parsed.v !== DIM_WEEK_CACHE_VERSION) return null;
-        if (parsed.ts && Date.now() - parsed.ts > DIM_WEEK_CACHE_TTL) return null;
+        if (!allowStale && parsed.ts && Date.now() - parsed.ts > DIM_WEEK_CACHE_TTL) return null;
         return parsed.schedule;
       } catch (e) {
         return null;
@@ -949,7 +959,7 @@
   }
 
   function dimCallTimeoutFor(action) {
-    if (action === 'getUserSchedule') return 90000;
+    if (action === 'getUserSchedule') return 50000;
     if (action === 'saveBatchData' || action === 'saveDetail') return 45000;
     if (action === 'getPendingDetails' || action === 'getAdjustments' || action === 'getSlotDictionary') return 45000;
     return 30000;
@@ -994,8 +1004,9 @@
       savePayload.userEmail = dimSaveUserEmail();
     }
 
-    function viaBridge() {
-      return dimWaitForBridgeTarget(8000).then(function (target) {
+    function viaBridge(waitMs) {
+      waitMs = waitMs || 8000;
+      return dimWaitForBridgeTarget(waitMs).then(function (target) {
         if (!target) throw new Error('Bridge indisponível');
         return dimCallViaPostMessage(action, savePayload, bridgeMs);
       });
@@ -1030,6 +1041,14 @@
     }
 
     // JSONP is most reliable from GitHub Pages when userEmail is in payload (no Google cookies)
+    if (action === 'getUserSchedule' && callPayload.userEmail) {
+      return dimFirstResolved([
+        dimJsonpApi(action, callPayload, timeoutMs),
+        dimFetchApi(action, callPayload, Math.min(35000, timeoutMs)),
+        viaBridge(4000)
+      ]);
+    }
+
     return dimFirstResolved([
       dimJsonpApi(action, callPayload, timeoutMs),
       viaBridge(),
@@ -1784,7 +1803,7 @@
     }
 
     if (dimState.refreshingWeek) {
-      if (dimState.silentLoadStarted && Date.now() - dimState.silentLoadStarted > 95000) {
+      if (dimState.silentLoadStarted && Date.now() - dimState.silentLoadStarted > 55000) {
         dimResetWeekRefreshing();
       } else {
         setBadge('pending', '<span class="dim-saving-dot"></span> Atualizando…', true);
@@ -2087,6 +2106,15 @@
     return fallback[day.day] || '';
   }
 
+  function dimApplyCachedWeekIfAny(week, options) {
+    options = options || {};
+    const cached = dimReadWeekCache(week, { allowStale: true });
+    if (!cached) return false;
+    dimApplySchedule(cached, { render: options.render !== false });
+    dimSetLastUpdate();
+    return true;
+  }
+
   async function dimLoadWeek(week, options) {
     options = options || {};
     const silent = !!options.silent;
@@ -2098,18 +2126,27 @@
     const loadId = ++dimState.loadWeekSeq;
     dimState.week = week;
     dimUpdateWeekLabel();
+    let usedStaleCache = false;
 
     if (!silent) {
       if (!options.skipCacheCheck) {
-        const cached = dimReadWeekCache(week);
-        if (cached) {
-          dimApplySchedule(cached);
+        const fresh = dimReadWeekCache(week);
+        if (fresh) {
+          dimApplySchedule(fresh);
           dimSetLastUpdate();
           dimRefreshWeekInBackground(week);
           return;
         }
+        usedStaleCache = dimApplyCachedWeekIfAny(week);
+        if (usedStaleCache) {
+          dimRefreshWeekInBackground(week);
+        }
       }
-      dimSetWeekLoading(true);
+      if (!usedStaleCache && !dimState.schedule) {
+        dimSetWeekLoading(true);
+      } else if (usedStaleCache) {
+        dimSetWeekRefreshing(true);
+      }
     } else {
       dimSetWeekRefreshing(true);
     }
@@ -2131,11 +2168,11 @@
       });
       dimEnsureDictionary().catch(function () { /* ignore */ });
 
-      if (silent) dimUpdateStatus();
+      if (silent || usedStaleCache) dimUpdateStatus();
     } catch (e) {
       if (loadId !== dimState.loadWeekSeq) return;
       if (!silent) {
-        const cached = dimReadWeekCache(week);
+        const cached = dimReadWeekCache(week, { allowStale: true });
         if (dimState.schedule || cached) {
           if (cached && !dimState.schedule) dimTryInstantWeek(week);
           else if (dimState.schedule) dimRenderAll();
@@ -2147,6 +2184,7 @@
     } finally {
       if (!silent) {
         dimSetWeekLoading(false);
+        if (usedStaleCache) dimSetWeekRefreshing(false);
       } else {
         dimSetWeekRefreshing(false);
       }
@@ -2161,6 +2199,18 @@
       });
       return flight;
     }
+
+    if (dimState.silentLoadInFlight && dimState.week === week) {
+      const hadCache = dimApplyCachedWeekIfAny(week) || !!dimState.schedule;
+      if (hadCache) dimSetWeekRefreshing(true);
+      else dimSetWeekLoading(true);
+      return dimState.silentLoadInFlight.finally(function () {
+        dimSetWeekLoading(false);
+        dimSetWeekRefreshing(false);
+        if (dimState.week === week && dimState.schedule) dimRenderAll();
+      });
+    }
+
     return runLoad();
   }
 
