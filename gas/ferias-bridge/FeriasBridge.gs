@@ -556,7 +556,7 @@ function membersSaveProfile_(payload) {
   var rowIdx = membersFindRowIndexById_(sheet, ctx.id);
   if (rowIdx < 0) feriasThrow_('Membro não encontrado na planilha', 404);
 
-  var row = sheet.getRange(rowIdx, 1, rowIdx, MEMBERS_HEADERS.length).getValues()[0];
+  var row = sheet.getRange(rowIdx, 1, 1, MEMBERS_HEADERS.length).getValues()[0];
   var u = membersRowToAccessUser_(row);
   var updatedBy = String(payload.userEmail || payload.memberName || ctx.name || '').trim();
 
@@ -578,7 +578,7 @@ function membersSaveProfile_(payload) {
   };
   if (email) outProfile.email = email;
 
-  sheet.getRange(rowIdx, 1, rowIdx, MEMBERS_HEADERS.length).setValues([
+  sheet.getRange(rowIdx, 1, 1, MEMBERS_HEADERS.length).setValues([
     membersAccessUserToRow_(u, outProfile, updatedBy)
   ]);
 
