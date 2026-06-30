@@ -22,6 +22,19 @@
   --font-text:'SF Pro Text',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
   --ferias-verde-bg:#dcfce7;
   --ferias-verde-text:#14532d;
+  --ferias-verde-border:#22c55e;
+  --ferias-laranja-bg:#ffedd5;
+  --ferias-laranja-text:#9a3412;
+  --ferias-laranja-border:#ea580c;
+  --ferias-amarelo-bg:#fef9c3;
+  --ferias-amarelo-text:#854d0e;
+  --ferias-amarelo-border:#ca8a04;
+  --ferias-azul-bg:#dbeafe;
+  --ferias-azul-text:#1e40af;
+  --ferias-azul-border:#3b82f6;
+  --ferias-roxo-bg:#ede9fe;
+  --ferias-roxo-text:#5b21b6;
+  --ferias-roxo-border:#8b5cf6;
 }
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
@@ -525,7 +538,7 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .fbt-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;}
 .fbt-row{font-size:12px;color:var(--text2);line-height:1.45;margin-top:3px;}
 .fbt-label{color:var(--text3);margin-right:4px;}
-.fbt-action{font-size:11px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.fbt-status-pill{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;}
 .tl-today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--purple);z-index:2;pointer-events:none;}
 .tl-empty{padding:24px;text-align:center;color:var(--text3);font-size:13px;}
 .tl-empty-state{padding:40px 24px 36px;text-align:center;}
@@ -534,24 +547,27 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .tl-empty-state p{font-size:13px;color:var(--text3);line-height:1.5;max-width:280px;margin:0 auto 16px;}
 .tl-empty-state .btn-sm.purple{margin-top:4px;}
 
-/* status colors */
-/* dark mode (default) — high contrast */
+/* status colors — alto contraste (timeline + pills) */
 .fs-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
-.fs-laranja{background:rgba(251,191,36,0.25);color:#fde68a;}
-.fs-amarelo{background:rgba(253,224,71,0.25);color:#fef08a;}
-.fs-azul   {background:rgba(96,165,250,0.25);color:#93c5fd;}
-.fs-roxo   {background:rgba(139,92,246,0.25);color:#c4b5fd;}
-.fs-ausencia{background:rgba(139,92,246,0.25);color:#c4b5fd;}
-/* light mode */
+.fs-laranja{background:var(--ferias-laranja-bg);color:var(--ferias-laranja-text);border:1px solid var(--ferias-laranja-border);}
+.fs-amarelo{background:var(--ferias-amarelo-bg);color:var(--ferias-amarelo-text);border:1px solid var(--ferias-amarelo-border);}
+.fs-azul   {background:var(--ferias-azul-bg);color:var(--ferias-azul-text);border:1px solid var(--ferias-azul-border);}
+.fs-roxo   {background:var(--ferias-roxo-bg);color:var(--ferias-roxo-text);border:1px solid var(--ferias-roxo-border);}
+.fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo-text);border:1px solid var(--ferias-roxo-border);}
 body.light .fs-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
-body.light .fs-laranja{background:#fef3c7;color:#92400e;}
-body.light .fs-amarelo{background:#fef9c3;color:#854d0e;}
-body.light .fs-azul   {background:#dbeafe;color:#1e40af;}
-body.light .fs-roxo   {background:#ede9fe;color:#5b21b6;}
-body.light .fs-ausencia{background:#ede9fe;color:#5b21b6;}
+body.light .fs-laranja{background:var(--ferias-laranja-bg);color:var(--ferias-laranja-text);border:1px solid var(--ferias-laranja-border);}
+body.light .fs-amarelo{background:var(--ferias-amarelo-bg);color:var(--ferias-amarelo-text);border:1px solid var(--ferias-amarelo-border);}
+body.light .fs-azul   {background:var(--ferias-azul-bg);color:var(--ferias-azul-text);border:1px solid var(--ferias-azul-border);}
+body.light .fs-roxo   {background:var(--ferias-roxo-bg);color:var(--ferias-roxo-text);border:1px solid var(--ferias-roxo-border);}
+body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo-text);border:1px solid var(--ferias-roxo-border);}
 
 /* Legenda férias */
-.ferias-legend{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-top:14px;}
+.ferias-legend{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:0;margin-top:14px;overflow:hidden;}
+.ferias-legend-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:12px 16px;background:transparent;border:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;text-align:left;}
+.ferias-legend-toggle:hover{background:var(--bg3);}
+.ferias-legend-toggle i{color:var(--purple-l);font-size:16px;}
+.ferias-legend-body{padding:0 18px 16px;}
+.ferias-legend.collapsed .ferias-legend-body{display:none;}
 .ferias-legend-section{margin-bottom:18px;}
 .ferias-legend-section:last-child{margin-bottom:0;}
 .ferias-legend-head{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
@@ -577,6 +593,9 @@ body.light .fs-ausencia{background:#ede9fe;color:#5b21b6;}
 .ferias-form input:focus,.ferias-form select:focus{border-color:var(--green);}
 .ferias-form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .ferias-form label{font-size:11px;color:var(--text3);display:block;margin-bottom:3px;}
+.ferias-status-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.ferias-status-row select{flex:1;min-width:160px;}
+.ferias-status-preview{flex-shrink:0;}
 
 /* ── Prioridades semanais ── */
 .pri-wrap{margin-bottom:2.5rem;}
@@ -699,7 +718,14 @@ body.light .fs-ausencia{background:#ede9fe;color:#5b21b6;}
 
 /* ── Upcoming férias list ── */
 .upcoming-wrap{margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);}
-.upcoming-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
+.upcoming-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.upcoming-header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.upcoming-filter{display:flex;gap:4px;background:var(--bg3);padding:3px;border-radius:var(--rs);}
+.upcoming-filter .btn-sm{border:none;background:transparent;color:var(--text3);}
+.upcoming-filter .btn-sm.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,0.06);}
+.upcoming-month-group{grid-column:1/-1;font-size:12px;font-weight:600;color:var(--text2);padding:8px 2px 4px;margin-top:4px;border-bottom:1px solid var(--border);}
+.upcoming-month-group:first-child{margin-top:0;}
+.upcoming-item.ongoing{border-color:#86efac;box-shadow:0 0 0 2px rgba(34,197,94,0.18);}
 .upcoming-title{font-family:var(--font-display);font-size:20px;font-weight:600;letter-spacing:-.3px;color:var(--text);margin:0;display:flex;align-items:center;gap:8px;}
 .upcoming-title i{color:var(--purple-l);font-size:18px;}
 .upcoming-count-badge{font-size:11px;font-weight:500;color:var(--text3);background:var(--bg3);border:1px solid var(--border);padding:4px 10px;border-radius:20px;white-space:nowrap;}
@@ -722,24 +748,29 @@ body.light .fs-ausencia{background:#ede9fe;color:#5b21b6;}
 .upcoming-period i{color:var(--text3);font-size:13px;flex-shrink:0;}
 .upcoming-days{font-size:11px;font-weight:500;color:var(--text3);background:var(--bg3);padding:1px 7px;border-radius:10px;margin-left:2px;}
 .upcoming-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
-.upcoming-tipo{font-size:11px;font-weight:500;color:var(--text2);background:var(--bg3);padding:2px 8px;border-radius:10px;white-space:nowrap;}
+.upcoming-tipo{font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;}
+.upcoming-tipo-tipo-ferias{background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
+.upcoming-tipo-tipo-atestado,.upcoming-tipo-tipo-maternidade,.upcoming-tipo-tipo-paternidade,.upcoming-tipo-tipo-outro{background:var(--ferias-roxo-bg);color:var(--ferias-roxo-text);}
 .upcoming-countdown{font-size:11px;font-weight:500;color:var(--text3);background:var(--bg);border:1px solid var(--border);padding:3px 9px;border-radius:20px;white-space:nowrap;}
 .upcoming-countdown.active{color:#0369a1;background:#eff6ff;border-color:#bfdbfe;}
+.upcoming-countdown.ongoing{color:#065f46;background:#dcfce7;border-color:#86efac;font-weight:600;}
 .upcoming-countdown.done{color:var(--text3);opacity:.75;}
 .upcoming-status{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.status-pill{font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;white-space:nowrap;}
-/* dark mode */
+.status-pill{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap;}
 .sp-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
-.sp-laranja{background:rgba(251,191,36,0.2);color:#fde68a;}
-.sp-amarelo{background:rgba(253,224,71,0.2);color:#fef08a;}
-.sp-azul   {background:rgba(96,165,250,0.2);color:#93c5fd;}
-.sp-roxo   {background:rgba(139,92,246,0.2);color:#c4b5fd;}
-/* light mode */
+.sp-laranja{background:var(--ferias-laranja-bg);color:var(--ferias-laranja-text);border:1px solid var(--ferias-laranja-border);}
+.sp-amarelo{background:var(--ferias-amarelo-bg);color:var(--ferias-amarelo-text);border:1px solid var(--ferias-amarelo-border);}
+.sp-azul   {background:var(--ferias-azul-bg);color:var(--ferias-azul-text);}
+.sp-roxo   {background:var(--ferias-roxo-bg);color:var(--ferias-roxo-text);}
 body.light .sp-verde  {background:var(--ferias-verde-bg);color:var(--ferias-verde-text);}
-body.light .sp-laranja{background:#fef3c7;color:#92400e;}
-body.light .sp-amarelo{background:#fef9c3;color:#854d0e;}
-body.light .sp-azul   {background:#dbeafe;color:#1e40af;}
-body.light .sp-roxo   {background:#ede9fe;color:#5b21b6;}
+body.light .sp-laranja{background:var(--ferias-laranja-bg);color:var(--ferias-laranja-text);border:1px solid var(--ferias-laranja-border);}
+body.light .sp-amarelo{background:var(--ferias-amarelo-bg);color:var(--ferias-amarelo-text);border:1px solid var(--ferias-amarelo-border);}
+body.light .sp-azul   {background:var(--ferias-azul-bg);color:var(--ferias-azul-text);}
+body.light .sp-roxo   {background:var(--ferias-roxo-bg);color:var(--ferias-roxo-text);}
+.upcoming-skeleton{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.upcoming-skel-card{height:108px;border-radius:var(--r);background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:feriasSkel 1.2s ease-in-out infinite;}
+@keyframes feriasSkel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.tl-retry{margin-top:12px;}
 .upcoming-edit-btn{opacity:0;transition:opacity .15s;flex-shrink:0;margin-left:auto;}
 .upcoming-item:hover .upcoming-edit-btn{opacity:1;}
 .upcoming-empty{text-align:center;padding:28px 20px;color:var(--text3);font-size:13px;background:var(--bg2);border:1px dashed var(--border);border-radius:var(--r);grid-column:1/-1;}
@@ -1308,17 +1339,20 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <option value="outro">Outra ausência</option>
     </select>
     <label>Data de início</label>
-    <input type="date" id="fEditInicio" onchange="syncFeriasDateMin('fEditInicio','fEditFim')">
+    <input type="date" id="fEditInicio" onchange="suggestFeriasEndDate('fEditInicio','fEditFim')">
     <label>Data de fim</label>
-    <input type="date" id="fEditFim">
+    <input type="date" id="fEditFim" onchange="this.dataset.userSet='1'">
     <div id="fEditStatusWrap">
     <label>Situação</label>
-    <select id="fEditStatus">
-      <option value="verde">Aprovado e agendado</option>
-      <option value="laranja">Confirmado c/ gestor</option>
-      <option value="amarelo">Pendente de aprovação</option>
-      <option value="azul">Planejado (possível)</option>
-    </select>
+    <div class="ferias-status-row">
+      <select id="fEditStatus" onchange="updateFeriasStatusPreview('fEditStatus','fEditStatusPreview')">
+        <option value="verde">Aprovado e agendado</option>
+        <option value="laranja">Confirmado c/ gestor</option>
+        <option value="amarelo">Pendente de aprovação</option>
+        <option value="azul">Planejado (possível)</option>
+      </select>
+      <span class="status-pill ferias-status-preview sp-verde" id="fEditStatusPreview">Aprovado e agendado</span>
+    </div>
     </div>
     <div class="ferias-edit-actions">
       <button class="btn danger" onclick="deleteFeriasCurrent()"><i class="ti ti-trash"></i> Remover</button>
@@ -1557,6 +1591,7 @@ const DEFAULT_GIST_ID='a82a82743ae0bc3d8887a69fb685d612';
 const DEFAULT_GIST_OWNER='alanclovis';
 const DIM_GAS_DIRECT_URL='https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec';
 const FERIAS_GAS_DIRECT_URL='';
+const FERIAS_SHEET_URL='https://docs.google.com/spreadsheets/d/1xv0WyTghWTCiQON16nATiAW7kCqiTpcsK-nKvXWkubA/edit';
 const DIM_GAS_LEGACY_DEPLOY_IDS=[
   'AKfycbzj23vyenWabiFcDlqiT8-cFo4yt9UzZ0OYs8qOWpYfEonZYPUeaiE9UaCVdg13HVz1',
   'AKfycbw2KPsVk5lx50rEIcTn3suoBpZK0OsmkI_6phatgf1vB6IXpIgqZM_OJzGJieSj_2b5'
@@ -3033,6 +3068,90 @@ async function migrateFeriasFromGistToSheet(){
   }catch(e){
     showStatus('error','Erro na migração: '+(e.message||e));
     setTimeout(hideStatus,5000);
+  }
+}
+
+let feriasUpcomingFilter='all';
+
+function isFeriasRecordOwner(f){
+  if(!f) return false;
+  const me=getUserName();
+  const email=getProfileEmail(me);
+  if(email&&f.email&&String(f.email).toLowerCase()===email) return true;
+  return !!me&&namesMatch(f.nome,me);
+}
+function setFeriasUpcomingFilter(mode){
+  feriasUpcomingFilter=mode==='mine'?'mine':'all';
+  document.getElementById('feriasFilterAll')?.classList.toggle('active',feriasUpcomingFilter==='all');
+  document.getElementById('feriasFilterMine')?.classList.toggle('active',feriasUpcomingFilter==='mine');
+  renderUpcoming();
+}
+async function refreshFeriasPage(){
+  showStatus('loading','Carregando férias da planilha...');
+  const ok=await loadFeriasFromSheet();
+  renderFerias();
+  renderFeriasLegend();
+  renderUpcoming();
+  if(ok){
+    showStatus('success','Férias atualizadas da planilha.');
+    setTimeout(hideStatus,2500);
+  }else{
+    showStatus('error',feriasSheetLoadError||'Erro ao carregar férias.');
+    setTimeout(hideStatus,5000);
+  }
+}
+function feriasGoToRecordMonth(inicio){
+  if(!inicio) return;
+  const [y,m]=inicio.split('-').map(Number);
+  if(!y||!m) return;
+  feriasYear=y;
+  feriasMonth=m-1;
+  renderFerias();
+  document.getElementById('feriasCard')?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function isFeriasLegendCollapsed(){
+  return localStorage.getItem('qhub_ferias_legend_collapsed')==='1';
+}
+function markFeriasLegendSeen(){
+  if(localStorage.getItem('qhub_ferias_legend_seen')) return;
+  localStorage.setItem('qhub_ferias_legend_seen','1');
+  localStorage.setItem('qhub_ferias_legend_collapsed','1');
+}
+function toggleFeriasLegend(){
+  const next=isFeriasLegendCollapsed()?'0':'1';
+  localStorage.setItem('qhub_ferias_legend_collapsed',next);
+  renderFeriasLegend();
+}
+function updateFeriasStatusPreview(selectId,previewId){
+  const sel=document.getElementById(selectId);
+  const prev=document.getElementById(previewId);
+  if(!sel||!prev) return;
+  const v=sel.value||'verde';
+  prev.className='status-pill ferias-status-preview sp-'+v;
+  prev.textContent=STATUS_LABEL[v]||v;
+}
+function suggestFeriasEndDate(inicioId,fimId,days){
+  days=days||14;
+  const ini=document.getElementById(inicioId);
+  const fim=document.getElementById(fimId);
+  if(!ini||!fim) return;
+  syncFeriasDateMin(inicioId,fimId);
+  if(!ini.value) return;
+  if(!fim.dataset.userSet){
+    const d=new Date(ini.value+'T12:00:00');
+    d.setDate(d.getDate()+days-1);
+    fim.value=d.toISOString().slice(0,10);
+  }
+}
+function showFeriasSaveSuccess(){
+  const bar=document.getElementById('statusBar');
+  const msgEl=document.getElementById('statusMsg');
+  if(!bar||!msgEl) return;
+  bar.className='status-bar success';
+  if((getUserRole()==='admin'||isAccessBootstrap())&&FERIAS_SHEET_URL){
+    msgEl.innerHTML='Salvo na planilha! <a href="'+escapeHtml(FERIAS_SHEET_URL)+'" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">Abrir planilha</a>';
+  }else{
+    msgEl.textContent='Salvo na planilha!';
   }
 }
 
@@ -5012,10 +5131,17 @@ const TIPO_LEGEND_DESC = {
 };
 const STATUS_SWATCH = {
   verde:   'var(--ferias-verde-bg)',
-  laranja: '#fef3c7',
-  amarelo: '#fef9c3',
-  azul:    '#dbeafe',
-  ausencia:'#ede9fe',
+  laranja: 'var(--ferias-laranja-bg)',
+  amarelo: 'var(--ferias-amarelo-bg)',
+  azul:    'var(--ferias-azul-bg)',
+  ausencia:'var(--ferias-roxo-bg)',
+};
+const STATUS_SWATCH_BORDER = {
+  verde:   'var(--ferias-verde-border)',
+  laranja: 'var(--ferias-laranja-border)',
+  amarelo: 'var(--ferias-amarelo-border)',
+  azul:    'var(--ferias-azul-border)',
+  ausencia:'var(--ferias-roxo-border)',
 };
 const STATUS_LEGEND_DESC = {
   verde:   'Já solicitou no Oracle. Férias confirmadas.',
@@ -5073,7 +5199,10 @@ let feriasTooltipTimeout=null;
 function buildFeriasBarTooltipHtml(f,nome,canEdit){
   const tipo=TIPO_LABEL[getFeriasTipo(f)];
   const period=formatFeriasPeriod(f.inicio,f.fim);
-  const statusLine=isFeriasRecord(f)?`<div class="fbt-row"><span class="fbt-label">Situação</span>${escapeHtml(STATUS_LABEL[f.status]||f.status)}</div>`:'';
+  const st=f.status||'verde';
+  const statusLine=isFeriasRecord(f)
+    ?`<div class="fbt-status-pill sp-${st}">${escapeHtml(STATUS_LABEL[st]||st)}</div>`
+    :'';
   return `<div class="fbt-name">${escapeHtml(nome)}</div>
     <div class="fbt-row"><span class="fbt-label">Tipo</span>${escapeHtml(tipo)}</div>
     <div class="fbt-row"><span class="fbt-label">Período</span>${escapeHtml(period)}</div>
@@ -5118,6 +5247,9 @@ function bindFeriasBarTooltip(bar,f,nome,canEdit){
 function renderFeriasLegend(){
   const el=document.getElementById('feriasLegend');
   if(!el) return;
+  markFeriasLegendSeen();
+  const collapsed=isFeriasLegendCollapsed();
+  el.classList.toggle('collapsed',collapsed);
   const tiposHtml=TIPO_ORDER.map(t=>`
     <div class="ferias-legend-tipo">
       <span class="ferias-legend-chip">${escapeHtml(TIPO_LABEL[t])}</span>
@@ -5126,13 +5258,18 @@ function renderFeriasLegend(){
   const feriasStatus=FERIAS_STATUS_ORDER;
   const statusHtml=feriasStatus.map(k=>`
     <div class="ferias-legend-status-item">
-      <div class="ferias-legend-swatch" style="background:${STATUS_SWATCH[k]}"></div>
+      <div class="ferias-legend-swatch" style="background:${STATUS_SWATCH[k]};border:1px solid ${STATUS_SWATCH_BORDER[k]}"></div>
       <div>
         <div class="ferias-legend-status-label">${escapeHtml(STATUS_LABEL[k])}</div>
         <div class="ferias-legend-status-desc">${escapeHtml(STATUS_LEGEND_DESC[k]||'')}</div>
       </div>
     </div>`).join('');
   el.innerHTML=`
+    <button type="button" class="ferias-legend-toggle" onclick="toggleFeriasLegend()" aria-expanded="${!collapsed}">
+      <i class="ti ti-${collapsed?'chevron-down':'chevron-up'}"></i>
+      Como ler férias e ausências
+    </button>
+    <div class="ferias-legend-body">
     <div class="ferias-legend-section">
       <div class="ferias-legend-head"><i class="ti ti-layout-grid"></i> Como ler a timeline</div>
       <p class="ferias-legend-lead">Cada barra mostra <strong>tipo + nome + duração</strong>, por exemplo: <span class="ferias-legend-example">Férias Alan (15d)</span></p>
@@ -5144,7 +5281,8 @@ function renderFeriasLegend(){
     <div class="ferias-legend-section">
       <div class="ferias-legend-head"><i class="ti ti-palette"></i> Cores — férias</div>
       <div class="ferias-legend-status">${statusHtml}</div>
-      <p class="ferias-legend-note"><span class="ferias-legend-swatch" style="display:inline-block;vertical-align:-1px;background:${STATUS_SWATCH.ausencia}"></span> Atestados e licenças aparecem em <strong>roxo</strong> na timeline — basta registrar tipo e datas, sem situação.</p>
+      <p class="ferias-legend-note"><span class="ferias-legend-swatch" style="display:inline-block;vertical-align:-1px;background:${STATUS_SWATCH.ausencia};border:1px solid ${STATUS_SWATCH_BORDER.ausencia}"></span> Atestados e licenças aparecem em <strong>roxo</strong> na timeline — basta registrar tipo e datas, sem situação.</p>
+    </div>
     </div>`;
 }
 function feriasTipoOptionsHtml(selected){
@@ -5160,6 +5298,8 @@ function onFeriasTipoChange(tipoId,statusId,statusWrapId){
   const isFerias=tipo==='ferias';
   if(wrap) wrap.style.display=isFerias?'':'none';
   if(st&&isFerias&&st.value==='roxo') st.value='verde';
+  if(isFerias&&statusId==='fStatus') updateFeriasStatusPreview('fStatus','fStatusPreview');
+  if(isFerias&&statusId==='fEditStatus') updateFeriasStatusPreview('fEditStatus','fEditStatusPreview');
 }
 function syncFeriasDateMin(inicioId,fimId){
   const ini=document.getElementById(inicioId);
@@ -5200,11 +5340,14 @@ function openFeriasEdit(fId){
   document.getElementById('fEditNome').value   = f.nome;
   document.getElementById('fEditInicio').value = f.inicio;
   document.getElementById('fEditFim').value    = f.fim;
+  const fimEdit=document.getElementById('fEditFim');
+  if(fimEdit) fimEdit.dataset.userSet='1';
   document.getElementById('fEditStatus').value = f.status||'verde';
   const tipoEl=document.getElementById('fEditTipo');
   if(tipoEl) tipoEl.value=getFeriasTipo(f);
   onFeriasTipoChange('fEditTipo','fEditStatus','fEditStatusWrap');
   syncFeriasDateMin('fEditInicio','fEditFim');
+  updateFeriasStatusPreview('fEditStatus','fEditStatusPreview');
   setFeriasEditModalMode(canEdit);
   document.getElementById('feriasEditBackdrop').classList.add('active');
 }
@@ -5230,8 +5373,8 @@ async function saveFeriasEdit(){
     closeFeriasEdit();
     renderFerias();
     renderUpcoming();
-    showStatus('success','Salvo na planilha!');
-    setTimeout(hideStatus,3000);
+    showFeriasSaveSuccess();
+    setTimeout(hideStatus,4000);
   }catch(e){
     showStatus('error','Erro ao salvar: '+(e.message||e));
     setTimeout(hideStatus,5000);
@@ -5262,35 +5405,61 @@ function renderUpcoming(){
   const list  = document.getElementById('upcomingList');
   const count = document.getElementById('upcomingCount');
   if(!list) return;
+  if(feriasSheetLoadState==='loading'){
+    list.innerHTML='<div class="upcoming-skeleton">'+Array(3).fill('<div class="upcoming-skel-card"></div>').join('')+'</div>';
+    if(count) count.style.display='none';
+    return;
+  }
   const today = new Date(); today.setHours(0,0,0,0);
   const cutoff = new Date(today); cutoff.setDate(cutoff.getDate()-30);
-  const sorted = getFeriasData()
+  let sorted = getFeriasData()
     .filter(f=> new Date(f.fim+'T00:00:00') >= cutoff)
     .sort((a,b)=> new Date(a.inicio+'T00:00:00') - new Date(b.inicio+'T00:00:00'));
-  if(count) count.textContent = sorted.length ? sorted.length+' registro'+(sorted.length>1?'s':'') : '';
-  if(count) count.style.display = sorted.length ? '' : 'none';
+  if(feriasUpcomingFilter==='mine'){
+    sorted=sorted.filter(f=>isFeriasRecordOwner(f));
+  }
+  if(count){
+    count.textContent = sorted.length ? sorted.length+' registro'+(sorted.length>1?'s':'') : '';
+    count.style.display = sorted.length ? '' : 'none';
+  }
   if(!sorted.length){
-    list.innerHTML='<div class="upcoming-empty"><i class="ti ti-beach" style="font-size:24px;display:block;margin-bottom:10px;opacity:.35"></i>Nenhum registro próximo</div>';
+    const emptyMsg=feriasUpcomingFilter==='mine'
+      ?'Nenhum registro seu nos próximos meses'
+      :'Nenhum registro próximo';
+    list.innerHTML='<div class="upcoming-empty"><i class="ti ti-beach" style="font-size:24px;display:block;margin-bottom:10px;opacity:.35"></i>'+emptyMsg+'</div>';
     return;
   }
   list.innerHTML='';
   const MONTHS_S=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  let lastMonthKey='';
+  const groupByMonth=sorted.length>3;
   sorted.forEach(f=>{
+    const monthKey=f.inicio.slice(0,7);
+    if(groupByMonth&&monthKey!==lastMonthKey){
+      const gh=document.createElement('div');
+      gh.className='upcoming-month-group';
+      const [y,m]=monthKey.split('-');
+      gh.textContent=MESES[parseInt(m,10)-1]+' '+y;
+      list.appendChild(gh);
+      lastMonthKey=monthKey;
+    }
     const start=new Date(f.inicio+'T00:00:00');
     const end=new Date(f.fim+'T00:00:00');
     const days=Math.round((end-start)/86400000)+1;
     const [sy,sm,sd]=f.inicio.split('-');
     const [ey,em,ed]=f.fim.split('-');
-    const startFmt=sd+' '+MONTHS_S[parseInt(sm)-1];
-    const endFmt=ed+' '+MONTHS_S[parseInt(em)-1];
+    const startFmt=sd+' '+MONTHS_S[parseInt(sm,10)-1];
+    const endFmt=ed+' '+MONTHS_S[parseInt(em,10)-1];
     let timeLabel='';
     let countdownClass='upcoming-countdown';
+    const isOngoing=start<=today&&end>=today;
     if(start>today){ const diff=Math.round((start-today)/86400000); timeLabel=diff===1?'Começa amanhã':'Em '+diff+' dias'; countdownClass+=' active'; }
-    else if(end>=today){ timeLabel='Em andamento'; countdownClass+=' active'; }
+    else if(isOngoing){ timeLabel='Em andamento'; countdownClass+=' ongoing'; }
     else { timeLabel='Encerrado'; countdownClass+=' done'; }
     const canEdit=canEditFeriasRecord(f);
+    const tipoKey=getFeriasTipo(f);
     const item=document.createElement('div');
-    item.className='upcoming-item';
+    item.className='upcoming-item'+(isOngoing?' ongoing':'');
     item.dataset.status=isFeriasRecord(f)?(f.status||'verde'):'ausencia';
     item.style.cursor='pointer';
     item.innerHTML=`
@@ -5304,14 +5473,14 @@ function renderUpcoming(){
           ${canEdit?`<button class="btn-sm upcoming-edit-btn" onclick="openFeriasEdit('${f.id}');event.stopPropagation()"><i class="ti ti-pencil"></i></button>`:''}
         </div>
         <div class="upcoming-footer">
-          <span class="upcoming-tipo">${escapeHtml(TIPO_LABEL[getFeriasTipo(f)])}</span>
+          <span class="upcoming-tipo upcoming-tipo-tipo-${tipoKey}">${escapeHtml(TIPO_LABEL[tipoKey])}</span>
           ${isFeriasRecord(f)?`<span class="status-pill sp-${f.status||'verde'}">${STATUS_LABEL[f.status]||f.status}</span>`:''}
           <span class="${countdownClass}">${timeLabel}</span>
         </div>
       </div>
     `;
     item.querySelector('.upcoming-av-slot').appendChild(createAvatarEl(f.nome,40,'upcoming-av'));
-    item.addEventListener('click',()=>openFeriasEdit(f.id));
+    item.addEventListener('click',()=>feriasGoToRecordMonth(f.inicio));
     list.appendChild(item);
   });
 }
@@ -5375,8 +5544,12 @@ function openFeriasForm(){
   onFeriasTipoChange('fTipo','fStatus','fStatusRow');
   const y = feriasYear, m = String(feriasMonth+1).padStart(2,'0');
   document.getElementById('fInicio').value = y+'-'+m+'-01';
-  document.getElementById('fFim').value    = y+'-'+m+'-15';
+  const fimEl=document.getElementById('fFim');
+  fimEl.value    = y+'-'+m+'-15';
+  delete fimEl.dataset.userSet;
+  suggestFeriasEndDate('fInicio','fFim');
   syncFeriasDateMin('fInicio','fFim');
+  updateFeriasStatusPreview('fStatus','fStatusPreview');
 }
 function closeFeriasForm(){
   document.getElementById('feriasForm').classList.remove('active');
@@ -5404,8 +5577,8 @@ async function saveFerias(){
     closeFeriasForm();
     renderFerias();
     renderUpcoming();
-    showStatus('success','Salvo na planilha!');
-    setTimeout(hideStatus,3000);
+    showFeriasSaveSuccess();
+    setTimeout(hideStatus,4000);
   }catch(e){
     showStatus('error','Erro ao salvar: '+(e.message||e));
     setTimeout(hideStatus,5000);
@@ -5422,10 +5595,12 @@ function renderFerias(){
 
   if(feriasSheetLoadState==='loading'){
     card.innerHTML='<div class="tl-empty-state"><i class="ti ti-loader-2 tl-empty-icon" style="animation:spin 1s linear infinite"></i><h4>Carregando da planilha...</h4></div>';
+    renderUpcoming();
     return;
   }
   if(feriasSheetLoadState==='error'&&feriasSheetLoadError){
-    card.innerHTML=`<div class="tl-empty-state"><i class="ti ti-alert-circle tl-empty-icon"></i><h4>Não foi possível carregar férias</h4><p>${escapeHtml(feriasSheetLoadError)}</p></div>`;
+    card.innerHTML=`<div class="tl-empty-state"><i class="ti ti-alert-circle tl-empty-icon"></i><h4>Não foi possível carregar férias</h4><p>${escapeHtml(feriasSheetLoadError)}</p><button type="button" class="btn-sm purple tl-retry" onclick="refreshFeriasPage()"><i class="ti ti-refresh"></i> Tentar de novo</button></div>`;
+    renderUpcoming();
     return;
   }
 
@@ -6637,7 +6812,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
         <span class="ferias-month" id="feriasMonthLabel"></span>
         <button class="btn-sm" onclick="feriasChangeMonth(1)"><i class="ti ti-chevron-right"></i></button>
       </div>
-      <button class="btn-sm" onclick="refreshPackData()" title="Buscar dados mais recentes do pack"><i class="ti ti-refresh"></i> Atualizar</button>
+      <button class="btn-sm" onclick="refreshFeriasPage()" title="Recarregar da planilha"><i class="ti ti-refresh"></i> Atualizar</button>
       <button class="btn-sm purple" style="white-space:nowrap" onclick="openFeriasForm()"><i class="ti ti-plus"></i> Registrar período</button>
     </div>
   </div>
@@ -6661,22 +6836,25 @@ window.addEventListener('DOMContentLoaded',async()=>{
     <div class="ferias-form-row">
       <div>
         <label>Data de início</label>
-        <input type="date" id="fInicio" onchange="syncFeriasDateMin('fInicio','fFim')">
+        <input type="date" id="fInicio" onchange="suggestFeriasEndDate('fInicio','fFim')">
       </div>
       <div>
         <label>Data de fim</label>
-        <input type="date" id="fFim">
+        <input type="date" id="fFim" onchange="this.dataset.userSet='1'">
       </div>
     </div>
     <div class="ferias-form-row" id="fStatusRow">
-      <div>
+      <div style="flex:1">
         <label>Situação</label>
-        <select id="fStatus">
-          <option value="verde">Aprovado e agendado</option>
-          <option value="laranja">Confirmado c/ gestor</option>
-          <option value="amarelo">Pendente de aprovação</option>
-          <option value="azul">Planejado (possível)</option>
-        </select>
+        <div class="ferias-status-row">
+          <select id="fStatus" onchange="updateFeriasStatusPreview('fStatus','fStatusPreview')">
+            <option value="verde">Aprovado e agendado</option>
+            <option value="laranja">Confirmado c/ gestor</option>
+            <option value="amarelo">Pendente de aprovação</option>
+            <option value="azul">Planejado (possível)</option>
+          </select>
+          <span class="status-pill ferias-status-preview sp-verde" id="fStatusPreview">Aprovado e agendado</span>
+        </div>
       </div>
     </div>
     <div style="display:flex;gap:8px">
@@ -6697,7 +6875,13 @@ window.addEventListener('DOMContentLoaded',async()=>{
       <i class="ti ti-calendar-event"></i>
       Próximos registros
     </div>
-    <span class="upcoming-count-badge" id="upcomingCount"></span>
+    <div class="upcoming-header-actions">
+      <div class="upcoming-filter" id="feriasUpcomingFilter">
+        <button type="button" class="btn-sm active" id="feriasFilterAll" onclick="setFeriasUpcomingFilter('all')">Todo o time</button>
+        <button type="button" class="btn-sm" id="feriasFilterMine" onclick="setFeriasUpcomingFilter('mine')">Só meus</button>
+      </div>
+      <span class="upcoming-count-badge" id="upcomingCount"></span>
+    </div>
   </div>
   <div class="upcoming-list" id="upcomingList"></div>
 </div></div><!-- end layout -->
