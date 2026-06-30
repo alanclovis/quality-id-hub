@@ -10,11 +10,17 @@
 var FERIAS_SHEET_ID = ''; // opcional se usar Propriedades do script (FERIAS_SHEET_ID)
 var FERIAS_TAB_NAME = 'Férias';
 var FERIAS_HEADERS = ['id', 'nome', 'email', 'inicio', 'fim', 'tipo', 'status', 'updated_at', 'updated_by'];
+var FERIAS_TIMEZONE = 'America/Sao_Paulo';
 
 function feriasGetSheetId_() {
   var fromProps = PropertiesService.getScriptProperties().getProperty('FERIAS_SHEET_ID');
   var id = String(fromProps || FERIAS_SHEET_ID || '').trim();
   return id;
+}
+
+/** Timestamp legível em horário de Brasília (sem Z/UTC). */
+function feriasNow_() {
+  return Utilities.formatDate(new Date(), FERIAS_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss");
 }
 
 function doGet(e) {
@@ -86,7 +92,7 @@ function feriasApiCall_(action, payloadJson) {
 function feriasHandleAction_(action, payload) {
   switch (action) {
     case 'ping':
-      return { pong: true, ts: new Date().toISOString() };
+      return { pong: true, ts: feriasNow_() };
     case 'getFerias':
       return feriasGetAll_();
     case 'saveFerias':
@@ -215,7 +221,7 @@ function feriasRecordToRow_(rec) {
     rec.fim,
     rec.tipo || 'ferias',
     rec.tipo === 'ferias' ? (rec.status || 'verde') : '',
-    rec.updated_at || new Date().toISOString(),
+    rec.updated_at || feriasNow_(),
     rec.updated_by || ''
   ];
 }
@@ -240,7 +246,7 @@ function feriasSave_(payload) {
   var status = tipo === 'ferias' ? (record.status || 'verde') : null;
 
   var sheet = feriasGetSheet_();
-  var now = new Date().toISOString();
+  var now = feriasNow_();
   var updatedBy = userEmail || memberName;
   var id = String(record.id || '').trim();
 
@@ -300,7 +306,7 @@ function feriasDelete_(payload) {
   var existing = feriasRowToRecord_(sheet.getRange(rowIdx, 1, 1, FERIAS_HEADERS.length).getValues()[0]);
   feriasAssertCanModify_(existing, payload);
   sheet.deleteRow(rowIdx);
-  return { deleted: id, deletedAt: new Date().toISOString() };
+  return { deleted: id, deletedAt: feriasNow_() };
 }
 
 /** Importação one-shot (admin). payload.records = array de registros; ignora ids já existentes */
@@ -326,7 +332,7 @@ function feriasMigrate_(payload) {
       fim: feriasFormatDate_(raw.fim),
       tipo: String(raw.tipo || 'ferias').trim() || 'ferias',
       status: raw.tipo === 'ferias' || !raw.tipo ? (raw.status || 'verde') : null,
-      updated_at: raw.updated_at || new Date().toISOString(),
+      updated_at: raw.updated_at || feriasNow_(),
       updated_by: raw.updated_by || 'migrate'
     };
     sheet.appendRow(feriasRecordToRow_(rec));
