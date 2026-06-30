@@ -9,3 +9,4 @@ SlotDictionaryStatic.gs
 PopulateH2_oneshot.gs.js
 GerarLinhas.gs.js
 pack-bridge/**
+ferias-bridge/**
