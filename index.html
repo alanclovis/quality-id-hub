@@ -5264,7 +5264,7 @@ function renderUpcoming(){
   if(!list) return;
   const today = new Date(); today.setHours(0,0,0,0);
   const cutoff = new Date(today); cutoff.setDate(cutoff.getDate()-30);
-  const sorted = (data.ferias||[])
+  const sorted = getFeriasData()
     .filter(f=> new Date(f.fim+'T00:00:00') >= cutoff)
     .sort((a,b)=> new Date(a.inicio+'T00:00:00') - new Date(b.inicio+'T00:00:00'));
   if(count) count.textContent = sorted.length ? sorted.length+' registro'+(sorted.length>1?'s':'') : '';
