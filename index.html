@@ -3003,7 +3003,7 @@ async function loadMembersFromSheet(){
   membersSheetLoadState='loading';
   membersSheetLoadError='';
   try{
-    const res=await feriasJsonpApi('getMembers',{});
+    const res=await feriasApi('getMembers',{});
     const users=res?.accessUsers;
     if(!Array.isArray(users)||!users.length){
       membersSheetLoadState='ready';
@@ -3036,7 +3036,7 @@ async function syncOwnProfileViaSheet(name,oldName){
   const email=profile.email||getProfileEmail(name)||'';
   showStatus('loading','Publicando perfil na planilha...');
   try{
-    const res=await feriasJsonpApi('saveMemberProfile',Object.assign({
+    const res=await feriasApi('saveMemberProfile',Object.assign({
       inviteCode:code,
       name,
       memberName:name,
@@ -3070,7 +3070,7 @@ async function syncMembersToSheet(){
   syncAccessUserEmailsFromProfiles();
   showStatus('loading','Salvando membros na planilha...');
   try{
-    const res=await feriasJsonpApi('patchMembers',Object.assign({
+    const res=await feriasApi('patchMembers',Object.assign({
       inviteCode:code||'',
       memberName:getUserName(),
       accessUsers:data.accessUsers||[],
@@ -3099,7 +3099,7 @@ async function migrateMembersFromGistToSheet(){
   if(!confirm('Importar '+accessUsers.length+' membro(s) para a aba Membros? A aba será substituída.')) return;
   showStatus('loading','Importando membros para a planilha...');
   try{
-    const res=await feriasJsonpApi('migrateMembers',Object.assign({ accessUsers, profiles },feriasApiPayloadExtra()));
+    const res=await feriasApi('migrateMembers',Object.assign({ accessUsers, profiles },feriasApiPayloadExtra()));
     applyMembersSheetPayload(res);
     saveLocal();
     showStatus('success','Membros importados para a planilha.');
@@ -3139,6 +3139,37 @@ function feriasBridgeExecBase(){
   const url=getFeriasBridgeUrl();
   if(!url) return '';
   return url.replace(/\/dev$/,'/exec').replace(/\?.*$/,'');
+}
+const FERIAS_POST_ACTIONS={ migrateMembers:1, patchMembers:1, migrateFerias:1 };
+function feriasUsesPost(action,payload){
+  if(FERIAS_POST_ACTIONS[action]) return true;
+  try{ return JSON.stringify(payload||{}).length>1800; }catch(e){ return false; }
+}
+function feriasPostApi(action,payload,timeoutMs){
+  timeoutMs=timeoutMs||60000;
+  const base=feriasBridgeExecBase();
+  if(!base) return Promise.reject(new Error('URL Planilha Hub não configurada. Admin: Configuração → Técnico → URL Planilha Hub.'));
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  return fetch(base,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({ ferias:action, payload:payload||{} }),
+    signal:controller.signal,
+    redirect:'follow',
+    cache:'no-store'
+  }).then(r=>r.text()).then(text=>{
+    let res;
+    try{ res=JSON.parse(text); }catch(e){ throw new Error('Resposta inválida da ponte de férias'); }
+    if(res&&res.ok) return res.data;
+    throw new Error((res&&res.error)||'Erro na ponte de férias');
+  }).catch(e=>{
+    if(e&&e.name==='AbortError') throw new Error('Timeout ao comunicar com a ponte de férias');
+    throw e;
+  }).finally(()=>clearTimeout(timer));
+}
+function feriasApi(action,payload,timeoutMs){
+  return feriasUsesPost(action,payload)?feriasPostApi(action,payload,timeoutMs):feriasJsonpApi(action,payload,timeoutMs);
 }
 function feriasJsonpApi(action,payload,timeoutMs){
   timeoutMs=timeoutMs||45000;
@@ -3194,7 +3225,7 @@ async function loadFeriasFromSheet(){
   feriasSheetLoadState='loading';
   feriasSheetLoadError='';
   try{
-    const res=await feriasJsonpApi('getFerias',{});
+    const res=await feriasApi('getFerias',{});
     feriasSheetData=normalizeFeriasSheetRecords(res?.ferias||[]);
     feriasSheetLoadState='ready';
     return true;
@@ -3238,7 +3269,7 @@ async function migrateFeriasFromGistToSheet(){
   if(!confirm('Importar '+records.length+' registro(s) do Gist para a planilha? IDs já existentes serão ignorados.')) return;
   showStatus('loading','Importando férias para a planilha...');
   try{
-    const res=await feriasJsonpApi('migrateFerias',Object.assign({ records },feriasApiPayloadExtra()));
+    const res=await feriasApi('migrateFerias',Object.assign({ records },feriasApiPayloadExtra()));
     showStatus('success','Importados: '+(res.imported||0)+', ignorados: '+(res.skipped||0));
     setTimeout(hideStatus,4000);
     await loadFeriasFromSheet();
@@ -5576,7 +5607,7 @@ async function saveFeriasEdit(){
   if(tipo==='ferias') record.status=getFeriasStatusFromForm('fEditTipo','fEditStatus')||f.status||'verde';
   showStatus('loading','Salvando na planilha...');
   try{
-    await feriasJsonpApi('saveFerias',Object.assign({ record },feriasApiPayloadExtra()));
+    await feriasApi('saveFerias',Object.assign({ record },feriasApiPayloadExtra()));
     await loadFeriasFromSheet();
     closeFeriasEdit();
     renderFerias();
@@ -5596,7 +5627,7 @@ async function deleteFeriasCurrent(){
   if(!confirm('Remover este registro?')) return;
   showStatus('loading','Removendo da planilha...');
   try{
-    await feriasJsonpApi('deleteFerias',Object.assign({ id },feriasApiPayloadExtra()));
+    await feriasApi('deleteFerias',Object.assign({ id },feriasApiPayloadExtra()));
     await loadFeriasFromSheet();
     closeFeriasEdit();
     renderFerias();
@@ -5780,7 +5811,7 @@ async function saveFerias(){
   if(tipo==='ferias') record.status=getFeriasStatusFromForm('fTipo','fStatus')||'verde';
   showStatus('loading','Salvando na planilha...');
   try{
-    await feriasJsonpApi('saveFerias',Object.assign({ record },feriasApiPayloadExtra()));
+    await feriasApi('saveFerias',Object.assign({ record },feriasApiPayloadExtra()));
     await loadFeriasFromSheet();
     closeFeriasForm();
     renderFerias();

@@ -53,7 +53,7 @@ function doPost(e) {
   } catch (err) {
     body = {};
   }
-  var action = body.action || (e.parameter && e.parameter.ferias);
+  var action = body.ferias || body.action || (e.parameter && e.parameter.ferias);
   var payload = body.payload != null ? body.payload : (e.parameter && e.parameter.payload) || {};
   if (typeof payload === 'string') {
     try { payload = JSON.parse(payload); } catch (e2) { payload = {}; }
@@ -381,10 +381,19 @@ function membersNormalizeInviteCode_(code) {
   return String(code || '').trim().toUpperCase().replace(/\s+/g, '');
 }
 
-function membersGetSheet_() {
+function membersGetSheet_(opts) {
+  opts = opts || {};
   var ss = feriasGetSpreadsheet_();
   var sheet = ss.getSheetByName(MEMBERS_TAB_NAME);
-  if (!sheet) feriasThrow_('Aba "' + MEMBERS_TAB_NAME + '" não encontrada. Rode setupMembersSheet().', 500);
+  if (!sheet) {
+    if (!opts.create) {
+      feriasThrow_('Aba "' + MEMBERS_TAB_NAME + '" não encontrada. Rode setupMembersSheet().', 500);
+    }
+    sheet = ss.insertSheet(MEMBERS_TAB_NAME);
+    sheet.getRange(1, 1, 1, MEMBERS_HEADERS.length).setValues([MEMBERS_HEADERS]);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, MEMBERS_HEADERS.length).setFontWeight('bold');
+  }
   return sheet;
 }
 
@@ -626,5 +635,6 @@ function membersMigrate_(payload) {
   var accessUsers = payload.accessUsers;
   var profiles = payload.profiles || {};
   if (!Array.isArray(accessUsers)) feriasThrow_('Lista accessUsers inválida');
+  membersGetSheet_({ create: true });
   return membersPatch_(Object.assign({}, payload, { accessUsers: accessUsers, profiles: profiles }));
 }
