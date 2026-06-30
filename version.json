@@ -1,5 +1,5 @@
 {
-  "commit": "33f7abc",
-  "message": "Fix Hub dimensionamento save silently failing for some analysts.",
-  "date": "2026-06-24 09:45:04 -0300"
+  "commit": "5b1543a",
+  "message": "Fix dimensionamento timeout by aligning GAS deploy with JSONP bridge.",
+  "date": "2026-06-30 12:45:00 -0300"
 }
