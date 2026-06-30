@@ -545,7 +545,13 @@ function membersSaveProfile_(payload) {
   if (!email && profile.email) email = String(profile.email).toLowerCase().trim();
   if (!name || !profile) feriasThrow_('Perfil inválido');
 
-  var ctx = membersValidateMember_(payload.inviteCode, oldName || name);
+  var ctx = membersFindUserByCode_(payload.inviteCode);
+  if (!ctx) feriasThrow_('Código inválido ou usuário inativo', 403);
+  if (ctx.role === 'visitor') feriasThrow_('Visitantes não podem publicar no pack', 403);
+  var checkName = oldName || name;
+  if (checkName && !feriasNamesMatch_(ctx.name, checkName) && !feriasNamesMatch_(ctx.name, name)) {
+    feriasThrow_('Código não corresponde a este perfil', 403);
+  }
   var sheet = membersGetSheet_();
   var rowIdx = membersFindRowIndexById_(sheet, ctx.id);
   if (rowIdx < 0) feriasThrow_('Membro não encontrado na planilha', 404);

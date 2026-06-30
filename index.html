@@ -2270,6 +2270,7 @@ function restoreMemberEmailFromLocal(name){
 function canSyncProfileToGist(){
   if(isVisitor()) return false;
   if(!getUserName()||!canUseMemberFeatures()) return false;
+  if(membersSheetActive()) return canSyncProfileToSheet();
   if(canSyncProfileToSheet()) return true;
   if(canSyncViaBridge()&&resolveBridgeInviteCode()) return true;
   if(getToken()&&getGistId()) return true;
@@ -2915,6 +2916,15 @@ function getMemberInviteCode(){
 function resolveBridgeInviteCode(){
   const saved=getMemberInviteCode();
   if(saved) return saved;
+  const uid=localStorage.getItem('qhub_user_id');
+  if(uid&&uid!==VISITOR_PACK_USER_ID){
+    const byId=getAccessUserById(uid);
+    if(byId?.status==='active'&&byId.inviteCode){
+      const code=normalizeInviteCode(byId.inviteCode);
+      try{ localStorage.setItem('qhub_saved_invite_code',code); }catch(e){/* ignore */}
+      return code;
+    }
+  }
   const name=getUserName();
   if(!name) return '';
   const u=getAccessUserRecord(name);
@@ -3050,12 +3060,21 @@ function packDataForGistSave(src,opts){
   }
   return payload;
 }
+let lastProfileSyncError='';
 async function syncOwnProfileViaSheet(name,oldName){
+  lastProfileSyncError='';
   const code=resolveBridgeInviteCode();
-  if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
+  if(!code){
+    lastProfileSyncError='Código de acesso não encontrado. Entre novamente com seu código.';
+    alert(lastProfileSyncError);
+    return false;
+  }
   let profile=data.profiles[name];
   if(!profile&&oldName&&oldName!==name) profile=data.profiles[oldName];
-  if(!profile) return false;
+  if(!profile){
+    lastProfileSyncError='Perfil não encontrado localmente.';
+    return false;
+  }
   const email=profile.email||getProfileEmail(name)||getProfileEmail(oldName)||'';
   showStatus('loading','Publicando perfil na planilha...');
   try{
@@ -3081,7 +3100,8 @@ async function syncOwnProfileViaSheet(name,oldName){
     setTimeout(hideStatus,3000);
     return true;
   }catch(e){
-    showStatus('error','Erro ao publicar perfil: '+(e.message||e));
+    lastProfileSyncError=(e&&e.message)||'Erro ao publicar perfil';
+    showStatus('error','Erro ao publicar perfil: '+lastProfileSyncError);
     setTimeout(hideStatus,5000);
     return false;
   }
@@ -5011,11 +5031,14 @@ async function saveProfile(){
   const oldName=getUserName();
   if(!oldName) return;
   const rawName=document.getElementById('nameInput')?.value.trim()||oldName;
+  const normRaw=rawName.replace(/\s+/g,' ').trim();
   let val=oldName;
-  if(!namesMatch(rawName,oldName)){
-    const renamed=renameMemberIdentity(oldName,rawName);
+  if(normalizeNameKey(normRaw)!==normalizeNameKey(oldName)){
+    const renamed=renameMemberIdentity(oldName,normRaw);
     if(!renamed) return;
     val=renamed;
+  }else{
+    val=normRaw;
   }
   const emailRaw=(document.getElementById('profileEmailInput')?.value||'').trim().toLowerCase();
   if(emailRaw&&!emailRaw.endsWith('@nubank.com.br')){
@@ -5058,9 +5081,11 @@ async function saveProfile(){
   saveLocal();
   let synced=true;
   if(canSyncProfileToGist()) synced=await syncOwnProfileToGist(val,oldName);
-  if(emailRaw&&!synced){
+  else if(membersSheetActive()) lastProfileSyncError='Entre novamente com seu código de acesso para publicar na planilha.';
+  if(!synced){
     const dest=membersSheetActive()?'na planilha':'no pack';
-    alert('E-mail salvo neste navegador, mas não foi possível publicar '+dest+'. Tente de novo'+(membersSheetActive()?' (confira seu código de acesso).':' ou peça ao admin para cadastrar seu e-mail em Configuração → Usuários.'));
+    const detail=lastProfileSyncError||('Não foi possível publicar '+dest+'. Tente de novo.');
+    alert('E-mail salvo neste navegador, mas '+detail.toLowerCase());
   }
   if(document.getElementById('pageDimensionamento')?.classList.contains('active')){
     syncDimensionamentoPageAccess();
