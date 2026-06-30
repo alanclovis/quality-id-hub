@@ -261,8 +261,11 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .config-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
 .config-tab{font-size:12px;font-weight:500;padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;}
 .config-tab.active{background:var(--purple-bg);border-color:rgba(139,92,246,0.4);color:var(--purple-l);}
-.config-panel{display:none;overflow-y:auto;flex:1;}
-.config-panel.active{display:block;}
+.config-modal{max-width:min(720px,94vw);max-height:min(88vh,900px);display:flex;flex-direction:column;}
+.config-modal .config-tabs{flex-shrink:0;}
+.config-modal .config-panel.active{display:flex;flex-direction:column;min-height:0;flex:1;}
+.config-panel{display:none;overflow-y:auto;flex:1;min-height:0;}
+.config-panel.active{display:flex;flex-direction:column;}
 .access-status{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg3);border-radius:var(--r);margin-bottom:14px;}
 .access-status-info{flex:1;min-width:0;text-align:left;}
 .access-status-name{font-size:14px;font-weight:600;color:var(--text);}
@@ -275,10 +278,40 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 .access-role-pill.visitor{background:var(--bg3);color:var(--text2);}
 .access-role-pill.pending{background:#fef3c7;color:#92400e;}
 .access-role-pill.revoked{background:var(--bg3);color:var(--text3);}
-.access-users-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
-.access-users-table th,.access-users-table td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle;}
-.access-users-table th{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
-.access-users-table select,.access-add-row input,.access-add-row select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;font-family:inherit;}
+.access-users-table{width:100%;border-collapse:collapse;font-size:12px;margin:0;}
+.access-users-table th,.access-users-table td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle;}
+.access-users-table th{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:var(--bg2);z-index:1;}
+.access-users-table tr.revoked td{opacity:.55;}
+.access-users-table tr.revoked .access-user-name{text-decoration:line-through;}
+.access-users-table select.role-select{min-width:108px;width:100%;max-width:130px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;font-family:inherit;}
+.access-code-pill{display:inline-flex;align-items:center;gap:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:600;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 8px;}
+.access-code-actions{display:inline-flex;gap:2px;margin-left:4px;vertical-align:middle;}
+.access-email-cell{font-size:12px;color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.access-email-missing{color:var(--text3);font-style:italic;}
+.access-user-name{font-weight:600;color:var(--text);}
+.access-user-meta{font-size:10px;color:var(--text3);margin-top:2px;}
+.access-user-actions{display:flex;gap:4px;justify-content:flex-end;}
+.access-action-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit;}
+.access-action-btn:hover{background:var(--bg);color:var(--text);border-color:var(--border-h);}
+.access-action-btn.danger{color:#b91c1c;border-color:rgba(248,113,113,.35);}
+.access-action-btn.danger:hover{background:#fef2f2;}
+.users-info-banner{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);font-size:11px;color:var(--text2);line-height:1.45;margin-bottom:12px;}
+.users-info-banner i{font-size:16px;color:var(--purple-l);flex-shrink:0;margin-top:1px;}
+.users-panel-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.users-panel-stats{display:flex;flex-wrap:wrap;gap:6px;}
+.users-stat-pill{font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);}
+.users-search-wrap{flex:1;min-width:160px;max-width:280px;}
+.users-search-wrap input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 10px 7px 32px;font-size:12px;font-family:inherit;}
+.users-search-wrap{position:relative;}
+.users-search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text3);pointer-events:none;}
+.access-users-scroll{overflow:auto;flex:1;min-height:120px;max-height:min(42vh,360px);border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);}
+.users-add-card{margin-bottom:14px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);}
+.users-add-card h4{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;}
+.users-add-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.users-add-grid .span-2{grid-column:1/-1;}
+.users-add-grid label{font-size:11px;color:var(--text3);display:block;margin-bottom:4px;}
+.users-add-grid input,.users-add-grid select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 9px;font-size:12px;font-family:inherit;}
+.users-add-actions{margin-top:12px;display:flex;justify-content:flex-end;}
 .access-add-row{display:grid;grid-template-columns:1fr 110px auto;gap:8px;margin-top:12px;align-items:end;}
 .access-hint{font-size:11px;color:var(--text3);line-height:1.45;margin:10px 0;}
 .access-empty{text-align:center;padding:16px;color:var(--text3);font-size:12px;}
@@ -928,6 +961,10 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 
 @media(max-width:600px){
   .access-add-row{grid-template-columns:1fr;}
+  .users-add-grid{grid-template-columns:1fr;}
+  .users-search-wrap{max-width:none;width:100%;}
+  .access-users-scroll{max-height:50vh;}
+  .access-action-btn span{display:none;}
   .layout{padding:1rem 1rem 3rem;}
   .header{display:flex;flex-direction:column;align-items:stretch;gap:20px;padding:20px;}
   .header-left{width:100%;}
@@ -1311,20 +1348,61 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       </div>
     </div>
     <div class="config-panel" id="configPanelUsers">
-      <p class="access-hint">Cadastre cada pessoa com nome e papel. Membros recebem <strong>código pessoal</strong> no Slack. Com a planilha ativa, alterações vão para a aba <strong>Membros</strong> (não duplicam no Gist).</p>
+      <div class="users-info-banner">
+        <i class="ti ti-info-circle"></i>
+        <div>
+          <strong>Membros entram com código pessoal</strong> (envie no Slack). Com a planilha ativa, tudo salva na aba <strong>Membros</strong> — cada pessoa edita o próprio perfil no hub.
+        </div>
+      </div>
       <div class="profiles-publish-box" id="profilesPublishBox" style="display:none">
         <p class="access-hint">Cada membro publica o próprio perfil ao salvar (código + bridge do pack, ou token em Técnico). Use o botão abaixo só para recuperar perfis que existam <strong>neste navegador</strong> — não alcança outros computadores.</p>
         <p class="access-hint" id="profilesPublishSummary"></p>
         <button class="btn primary" id="btnPublishProfiles" onclick="publishProfilesToGist()"><i class="ti ti-cloud-upload"></i> Publicar perfis no Gist</button>
       </div>
-      <div id="accessUsersPanel"></div>
-      <div class="access-add-row">
-        <div><label style="font-size:11px;color:var(--text3)">Nome</label><input type="text" id="accessNewName" placeholder="Ex: Alan Clovis"></div>
-        <div><label style="font-size:11px;color:var(--text3)">Papel</label><select id="accessNewRole"><option value="member">Membro</option><option value="visitor">Visitante</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
-        <div><label style="font-size:11px;color:var(--text3)">Nível (opc.)</label><select id="accessNewLevel"><option value="">—</option><option value="Assistant II">Assistant II</option><option value="Analyst I">Analyst I</option><option value="Analyst II">Analyst II</option><option value="Coordinator">Coordinator</option><option value="Associate Manager">Associate Manager</option></select></div>
-        <div><label style="font-size:11px;color:var(--text3)">E-mail Nubank</label><input type="email" id="accessNewEmail" placeholder="nome.sobrenome@nubank.com.br"></div>
-        <button class="btn primary" onclick="adminAddAccessUser()"><i class="ti ti-plus"></i> Add</button>
+      <div class="users-add-card">
+        <h4><i class="ti ti-user-plus"></i> Adicionar pessoa</h4>
+        <div class="users-add-grid">
+          <div>
+            <label for="accessNewName">Nome</label>
+            <input type="text" id="accessNewName" placeholder="Ex: Alan Clovis" autocomplete="off">
+          </div>
+          <div>
+            <label for="accessNewEmail">E-mail Nubank</label>
+            <input type="email" id="accessNewEmail" placeholder="nome.sobrenome@nubank.com.br" autocomplete="off">
+          </div>
+          <div>
+            <label for="accessNewRole">Papel</label>
+            <select id="accessNewRole">
+              <option value="member">Membro — perfil e férias</option>
+              <option value="visitor">Visitante — só leitura</option>
+              <option value="editor">Editor — links e prioridades</option>
+              <option value="admin">Admin — acesso total</option>
+            </select>
+          </div>
+          <div>
+            <label for="accessNewLevel">Nível (opcional)</label>
+            <select id="accessNewLevel">
+              <option value="">—</option>
+              <option value="Assistant II">Assistant II</option>
+              <option value="Analyst I">Analyst I</option>
+              <option value="Analyst II">Analyst II</option>
+              <option value="Coordinator">Coordinator</option>
+              <option value="Associate Manager">Associate Manager</option>
+            </select>
+          </div>
+        </div>
+        <div class="users-add-actions">
+          <button class="btn primary" type="button" onclick="adminAddAccessUser()"><i class="ti ti-plus"></i> Adicionar</button>
+        </div>
       </div>
+      <div class="users-panel-toolbar" id="accessUsersToolbar" style="display:none">
+        <div class="users-panel-stats" id="accessUsersStats"></div>
+        <div class="users-search-wrap">
+          <i class="ti ti-search"></i>
+          <input type="search" id="accessUsersSearch" placeholder="Buscar nome ou e-mail…" oninput="renderAccessUsersPanel()" autocomplete="off">
+        </div>
+      </div>
+      <div id="accessUsersPanel"></div>
     </div>
   </div>
 </div>
@@ -2629,6 +2707,8 @@ function renderAccessStatusBox(){
 }
 function renderAccessUsersPanel(){
   const panel=document.getElementById('accessUsersPanel');
+  const toolbar=document.getElementById('accessUsersToolbar');
+  const statsEl=document.getElementById('accessUsersStats');
   if(!panel||!canManageAccess()) return;
   renderProfilesPublishSection();
   ensureAccessUsers();
@@ -2637,24 +2717,60 @@ function renderAccessUsersPanel(){
     if(u.status==='active'&&!u.inviteCode){ u.inviteCode=generateInviteCode(u.name); codesAdded=true; }
   });
   if(codesAdded){ saveLocal(); saveAccessUsersToPack(); }
-  const users=[...data.accessUsers].sort((a,b)=>{
-    const order={active:0,revoked:1};
-    return (order[a.status]??9)-(order[b.status]??9)||a.name.localeCompare(b.name);
-  });
+  const q=(document.getElementById('accessUsersSearch')?.value||'').trim().toLowerCase();
+  const users=[...data.accessUsers]
+    .filter(u=>{
+      if(!q) return true;
+      const email=(getProfileEmail(u.name)||u.email||'').toLowerCase();
+      return (u.name||'').toLowerCase().includes(q)||email.includes(q)||(u.inviteCode||'').toLowerCase().includes(q);
+    })
+    .sort((a,b)=>{
+      const order={active:0,revoked:1};
+      return (order[a.status]??9)-(order[b.status]??9)||a.name.localeCompare(b.name,'pt-BR');
+    });
+  const active=data.accessUsers.filter(u=>u.status==='active');
+  const admins=active.filter(u=>u.role==='admin').length;
+  if(toolbar) toolbar.style.display=users.length||data.accessUsers.length?'flex':'none';
+  if(statsEl){
+    statsEl.innerHTML=[
+      `<span class="users-stat-pill">${active.length} ativo${active.length===1?'':'s'}</span>`,
+      admins?`<span class="users-stat-pill">${admins} admin${admins===1?'':'s'}</span>`:'',
+      membersSheetActive()?'<span class="users-stat-pill"><i class="ti ti-table"></i> Planilha</span>':'',
+    ].join('');
+  }
   if(!users.length){
-    panel.innerHTML='<div class="access-empty">Nenhum usuário cadastrado. Adicione cada pessoa — um código de acesso será gerado para enviar no Slack.</div>';
+    panel.innerHTML=`<div class="access-empty">${q?'Nenhum resultado para “'+escapeHtml(q)+'”.':'Nenhum usuário cadastrado. Use o formulário acima — um código será gerado para enviar no Slack.'}</div>`;
     return;
   }
-  panel.innerHTML=`<table class="access-users-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Código</th><th>Papel</th><th>Status</th><th></th></tr></thead><tbody>${
-    users.map(u=>`<tr>
-      <td>${escapeHtml(u.name)}</td>
-      <td style="font-size:12px">${escapeHtml(getProfileEmail(u.name)||'—')} ${canManageAccess()?`<button class="btn-sm" onclick="adminEditUserEmail('${u.id}')" title="Editar e-mail"><i class="ti ti-mail"></i></button>`:''}</td>
-      <td style="white-space:nowrap;font-family:monospace;font-size:12px">${escapeHtml(u.inviteCode||'—')} ${u.inviteCode?`<button class="btn-sm" onclick="copyInviteCode('${u.id}')" title="Copiar código"><i class="ti ti-copy"></i></button><button class="btn-sm" onclick="adminRegenerateInviteCode('${u.id}')" title="Novo código"><i class="ti ti-refresh"></i></button>`:''}</td>
-      <td>${`<select onchange="adminSetUserRole('${u.id}',this.value)">${['member','visitor','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`}</td>
-      <td><span class="access-role-pill ${u.status==='active'?u.role:u.status}">${u.status==='active'?ACCESS_ROLE_LABELS[u.role]:u.status==='revoked'?'Revogado':u.status}</span></td>
-      <td style="white-space:nowrap">${u.status!=='revoked'?`<button class="btn-sm" onclick="adminRevokeUser('${u.id}')" title="Revogar"><i class="ti ti-ban"></i></button>`:`<button class="btn-sm" onclick="adminRestoreUser('${u.id}')" title="Restaurar"><i class="ti ti-refresh"></i></button>`} <button class="btn-sm" style="color:#f87171" onclick="adminDeleteUser('${u.id}')" title="Remover"><i class="ti ti-trash"></i></button></td>
-    </tr>`).join('')
-  }</tbody></table>`;
+  panel.innerHTML=`<div class="access-users-scroll"><table class="access-users-table"><thead><tr>
+    <th>Nome</th><th>E-mail</th><th>Código</th><th>Papel</th><th style="width:1%;text-align:right">Ações</th>
+  </tr></thead><tbody>${
+    users.map(u=>{
+      const email=getProfileEmail(u.name)||u.email||'';
+      const revoked=u.status==='revoked';
+      const codeHtml=u.inviteCode?`<span class="access-code-pill">${escapeHtml(u.inviteCode)}</span><span class="access-code-actions">
+        <button type="button" class="btn-sm" onclick="copyInviteCode('${u.id}')" title="Copiar código"><i class="ti ti-copy"></i></button>
+        <button type="button" class="btn-sm" onclick="adminRegenerateInviteCode('${u.id}')" title="Gerar novo código"><i class="ti ti-refresh"></i></button>
+      </span>`:'<span class="access-email-missing">—</span>';
+      const emailHtml=email
+        ?`<span class="access-email-cell" title="${escapeHtml(email)}">${escapeHtml(email)}</span>`
+        :'<span class="access-email-missing">Sem e-mail</span>';
+      const roleSelect=`<select class="role-select" onchange="adminSetUserRole('${u.id}',this.value)"${revoked?' disabled':''}>${['member','visitor','editor','admin'].map(r=>`<option value="${r}"${u.role===r?' selected':''}>${ACCESS_ROLE_LABELS[r]}</option>`).join('')}</select>`;
+      const actions=revoked
+        ?`<button type="button" class="access-action-btn" onclick="adminRestoreUser('${u.id}')" title="Restaurar acesso"><i class="ti ti-refresh"></i><span>Restaurar</span></button>
+           <button type="button" class="access-action-btn danger" onclick="adminDeleteUser('${u.id}')" title="Remover da lista"><i class="ti ti-trash"></i><span>Remover</span></button>`
+        :`<button type="button" class="access-action-btn" onclick="adminEditUserEmail('${u.id}')" title="Editar e-mail"><i class="ti ti-mail"></i><span>E-mail</span></button>
+           <button type="button" class="access-action-btn" onclick="adminRevokeUser('${u.id}')" title="Revogar acesso"><i class="ti ti-ban"></i><span>Revogar</span></button>
+           <button type="button" class="access-action-btn danger" onclick="adminDeleteUser('${u.id}')" title="Remover da lista"><i class="ti ti-trash"></i></button>`;
+      return `<tr class="${revoked?'revoked':''}">
+        <td><div class="access-user-name">${escapeHtml(u.name)}</div>${revoked?'<div class="access-user-meta">Acesso revogado</div>':''}</td>
+        <td>${emailHtml}</td>
+        <td>${codeHtml}</td>
+        <td>${roleSelect}</td>
+        <td><div class="access-user-actions">${actions}</div></td>
+      </tr>`;
+    }).join('')
+  }</tbody></table></div>`;
 }
 async function adminAddAccessUser(nameArg,roleArg){
   if(!canManageAccess()) return;
