@@ -558,6 +558,7 @@ function membersSaveProfile_(payload) {
 
   var row = sheet.getRange(rowIdx, 1, 1, MEMBERS_HEADERS.length).getValues()[0];
   var u = membersRowToAccessUser_(row);
+  var sheetName = String(u.name || '').trim();
   var updatedBy = String(payload.userEmail || payload.memberName || ctx.name || '').trim();
 
   if (oldName && oldName !== name && !feriasNamesMatch_(u.name, oldName)) {
@@ -582,8 +583,9 @@ function membersSaveProfile_(payload) {
     membersAccessUserToRow_(u, outProfile, updatedBy)
   ]);
 
-  if (oldName && oldName !== name) {
-    membersRenameFeriasRows_(oldName, name);
+  var memberEmail = u.email || email || '';
+  if (sheetName && name && sheetName !== name) {
+    membersRenameFeriasRows_(sheetName, name, { email: memberEmail });
   }
 
   var hub = membersBuildHubPayload_();
@@ -595,18 +597,27 @@ function membersSaveProfile_(payload) {
   };
 }
 
-function membersRenameFeriasRows_(oldName, newName) {
+function membersRenameFeriasRows_(oldName, newName, opts) {
+  opts = opts || {};
   try {
     var sheet = feriasGetSheet_();
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return;
-    var names = sheet.getRange(2, 2, lastRow, 1).getValues();
-    for (var i = 0; i < names.length; i++) {
-      if (feriasNamesMatch_(names[i][0], oldName)) {
-        sheet.getRange(i + 2, 2).setValue(newName);
-      }
+    var numRows = lastRow - 1;
+    var values = sheet.getRange(2, 1, numRows, FERIAS_HEADERS.length).getValues();
+    var emailNorm = opts.email ? feriasNormalize_(opts.email) : '';
+    var oldNorm = feriasNormalize_(oldName);
+    for (var i = 0; i < values.length; i++) {
+      var rowName = values[i][1];
+      var rowEmail = values[i][2];
+      var match = feriasNamesMatch_(rowName, oldName);
+      if (!match && emailNorm && rowEmail && feriasNormalize_(rowEmail) === emailNorm) match = true;
+      if (!match && oldNorm && feriasNormalize_(rowName) === oldNorm) match = true;
+      if (match) sheet.getRange(i + 2, 2).setValue(newName);
     }
-  } catch (e) { /* férias tab may be empty */ }
+  } catch (e) {
+    Logger.log('membersRenameFeriasRows_: ' + e);
+  }
 }
 
 function membersPatch_(payload) {

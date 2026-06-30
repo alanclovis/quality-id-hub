@@ -5073,8 +5073,13 @@ async function saveProfile(){
   syncTokenHolderRole();
   renderUserChip();
   renderMural();
-  if(document.getElementById('pageFerias')?.classList.contains('active')){
-    loadFeriasFromSheet().then(()=>{ renderFerias(); renderUpcoming(); });
+  if(getFeriasBridgeUrl()){
+    loadFeriasFromSheet().then(()=>{
+      if(document.getElementById('pageFerias')?.classList.contains('active')){
+        renderFerias();
+        renderUpcoming();
+      }
+    });
   }
   renderAccessStatusBox();
   if(document.getElementById('configPanelUsers')?.classList.contains('active')) renderAccessUsersPanel();
