@@ -10,13 +10,32 @@
   const DIM_KEY_TO_FULL = { seg: 'segunda', ter: 'terça', qua: 'quarta', qui: 'quinta', sex: 'sexta' };
   const DIM_DETAIL_REQUIRES_PROJECT = {
     'Planilha': true, 'Deep Dive': true, 'Docs': true, 'Playbook': true, 'RFC': true, 'Slides': true,
-    'Project Meet': true, 'Databricks': true, 'Quicksight': true
+    'Project Meet': true, 'Databricks': true, 'Quicksight': true,
+    'ProjCSAT': true, 'Projeto Csat': true, 'Doc Csat': true, 'Reunião Csat': true
   };
+
+  const DIM_CSAT_PROJCSAT_ACTIONS = [
+    'Execução de demanda', 'Acompanhamento de projeto', 'Análise / investigação',
+    'Desenvolvimento de material', 'Alinhamento com stakeholders', 'Documentação', 'Outro'
+  ];
+  const DIM_CSAT_PROJETO_ACTIONS = [
+    'Planejamento', 'Execução de entrega', 'Acompanhamento de status',
+    'Revisão / validação', 'Suporte ao time', 'Outro'
+  ];
+  const DIM_CSAT_DOC_ACTIONS = [
+    'Criação de documento', 'Atualização de conteúdo', 'Revisão / comentários',
+    'Tradução / adaptação', 'Material de treinamento', 'Outro'
+  ];
+  const DIM_CSAT_REUNIAO_ACTIONS = [
+    'Alinhamento de time', 'Sync de projeto', 'Kick-off', 'Retrospectiva',
+    'Apresentação de resultados', 'Outro'
+  ];
 
   /** Espelha Config_Slots.html — slots que exigem personalização em Base_Detalhes */
   const DIM_DETAIL_SLOTS = [
     'Planilha', 'Deep Dive', 'Docs', 'Playbook', 'RFC', 'Slides',
-    'Jira/Atlassian', 'Drive', 'Project Meet', 'Databricks', 'Quicksight'
+    'Jira/Atlassian', 'Drive', 'Project Meet', 'Databricks', 'Quicksight',
+    'ProjCSAT', 'Projeto Csat', 'Doc Csat', 'Reunião Csat'
   ];
 
   const DIM_PROJECTS_DEFAULT = [
@@ -78,6 +97,26 @@
       actions: ['Criação de novo Dashboard', 'Atualização / Manutenção de Dashboard existente', 'Criação / Atualização de Conjunto de Dados (Dataset)', 'Criação / Ajuste de Visual (Gráfico, Tabela)', 'Validação de Dados / Consistência do Dashboard', 'Análise exploratória na ferramenta', 'Outro'],
       projects: DIM_PROJECTS_DEFAULT,
       hasProjectField: true
+    },
+    'ProjCSAT': {
+      actions: DIM_CSAT_PROJCSAT_ACTIONS,
+      hasProjectField: true,
+      projectFreeText: true
+    },
+    'Projeto Csat': {
+      actions: DIM_CSAT_PROJETO_ACTIONS,
+      hasProjectField: true,
+      projectFreeText: true
+    },
+    'Doc Csat': {
+      actions: DIM_CSAT_DOC_ACTIONS,
+      hasProjectField: true,
+      projectFreeText: true
+    },
+    'Reunião Csat': {
+      actions: DIM_CSAT_REUNIAO_ACTIONS,
+      hasProjectField: true,
+      projectFreeText: true
     }
   };
 
@@ -1250,9 +1289,14 @@
 
   function dimIsDetailIncomplete(slot, details) {
     const d = dimParseCellDetails(details);
+    const config = dimGetSlotDetailConfig(slot);
     if (!d.action) return true;
-    if (DIM_DETAIL_REQUIRES_PROJECT[slot] && !d.project) return true;
-    if (dimDetailRequiresSpec(d.action, d.project) && !d.otherSpec) return true;
+    if (DIM_DETAIL_REQUIRES_PROJECT[slot]) {
+      const proj = (d.project || '').trim();
+      if (!proj) return true;
+      if (config && config.projectFreeText && proj.length < 2) return true;
+    }
+    if (dimDetailRequiresSpec(d.action, d.project, config) && !d.otherSpec) return true;
     return false;
   }
 
@@ -3217,9 +3261,40 @@
     return DIM_SLOT_DETAIL_CONFIG[slot] || null;
   }
 
-  function dimDetailRequiresSpec(action, project) {
+  function dimDetailRequiresSpec(action, project, config) {
+    if (config && config.projectFreeText) return action === 'Outro';
     return action === 'Outro' || project === 'Outro' ||
       project === 'MMP (Projeto não mapeado)' || project === 'NMP (Projeto não mapeado)';
+  }
+
+  function dimReadDetailProjeto(config) {
+    if (!config || !config.hasProjectField) return '';
+    if (config.projectFreeText) {
+      return (document.getElementById('dimDetailProjetoText')?.value || '').trim();
+    }
+    return document.getElementById('dimDetailProjeto')?.value || '';
+  }
+
+  function dimSetupDetailProjetoField(config, selected) {
+    const projetoWrap = document.getElementById('dimDetailProjetoWrap');
+    const selectEl = document.getElementById('dimDetailProjeto');
+    const textEl = document.getElementById('dimDetailProjetoText');
+    if (!config || !config.hasProjectField) {
+      if (projetoWrap) projetoWrap.style.display = 'none';
+      if (selectEl) selectEl.innerHTML = '<option value=""></option>';
+      if (textEl) textEl.value = '';
+      return;
+    }
+    if (projetoWrap) projetoWrap.style.display = 'block';
+    const freeText = !!config.projectFreeText;
+    if (selectEl) selectEl.style.display = freeText ? 'none' : '';
+    if (textEl) {
+      textEl.style.display = freeText ? '' : 'none';
+      textEl.value = freeText ? (selected || '') : '';
+    }
+    if (!freeText) {
+      dimPopulateDetailSelect(selectEl, config.projects, selected || '');
+    }
   }
 
   function dimPopulateDetailSelect(el, options, selected) {
@@ -3248,10 +3323,12 @@
   }
 
   function dimDetailFieldChange() {
+    const draft = dimState.detailDraft;
+    const config = (draft && draft.detailConfig) || null;
     const acao = document.getElementById('dimDetailAcao')?.value || '';
-    const projeto = document.getElementById('dimDetailProjeto')?.value || '';
+    const projeto = dimReadDetailProjeto(config);
     const specWrap = document.getElementById('dimDetailSpecWrap');
-    if (specWrap) specWrap.style.display = dimDetailRequiresSpec(acao, projeto) ? 'block' : 'none';
+    if (specWrap) specWrap.style.display = dimDetailRequiresSpec(acao, projeto, config) ? 'block' : 'none';
   }
 
   function dimDetailQtyDelta(delta) {
@@ -3366,15 +3443,7 @@
       if (durationBlock && !isMulti) durationBlock.style.display = 'block';
 
       dimPopulateDetailSelect(document.getElementById('dimDetailAcao'), config.actions, ctx.acao || '');
-      const projetoWrap = document.getElementById('dimDetailProjetoWrap');
-      if (config.hasProjectField) {
-        if (projetoWrap) projetoWrap.style.display = 'block';
-        dimPopulateDetailSelect(document.getElementById('dimDetailProjeto'), config.projects, ctx.projeto || '');
-      } else if (projetoWrap) {
-        projetoWrap.style.display = 'none';
-        const projEl = document.getElementById('dimDetailProjeto');
-        if (projEl) projEl.innerHTML = '<option value=""></option>';
-      }
+      dimSetupDetailProjetoField(config, ctx.projeto || '');
 
       const specEl = document.getElementById('dimDetailSpec');
       if (specEl) specEl.value = ctx.especificacao || '';
@@ -3426,7 +3495,7 @@
 
     const config = ctx.detailConfig || dimGetSlotDetailConfig(ctx.slot);
     const acao = document.getElementById('dimDetailAcao')?.value || '';
-    const projeto = config && config.hasProjectField ? (document.getElementById('dimDetailProjeto')?.value || '') : '';
+    const projeto = dimReadDetailProjeto(config);
     const especificacao = document.getElementById('dimDetailSpec')?.value.trim() || '';
     const quantity = Math.max(1, Math.min(20, parseInt(document.getElementById('dimDetailQty')?.value, 10) || 1));
 
@@ -3436,10 +3505,14 @@
         return;
       }
       if (config.hasProjectField && !projeto) {
-        dimShowToast('Selecione o Projeto.', true);
+        dimShowToast(config.projectFreeText ? 'Informe o projeto.' : 'Selecione o Projeto.', true);
         return;
       }
-      if (dimDetailRequiresSpec(acao, projeto) && !especificacao) {
+      if (config.projectFreeText && projeto.length < 2) {
+        dimShowToast('Informe o projeto (mínimo 2 caracteres).', true);
+        return;
+      }
+      if (dimDetailRequiresSpec(acao, projeto, config) && !especificacao) {
         dimShowToast('Especifique os detalhes em "Se Outro, especificar".', true);
         return;
       }

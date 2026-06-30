@@ -7551,6 +7551,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
       <div id="dimDetailProjetoWrap">
         <label>Qual o projeto? <span class="dim-req">*</span></label>
         <select id="dimDetailProjeto" onchange="dimDetailFieldChange()"></select>
+        <input type="text" id="dimDetailProjetoText" style="display:none" placeholder="Ex.: FLC, OBF, Onboarding, demanda X…" oninput="dimDetailFieldChange()">
       </div>
       <div id="dimDetailSpecWrap" style="display:none">
         <label>Se &quot;Outro&quot;, especificar <span class="dim-req">*</span></label>
@@ -7647,6 +7648,6 @@ window.addEventListener('DOMContentLoaded',async()=>{
     </button>
   </div>
 </footer>
-<script src="dimensionamento.js?v=41"></script>
+<script src="dimensionamento.js?v=42"></script>
 </body>
 </html>

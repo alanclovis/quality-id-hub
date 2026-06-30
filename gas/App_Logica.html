@@ -23,7 +23,7 @@
   const { ChevronDown, Save, RefreshCw, Calendar, Settings, FileText, Plus, X, Search, List, Check, Edit2, Trash2, Clock, PieChart, Eraser, Info, Undo2, AlertTriangle, Target, HelpCircle, Coffee } = loadIcons();
 
   const TASK_TYPES = [{ id: '', label: '(Limpar Slot)', color: getColor('') }, ...RAW_OPTIONS.map(opt => ({ id: opt, label: opt, color: getColor(opt) }))];
-  const DETAILED_SLOTS = ["Planilha", "Deep Dive", "Docs", "Playbook", "RFC", "Slides", "Jira/Atlassian", "Drive", "Project Meet", "Databricks", "Quicksight"];
+  const DETAILED_SLOTS = ["Planilha", "Deep Dive", "Docs", "Playbook", "RFC", "Slides", "Jira/Atlassian", "Drive", "Project Meet", "Databricks", "Quicksight", "ProjCSAT", "Projeto Csat", "Doc Csat", "Reunião Csat"];
 
   const normalizeDetailsForComparison = (details) => {
       if (!details) return '{"action":"","project":"","otherSpec":""}';
@@ -1021,6 +1021,7 @@
     let actionOptions = [];
     let projectOptions = [];
     let hasProjectField = true;
+    let projectFreeText = false;
     let requiresDetails = false;
 
     if (taskLabel === "Planilha") {
@@ -1045,6 +1046,14 @@
        actionOptions = DATABRICKS_ACTIONS; projectOptions = DATABRICKS_PROJECTS; requiresDetails = true;
     } else if (taskLabel === "Quicksight") {
        actionOptions = QUICKSIGHT_ACTIONS; projectOptions = QUICKSIGHT_PROJECTS; requiresDetails = true;
+    } else if (taskLabel === "ProjCSAT") {
+       actionOptions = PROJCSAT_ACTIONS; projectFreeText = true; requiresDetails = true;
+    } else if (taskLabel === "Projeto Csat") {
+       actionOptions = PROJETO_CSAT_ACTIONS; projectFreeText = true; requiresDetails = true;
+    } else if (taskLabel === "Doc Csat") {
+       actionOptions = DOC_CSAT_ACTIONS; projectFreeText = true; requiresDetails = true;
+    } else if (taskLabel === "Reunião Csat") {
+       actionOptions = REUNIAO_CSAT_ACTIONS; projectFreeText = true; requiresDetails = true;
     }
 
     const [action, setAction] = useState(initialData?.action || "");
@@ -1079,7 +1088,9 @@
       
       if (requiresDetails) { 
         if (!action) { alert("Selecione a Ação Realizada."); return; }
-        if (hasProjectField && !project) { alert("Selecione o Projeto."); return; }
+        if (hasProjectField && !project.trim()) { alert(projectFreeText ? "Informe o Projeto." : "Selecione o Projeto."); return; }
+        if (projectFreeText && project.trim().length < 2) { alert("Informe o projeto (mínimo 2 caracteres)."); return; }
+        if (projectFreeText && action === "Outro" && !otherSpec.trim()) { alert('Especifique os detalhes em "Se Outro, especificar".'); return; }
       }
 
       if (isOvertime && !confirmOvertime && !isCleaning && !isMulti) { setConfirmOvertime(true); return; }
@@ -1090,10 +1101,12 @@
     const isWarning = isCleaning; 
     
     // Condição para mostrar campo Outros (inclui MMP/NMP)
-    const showOtherSpec = action === "Outro" || 
-                          project === "Outro" || 
-                          project === "MMP (Projeto não mapeado)" ||
-                          project === "NMP (Projeto não mapeado)";
+    const showOtherSpec = projectFreeText
+      ? action === "Outro"
+      : (action === "Outro" ||
+         project === "Outro" ||
+         project === "MMP (Projeto não mapeado)" ||
+         project === "NMP (Projeto não mapeado)");
 
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200" style={{ fontFamily: 'Arial, sans-serif' }}>
@@ -1143,7 +1156,11 @@
                 <div className="space-y-1.5"><label className="text-sm font-bold text-[#374151] block">Ação Realizada <span className="text-red-500">*</span></label><div className="relative"><select value={action} onChange={(e) => setAction(e.target.value)} className="w-full p-3 bg-white border-2 border-[#D1D5DB] text-[#111827] text-sm rounded-lg focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] block appearance-none shadow-sm transition-shadow"><option value="" disabled>Selecione...</option>{actionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-[#9CA3AF] pointer-events-none" /></div></div>
                
                 {hasProjectField && (
-                  <div className="space-y-1.5"><label className="text-sm font-bold text-[#374151] block">Qual o projeto? <span className="text-red-500">*</span></label><div className="relative"><select value={project} onChange={(e) => setProject(e.target.value)} className="w-full p-3 bg-white border-2 border-[#D1D5DB] text-[#111827] text-sm rounded-lg focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] block appearance-none shadow-sm transition-shadow"><option value="" disabled>Selecione...</option>{projectOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-[#9CA3AF] pointer-events-none" /></div></div>
+                  projectFreeText ? (
+                    <div className="space-y-1.5"><label className="text-sm font-bold text-[#374151] block">Qual o projeto? <span className="text-red-500">*</span></label><input type="text" value={project} onChange={(e) => setProject(e.target.value)} placeholder="Ex.: FLC, OBF, Onboarding, demanda X…" className="w-full p-3 bg-white border-2 border-[#D1D5DB] text-[#111827] text-sm rounded-lg focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] shadow-sm transition-shadow"/></div>
+                  ) : (
+                    <div className="space-y-1.5"><label className="text-sm font-bold text-[#374151] block">Qual o projeto? <span className="text-red-500">*</span></label><div className="relative"><select value={project} onChange={(e) => setProject(e.target.value)} className="w-full p-3 bg-white border-2 border-[#D1D5DB] text-[#111827] text-sm rounded-lg focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] block appearance-none shadow-sm transition-shadow"><option value="" disabled>Selecione...</option>{projectOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-[#9CA3AF] pointer-events-none" /></div></div>
+                  )
                 )}
 
                 {showOtherSpec && (<div className="space-y-1.5 animate-in fade-in slide-in-from-top-2"><label className="text-sm font-bold text-[#374151] block">Se "Outro", especificar <span className="text-red-500">*</span></label><textarea value={otherSpec} onChange={(e) => setOtherSpec(e.target.value)} placeholder="Detalhes adicionais..." className="w-full p-3 bg-white border-2 border-[#D1D5DB] rounded-lg text-sm focus:ring-2 focus:ring-[#820AD1] focus:border-[#820AD1] min-h-[80px] shadow-sm resize-none"/></div>)}

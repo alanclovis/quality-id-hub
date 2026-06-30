@@ -283,10 +283,16 @@ function hubDetailToLegacy_(detail, slot) {
 
 var HUB_DETAIL_REQUIRES_PROJECT_ = {
   'Planilha': true, 'Deep Dive': true, 'Docs': true, 'Playbook': true, 'RFC': true, 'Slides': true,
-  'Project Meet': true, 'Databricks': true, 'Quicksight': true
+  'Project Meet': true, 'Databricks': true, 'Quicksight': true,
+  'ProjCSAT': true, 'Projeto Csat': true, 'Doc Csat': true, 'Reunião Csat': true
 };
 
-function hubDetailRequiresSpec_(action, project) {
+var HUB_CSAT_DETAIL_SLOTS_ = {
+  'ProjCSAT': true, 'Projeto Csat': true, 'Doc Csat': true, 'Reunião Csat': true
+};
+
+function hubDetailRequiresSpec_(action, project, slot) {
+  if (HUB_CSAT_DETAIL_SLOTS_[slot]) return action === 'Outro';
   return action === 'Outro' || project === 'Outro' ||
     project === 'MMP (Projeto não mapeado)' || project === 'NMP (Projeto não mapeado)';
 }
@@ -311,8 +317,12 @@ function hubParseCellDetails_(detailsRaw) {
 function hubIsDetailIncomplete_(slot, details) {
   var d = hubParseCellDetails_(details);
   if (!d.action) return true;
-  if (HUB_DETAIL_REQUIRES_PROJECT_[slot] && !d.project) return true;
-  if (hubDetailRequiresSpec_(d.action, d.project) && !d.otherSpec) return true;
+  if (HUB_DETAIL_REQUIRES_PROJECT_[slot]) {
+    var proj = String(d.project || '').trim();
+    if (!proj) return true;
+    if (HUB_CSAT_DETAIL_SLOTS_[slot] && proj.length < 2) return true;
+  }
+  if (hubDetailRequiresSpec_(d.action, d.project, slot) && !d.otherSpec) return true;
   return false;
 }
 
@@ -682,7 +692,7 @@ function hubGetConfig_(weekKey) {
     timeSlots: slots,
     days: ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira'],
     slotOptions: hubGetSlotOptions_(),
-    detailSlots: ['Planilha', 'Deep Dive', 'Docs', 'Playbook', 'RFC', 'Slides', 'Jira/Atlassian', 'Drive', 'Project Meet', 'Databricks', 'Quicksight'],
+    detailSlots: ['Planilha', 'Deep Dive', 'Docs', 'Playbook', 'RFC', 'Slides', 'Jira/Atlassian', 'Drive', 'Project Meet', 'Databricks', 'Quicksight', 'ProjCSAT', 'Projeto Csat', 'Doc Csat', 'Reunião Csat'],
     minSlotsAlert: 18
   };
 }
