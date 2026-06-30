@@ -98,7 +98,7 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.api) {
     const json = dimApiCall(e.parameter.api, e.parameter.payload || '{}');
     if (e.parameter.callback) {
-      const cb = String(e.parameter.callback).replace(/[^a-zA-Z0-9_]/g, '');
+      const cb = String(e.parameter.callback).replace(/[^a-zA-Z0-9_$]/g, '');
       if (cb) {
         return ContentService.createTextOutput(cb + '(' + json + ');')
           .setMimeType(ContentService.MimeType.JAVASCRIPT);

@@ -624,6 +624,23 @@
     }
   }
 
+  function dimFormatGasError(err, action) {
+    const raw = String((err && err.message) || err || '');
+    if (raw.indexOf('Timeout') >= 0 || raw.indexOf('Falha na comunicação') >= 0) {
+      if (action === 'getUserSchedule' || action === 'ping') {
+        return 'Não foi possível alcançar o Apps Script. O admin precisa reimplantar o Web App como ' +
+          '"Executar como: Quem implantou" e "Qualquer pessoa" (igual à bridge do Pack). ' +
+          'Enquanto isso, clique em Conectar à planilha ou use a última versão salva.';
+      }
+      return 'Timeout ao comunicar com Apps Script. Verifique a URL em Configuração → Técnico e tente Conectar à planilha.';
+    }
+    return raw || 'Erro na ponte';
+  }
+
+  function dimPingGas(timeoutMs) {
+    return dimJsonpApi('ping', {}, timeoutMs || 10000);
+  }
+
   function dimJsonpApi(action, payload, timeoutMs) {
     timeoutMs = timeoutMs || 45000;
     const base = dimExecBaseUrl();
@@ -647,14 +664,16 @@
         else reject(new Error((res && res.error) || 'Erro na ponte'));
       };
       const sep = base.indexOf('?') >= 0 ? '&' : '?';
+      const body = JSON.stringify(payload || {});
       script = document.createElement('script');
+      script.charset = 'UTF-8';
       script.src = base + sep +
         'api=' + encodeURIComponent(action) +
-        '&payload=' + encodeURIComponent(JSON.stringify(payload || {})) +
+        '&payload=' + encodeURIComponent(body) +
         '&callback=' + encodeURIComponent(cb);
       script.onerror = function () {
         cleanup();
-        reject(new Error('Falha na comunicação com Apps Script'));
+        reject(new Error('Falha na comunicação com Apps Script (rede ou URL inválida)'));
       };
       document.head.appendChild(script);
     });
@@ -959,7 +978,7 @@
   }
 
   function dimCallTimeoutFor(action) {
-    if (action === 'getUserSchedule') return 50000;
+    if (action === 'getUserSchedule') return 90000;
     if (action === 'saveBatchData' || action === 'saveDetail') return 45000;
     if (action === 'getPendingDetails' || action === 'getAdjustments' || action === 'getSlotDictionary') return 45000;
     return 30000;
@@ -1040,20 +1059,24 @@
       return Promise.reject(new Error('E-mail não identificado. Atualize seu cadastro no Hub ou conecte à planilha.'));
     }
 
-    // JSONP is most reliable from GitHub Pages when userEmail is in payload (no Google cookies)
+    // JSONP works from GitHub Pages when GAS is deployed as USER_DEPLOYING + ANYONE (userEmail in payload)
     if (action === 'getUserSchedule' && callPayload.userEmail) {
       return dimFirstResolved([
         dimJsonpApi(action, callPayload, timeoutMs),
-        dimFetchApi(action, callPayload, Math.min(35000, timeoutMs)),
-        viaBridge(4000)
-      ]);
+        viaBridge(15000),
+        dimFetchApi(action, callPayload, Math.min(35000, timeoutMs))
+      ]).catch(function (err) {
+        return Promise.reject(new Error(dimFormatGasError(err, action)));
+      });
     }
 
     return dimFirstResolved([
       dimJsonpApi(action, callPayload, timeoutMs),
-      viaBridge(),
+      viaBridge(12000),
       dimFetchApi(action, callPayload, Math.min(20000, timeoutMs))
-    ]);
+    ]).catch(function (err) {
+      return Promise.reject(new Error(dimFormatGasError(err, action)));
+    });
   }
 
   function dimGetIsoWeek(d) {
@@ -1803,7 +1826,7 @@
     }
 
     if (dimState.refreshingWeek) {
-      if (dimState.silentLoadStarted && Date.now() - dimState.silentLoadStarted > 55000) {
+      if (dimState.silentLoadStarted && Date.now() - dimState.silentLoadStarted > 95000) {
         dimResetWeekRefreshing();
       } else {
         setBadge('pending', '<span class="dim-saving-dot"></span> Atualizando…', true);
@@ -1873,6 +1896,10 @@
       dimBootstrapSessionFromHub();
       const hadInstant = dimTryInstantWeek(week);
       dimUpdateStatus();
+
+      dimPingGas(8000).catch(function () {
+        dimReloadBridgeIframe();
+      });
 
       if (hadInstant) {
         dimStartReloadTimer();
@@ -2018,10 +2045,16 @@
   }
 
   function dimRenderError(msg) {
+    dimSetWeekLoading(false);
+    dimSetWeekRefreshing(false);
     const grid = document.getElementById('dimGridWrap');
+    const friendly = dimFormatGasError({ message: msg }, 'getUserSchedule');
     if (grid) {
-      grid.innerHTML = '<div class="dim-empty-state"><i class="ti ti-alert-circle"></i><p>' + escapeHtml(msg) + '</p>' +
-        '<p style="margin-top:10px;font-size:12px">Mantenha a janela <strong>Dim Bridge</strong> aberta enquanto usa esta página.</p>' +
+      const hasCache = !!(dimState.schedule || dimReadWeekCache(dimState.week || dimGetIsoWeek(), { allowStale: true }));
+      grid.innerHTML = '<div class="dim-empty-state"><i class="ti ti-alert-circle"></i><p>' + escapeHtml(friendly) + '</p>' +
+        (hasCache
+          ? '<p style="margin-top:10px;font-size:12px">Você pode continuar com a <strong>última versão salva</strong> ou tentar reconectar.</p>'
+          : '<p style="margin-top:10px;font-size:12px">Confirme seu e-mail em <strong>Seu perfil</strong> e use o botão abaixo.</p>') +
         '<p style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
         '<button type="button" class="btn primary" onclick="dimConnectBridge()"><i class="ti ti-plug"></i> Conectar à planilha</button>' +
         '<button type="button" class="btn" onclick="dimManualRefresh()"><i class="ti ti-refresh"></i> Atualizar</button>' +
@@ -2030,7 +2063,7 @@
     const el = document.getElementById('dimStatus');
     if (el) {
       el.className = 'dim-status err';
-      el.innerHTML = '<i class="ti ti-alert-circle"></i><span>' + escapeHtml(msg) + '</span>';
+      el.innerHTML = '<i class="ti ti-alert-circle"></i><span>' + escapeHtml(friendly) + '</span>';
     }
   }
 

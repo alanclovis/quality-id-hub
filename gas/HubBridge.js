@@ -48,11 +48,39 @@ function hubHandleAction_(action, payload) {
   }
 }
 
+function hubRequireNubankEmail_(payload) {
+  payload = payload || {};
+  var fromPayload = payload.userEmail ? String(payload.userEmail).toLowerCase().trim() : '';
+  if (fromPayload) {
+    if (fromPayload.indexOf('@nubank.com.br') < 0) {
+      throw new Error('E-mail deve ser @nubank.com.br');
+    }
+    return fromPayload;
+  }
+  var email = Session.getActiveUser().getEmail().toLowerCase().trim();
+  if (!email) email = Session.getEffectiveUser().getEmail().toLowerCase().trim();
+  if (email && email.indexOf('@nubank.com.br') < 0) {
+    throw new Error('E-mail deve ser @nubank.com.br');
+  }
+  return email;
+}
+
 function hubGetSessionInfo_(payload) {
   payload = payload || {};
   var fromPayload = payload.userEmail ? String(payload.userEmail).toLowerCase().trim() : '';
-  var email = fromPayload || Session.getActiveUser().getEmail().toLowerCase().trim();
+  if (fromPayload) {
+    if (fromPayload.indexOf('@nubank.com.br') < 0) {
+      throw new Error('E-mail deve ser @nubank.com.br');
+    }
+    return {
+      email: fromPayload,
+      analystKey: fromPayload.split('@')[0],
+      isLeader: false
+    };
+  }
+  var email = Session.getActiveUser().getEmail().toLowerCase().trim();
   if (!email) email = Session.getEffectiveUser().getEmail().toLowerCase().trim();
+  if (email && email.indexOf('@nubank.com.br') < 0) email = '';
   return {
     email: email,
     analystKey: email ? email.split('@')[0] : '',
@@ -134,6 +162,7 @@ function hubComputeDateForWeekDay_(weekNum, dayKey) {
 /** Adapta { schedule, userEmail } do seu getUserSchedule() para o formato do Hub */
 function hubGetUserSchedule_(payload) {
   payload = payload || {};
+  hubRequireNubankEmail_(payload);
   var raw = getUserSchedule(payload);
   if (raw.error) throw new Error(raw.error);
 
@@ -190,7 +219,7 @@ function hubGetUserSchedule_(payload) {
   return {
     week: Number(weekKey),
     sheetName: _core_sheetNameForWeek_(weekKey),
-    identity: hubGetSessionInfo_(),
+    identity: hubGetSessionInfo_({ userEmail: userEmail }),
     config: config,
     colors: hubGetSlotColors_(),
     days: days,
@@ -204,9 +233,8 @@ function hubGetUserSchedule_(payload) {
 /** Adapta payload do Hub → saveBatchData({ slots: [{dayDate,time,task}] }) */
 function hubSaveBatchData_(payload) {
   payload = payload || {};
+  var userEmail = hubRequireNubankEmail_(payload);
   var slotItems = [];
-  var userEmail = String(payload.userEmail || Session.getActiveUser().getEmail() || '').toLowerCase().trim();
-  if (!userEmail) throw new Error('Usuário não autenticado. Conecte à planilha no Hub e tente salvar de novo.');
 
   if (payload.slots && Array.isArray(payload.slots)) {
     slotItems = payload.slots;
@@ -499,8 +527,7 @@ function hubGetPendingDetails_(payload) {
 
 function hubSaveDetail_(payload) {
   payload = payload || {};
-  var userEmail = String(payload.userEmail || Session.getActiveUser().getEmail() || '').toLowerCase().trim();
-  if (!userEmail) throw new Error('Usuário não autenticado. Conecte à planilha no Hub e tente salvar de novo.');
+  var userEmail = hubRequireNubankEmail_(payload);
   var legacy = hubDetailToLegacy_(payload, payload.tipo || payload.slot);
   var result = saveBatchData({ slots: [], details: [legacy], userEmail: userEmail });
   if (result && result.error) throw new Error(result.error);

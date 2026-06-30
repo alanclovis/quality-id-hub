@@ -6,9 +6,11 @@
 2. `clasp clone <scriptId>` ou copie arquivos de `gas/` para o projeto
 3. `clasp push`
 4. **Implantar → Nova implantação → Aplicativo da web**
-   - Executar como: **Quem acessa**
-   - Quem tem acesso: **Somente usuários do domínio** (nubank.com.br)
+   - Executar como: **Quem implantou** (não "Quem acessa")
+   - Quem tem acesso: **Qualquer pessoa** (igual à bridge do Pack)
 5. Copie a URL base (`.../exec`)
+
+> **Importante:** com "Quem acessa" + "Somente domínio", o Hub no GitHub Pages não consegue chamar a API (JSONP dá timeout). Use **Quem implantou** + **Qualquer pessoa**; o Hub envia o e-mail @nubank.com.br no payload.
 
 ## Configurar no Hub
 
@@ -41,6 +43,6 @@
 | Sintoma | Ação |
 |---|---|
 | "Configure URL da ponte" | Admin preenche URL em Configuração → Técnico |
-| "Timeout ao comunicar" | Verificar deploy Web App e login Google |
+| "Timeout ao comunicar" | Reimplantar Web App como **Quem implantou** + **Qualquer pessoa**; conferir URL em Config → Técnico |
 | Save não aparece na planilha | Verificar validação de dados nas colunas I:AR |
 | Aba não encontrada | Confirmar nome `H1.2026` / `H2.2026` na planilha |
