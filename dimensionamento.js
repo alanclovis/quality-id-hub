@@ -125,6 +125,8 @@
     warmupDone: false,
     refreshingWeek: false,
     silentLoadCount: 0,
+    silentLoadInFlight: null,
+    silentLoadStarted: 0,
     initInProgress: false,
     detailSaving: false
   };
@@ -384,6 +386,10 @@
   function dimGetCacheEmail() {
     const fromLocal = dimReadMemberEmailLocal();
     if (fromLocal) return fromLocal;
+    if (typeof getProfileEmail === 'function' && typeof getUserName === 'function') {
+      const hubEmail = getProfileEmail(getUserName());
+      if (hubEmail) return String(hubEmail).toLowerCase();
+    }
     if (dimState.session && dimState.session.email) {
       return dimState.session.email.toLowerCase();
     }
@@ -484,7 +490,8 @@
 
   function dimRefreshWeekInBackground(week) {
     week = week || dimState.week || dimGetIsoWeek();
-    dimLoadWeek(week, { silent: true, skipCacheCheck: true }).catch(function () { /* ignore */ });
+    if (dimState.silentLoadInFlight) return dimState.silentLoadInFlight;
+    return dimLoadWeek(week, { silent: true, skipCacheCheck: true }).catch(function () { /* ignore */ });
   }
 
   function dimReadWeekCache(week) {
@@ -1714,11 +1721,22 @@
   function dimSetWeekRefreshing(refreshing) {
     if (refreshing) {
       dimState.silentLoadCount = (dimState.silentLoadCount || 0) + 1;
+      dimState.silentLoadStarted = Date.now();
     } else {
       dimState.silentLoadCount = Math.max(0, (dimState.silentLoadCount || 0) - 1);
+      if (dimState.silentLoadCount === 0) dimState.silentLoadStarted = 0;
     }
     dimState.refreshingWeek = dimState.silentLoadCount > 0;
     document.getElementById('dimWeekLabel')?.classList.toggle('is-refreshing', dimState.refreshingWeek);
+    dimUpdateStatus();
+  }
+
+  function dimResetWeekRefreshing() {
+    dimState.silentLoadCount = 0;
+    dimState.refreshingWeek = false;
+    dimState.silentLoadStarted = 0;
+    dimState.silentLoadInFlight = null;
+    document.getElementById('dimWeekLabel')?.classList.toggle('is-refreshing', false);
     dimUpdateStatus();
   }
 
@@ -1766,9 +1784,13 @@
     }
 
     if (dimState.refreshingWeek) {
-      setBadge('pending', '<span class="dim-saving-dot"></span> Atualizando…', true);
-      hideBar();
-      return;
+      if (dimState.silentLoadStarted && Date.now() - dimState.silentLoadStarted > 95000) {
+        dimResetWeekRefreshing();
+      } else {
+        setBadge('pending', '<span class="dim-saving-dot"></span> Atualizando…', true);
+        hideBar();
+        return;
+      }
     }
 
     const url = dimBridgeBaseUrl();
@@ -2068,6 +2090,11 @@
   async function dimLoadWeek(week, options) {
     options = options || {};
     const silent = !!options.silent;
+    if (silent && dimState.silentLoadInFlight) {
+      return dimState.silentLoadInFlight;
+    }
+
+    const runLoad = async function () {
     const loadId = ++dimState.loadWeekSeq;
     dimState.week = week;
     dimUpdateWeekLabel();
@@ -2078,7 +2105,7 @@
         if (cached) {
           dimApplySchedule(cached);
           dimSetLastUpdate();
-          dimLoadWeek(week, { silent: true, skipCacheCheck: true }).catch(function () {});
+          dimRefreshWeekInBackground(week);
           return;
         }
       }
@@ -2124,6 +2151,17 @@
         dimSetWeekRefreshing(false);
       }
     }
+    };
+
+    if (silent) {
+      const flight = runLoad();
+      dimState.silentLoadInFlight = flight;
+      flight.finally(function () {
+        if (dimState.silentLoadInFlight === flight) dimState.silentLoadInFlight = null;
+      });
+      return flight;
+    }
+    return runLoad();
   }
 
   function dimChangeWeek(delta) {
@@ -2452,7 +2490,14 @@
     const summary = dimState.schedule.summary || {};
     const keys = Object.keys(summary).sort();
     if (!keys.length) {
-      el.innerHTML = '<p style="color:var(--text3);font-size:13px">Nenhum slot preenchido nesta semana.</p>';
+      const email = dimResolveUserEmail();
+      let hint = 'Nenhum slot preenchido nesta semana.';
+      if (email) {
+        hint += ' Buscando a escala de <strong>' + escapeHtml(email) + '</strong> — confira se esse e-mail está na planilha de dimensionamento e no seu perfil no hub.';
+      } else {
+        hint += ' Abra <strong>Seu perfil</strong>, cadastre o e-mail @nubank.com.br e clique em <strong>Conectar à planilha</strong>.';
+      }
+      el.innerHTML = '<p style="color:var(--text3);font-size:13px;line-height:1.5">' + hint + '</p>';
       return;
     }
     let html = '<div class="dim-summary-chips">';
@@ -3027,7 +3072,7 @@
     if (dimState.reloadTimer) clearInterval(dimState.reloadTimer);
     dimState.reloadTimer = setInterval(function () {
       if (document.getElementById('pageDimensionamento')?.classList.contains('active') &&
-          !dimShouldPauseReload()) {
+          !dimShouldPauseReload() && !dimState.silentLoadInFlight) {
         dimLoadWeek(dimState.week, { silent: true });
       }
     }, 60000);

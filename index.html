@@ -3697,6 +3697,11 @@ function applyLoadedPackData(parsed,updatedAt){
   if(document.getElementById('configModal')?.classList.contains('active')) refreshTechConfigFields();
   return roleSynced||hadPackToken;
 }
+function refreshDimensionamentoAfterMembersLoad(){
+  if(!document.getElementById('pageDimensionamento')?.classList.contains('active')) return;
+  if(typeof dimManualRefresh==='function') dimManualRefresh();
+  else if(typeof dimInit==='function') dimInit();
+}
 async function hydrateMembersAfterPackLoad(roleSynced){
   if(!getFeriasBridgeUrl()) return roleSynced;
   const ok=await loadMembersFromSheet();
@@ -3718,6 +3723,7 @@ async function hydrateMembersAfterPackLoad(roleSynced){
     refreshTechConfigFields();
   }
   saveLocal();
+  refreshDimensionamentoAfterMembersLoad();
   return roleSynced||rs;
 }
 async function applyLoadedPackDataWithMembers(parsed,updatedAt){
@@ -7641,6 +7647,6 @@ window.addEventListener('DOMContentLoaded',async()=>{
     </button>
   </div>
 </footer>
-<script src="dimensionamento.js?v=37"></script>
+<script src="dimensionamento.js?v=38"></script>
 </body>
 </html>
