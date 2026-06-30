@@ -998,6 +998,22 @@
     return dimGetCacheEmail() || '';
   }
 
+  function dimResolveDisplayEmail() {
+    const fromSession = dimSaveUserEmail();
+    if (fromSession) return String(fromSession).toLowerCase();
+    return dimGetCacheEmail() || '';
+  }
+
+  function dimHasScheduleData() {
+    return !!(dimState.schedule && Array.isArray(dimState.schedule.days) && dimState.schedule.days.length);
+  }
+
+  function dimSetConnectedEmailBadge(setBadge, email, hasData) {
+    const label = hasData ? 'Salvo' : 'Conectado';
+    const icon = hasData ? 'ti-circle-check' : 'ti-plug-connected';
+    setBadge('ok', '<i class="ti ' + icon + '"></i> ' + label + ' · ' + escapeHtml(email), true);
+  }
+
   function dimPayloadWithUserEmail(payload) {
     const out = Object.assign({}, payload || {});
     if (!out.userEmail) {
@@ -1748,7 +1764,24 @@
           wrap.appendChild(overlay);
         }
         const txt = overlay.querySelector('.dim-week-loading-text');
-        if (txt) txt.textContent = 'Carregando semana ' + dimState.week + '…';
+        const email = dimResolveDisplayEmail();
+        if (txt) {
+          txt.textContent = email
+            ? 'Carregando planilha · semana ' + dimState.week + '…'
+            : 'Carregando semana ' + dimState.week + '…';
+        }
+        const sub = overlay.querySelector('.dim-week-loading-sub');
+        if (email) {
+          if (!sub) {
+            const subEl = document.createElement('span');
+            subEl.className = 'dim-week-loading-sub';
+            overlay.appendChild(subEl);
+          }
+          const subNode = overlay.querySelector('.dim-week-loading-sub');
+          if (subNode) subNode.textContent = email;
+        } else if (sub) {
+          sub.remove();
+        }
       } else if (overlay) {
         overlay.remove();
       }
@@ -1819,9 +1852,16 @@
     }
 
     if (dimState.loadingWeek) {
-      setBadge('pending', '<span class="dim-saving-dot"></span> Carregando…', true);
-      showBar('pending', '<span class="dim-saving-dot"></span><span>Carregando semana <strong>' +
-        escapeHtml(String(dimState.week)) + '</strong>…</span>');
+      const email = dimResolveDisplayEmail();
+      if (email) {
+        dimBootstrapSessionFromHub();
+        dimSetConnectedEmailBadge(setBadge, email, dimHasScheduleData());
+        showBar('pending', '<span class="dim-saving-dot"></span><span>Carregando planilha · semana <strong>' +
+          escapeHtml(String(dimState.week)) + '</strong>…</span>');
+      } else {
+        setBadge('warn', '<i class="ti ti-alert-triangle"></i> Sem e-mail', true);
+        showBar('warn', '<i class="ti ti-alert-triangle"></i><span>Cadastre seu e-mail em <strong>Seu perfil</strong> antes de carregar a planilha</span>');
+      }
       return;
     }
 
@@ -1829,8 +1869,14 @@
       if (dimState.silentLoadStarted && Date.now() - dimState.silentLoadStarted > 95000) {
         dimResetWeekRefreshing();
       } else {
-        setBadge('pending', '<span class="dim-saving-dot"></span> Atualizando…', true);
-        hideBar();
+        const email = dimResolveDisplayEmail();
+        if (email) {
+          dimSetConnectedEmailBadge(setBadge, email, dimHasScheduleData());
+          showBar('pending', '<span class="dim-saving-dot"></span><span>Atualizando planilha…</span>');
+        } else {
+          setBadge('pending', '<span class="dim-saving-dot"></span> Atualizando…', true);
+          hideBar();
+        }
         return;
       }
     }
@@ -1856,8 +1902,13 @@
           escapeHtml(dimState.session.email) + '</strong> — e-mail diferente do cadastro Hub</span>');
         return;
       }
-      setBadge('ok', '<i class="ti ti-circle-check"></i> Salvo · ' + escapeHtml(dimState.session.email), true);
-      hideBar();
+      if (dimHasScheduleData() || dimState.lastUpdate) {
+        dimSetConnectedEmailBadge(setBadge, dimState.session.email, true);
+        hideBar();
+        return;
+      }
+      dimSetConnectedEmailBadge(setBadge, dimState.session.email, false);
+      showBar('pending', '<span class="dim-saving-dot"></span><span>Preparando planilha…</span>');
       return;
     }
 
@@ -2159,6 +2210,7 @@
     const loadId = ++dimState.loadWeekSeq;
     dimState.week = week;
     dimUpdateWeekLabel();
+    dimBootstrapSessionFromHub();
     let usedStaleCache = false;
 
     if (!silent) {
