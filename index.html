@@ -611,7 +611,12 @@ body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo
 .pri-grid th,.pri-grid td{border:1px solid var(--border);padding:0;vertical-align:middle;}
 .pri-grid th{background:#ede9fe;color:#5b21b6;font-size:12px;font-weight:600;padding:10px 8px;text-align:center;}
 .pri-grid th.pri-corner{background:var(--bg3);color:var(--text3);width:88px;}
+.pri-grid th.pri-col-today{background:#ede9fe;color:#5b21b6;box-shadow:inset 0 0 0 2px #7c3aed;}
+.pri-day-head{display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.25;}
+.pri-today-badge{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;background:#7c3aed;color:#fff;padding:2px 7px;border-radius:8px;}
+.pri-grid td.pri-col-today{background:#faf5ff;box-shadow:inset 0 0 0 2px #7c3aed;}
 .pri-grid td.pri-shift{background:var(--bg3);font-size:12px;font-weight:600;color:var(--text2);text-align:center;padding:10px 8px;width:88px;white-space:nowrap;}
+.pri-shift-icon{font-size:14px;color:var(--text3);vertical-align:-2px;margin-right:4px;}
 .pri-cell{padding:10px 8px;min-height:52px;font-size:11px;line-height:1.4;color:var(--text);text-align:center;background:#fff;position:relative;}
 .pri-cell-has-badge{padding-right:30px;}
 .pri-copy-badge{position:absolute;top:6px;right:5px;width:24px;height:24px;border:none;background:var(--bg3);border-radius:6px;color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;opacity:0;transition:opacity .15s,background .15s,color .15s;}
@@ -620,6 +625,7 @@ body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo
 .pri-copy-badge.copied{background:#dcfce7;color:#059669;opacity:1;}
 .pri-copy-badge i{pointer-events:none;}
 .pri-cell-empty{color:var(--text3);opacity:0.5;}
+.pri-cell-queue-match{background:#fef9c3!important;box-shadow:inset 0 0 0 2px #ca8a04!important;}
 .pri-cell-editable{cursor:pointer;user-select:none;transition:background .12s,box-shadow .12s;}
 .pri-cell-editable:hover{background:#f5f3ff;}
 .pri-cell-selected{background:#ede9fe!important;box-shadow:inset 0 0 0 2px #7c3aed;}
@@ -641,6 +647,15 @@ body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo
 .pri-summary-table th,.pri-summary-table td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;}
 .pri-summary-table th{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;background:var(--bg);}
 .pri-summary-table tr:last-child td{border-bottom:none;}
+.pri-summary-row-clickable{cursor:pointer;transition:background .12s;}
+.pri-summary-row-clickable:hover td{background:var(--bg3);}
+.pri-summary-row-active td{background:#fef9c3!important;}
+.pri-summary-hint{font-size:11px;color:var(--text3);margin:-4px 0 10px;line-height:1.45;}
+.pri-summary-hint strong{color:#854d0e;font-weight:600;}
+.pri-bar-wrap{display:flex;align-items:center;gap:10px;justify-content:flex-end;}
+.pri-bar-track{flex:1;max-width:120px;min-width:60px;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.pri-bar-fill{height:100%;background:linear-gradient(90deg,#a78bfa,#7c3aed);border-radius:4px;min-width:2px;transition:width .25s ease;}
+.pri-bar-pct{font-size:10px;color:var(--text3);min-width:34px;text-align:right;}
 .pri-summary-total{font-weight:700;background:#ede9fe;color:#5b21b6;}
 .pri-count-input{width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;text-align:right;background:var(--bg);}
 .pri-queue-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;}
@@ -1658,8 +1673,8 @@ const PRI_DAYS=[
   {key:'sex',label:'Sexta'},
 ];
 const PRI_SHIFTS=[
-  {key:'manha',label:'Manhã'},
-  {key:'tarde',label:'Tarde'},
+  {key:'manha',label:'Manhã',icon:'ti-sun'},
+  {key:'tarde',label:'Tarde',icon:'ti-moon'},
 ];
 const DEFAULT_PRIORITIES={
   weekStart:'2026-06-15',
@@ -6221,7 +6236,55 @@ let priWeekStart=null;
 let priEditDraft=null;
 let priSelectedSlots=new Set();
 let priLastSelectedSlot=null;
+let priHighlightQueue=null;
 
+function priIsCurrentWeek(){
+  return priWeekStart===getMondayISO();
+}
+function priGetTodayDayKey(){
+  const map={1:'seg',2:'ter',3:'qua',4:'qui',5:'sex'};
+  return map[new Date().getDay()]||null;
+}
+function priGetDayDateNum(dayIndex){
+  const d=new Date(priWeekStart+'T12:00:00');
+  d.setDate(d.getDate()+dayIndex);
+  return d.getDate();
+}
+function setPriHighlightQueue(name){
+  if(priEditMode) return;
+  priHighlightQueue=priHighlightQueue===name?null:name;
+  priApplyQueueHighlight();
+}
+function priApplyQueueHighlight(){
+  document.querySelectorAll('#priGrid .pri-cell[data-pri-queue]').forEach(cell=>{
+    const match=!!(priHighlightQueue&&cell.dataset.priQueue===priHighlightQueue);
+    cell.classList.toggle('pri-cell-queue-match',match);
+  });
+  document.querySelectorAll('#priSummary tr[data-pri-queue]').forEach(row=>{
+    row.classList.toggle('pri-summary-row-active',row.dataset.priQueue===priHighlightQueue);
+  });
+  const hint=document.getElementById('priSummaryHint');
+  if(hint){
+    if(priHighlightQueue&&!priEditMode){
+      hint.style.display='block';
+      hint.innerHTML='Destacando na grade: <strong>'+escapeHtml(formatQueueShort(priHighlightQueue))+'</strong> · clique na fila de novo para limpar';
+    }else{
+      hint.style.display='none';
+      hint.textContent='';
+    }
+  }
+}
+function initPriSummaryEvents(){
+  const sum=document.getElementById('priSummary');
+  if(!sum||sum.dataset.bound) return;
+  sum.dataset.bound='1';
+  sum.addEventListener('click',e=>{
+    if(priEditMode) return;
+    const row=e.target.closest('tr[data-pri-queue]');
+    if(!row) return;
+    setPriHighlightQueue(row.dataset.priQueue);
+  });
+}
 function getMondayISO(d=new Date()){
   const date=new Date(d);
   const day=date.getDay();
@@ -6315,11 +6378,13 @@ function priChangeWeek(delta){
   const d=new Date(priWeekStart+'T12:00:00');
   d.setDate(d.getDate()+delta*7);
   priWeekStart=getMondayISO(d);
+  priHighlightQueue=null;
   if(priEditMode) cancelPrioritiesEdit();
   renderPriorities();
 }
 function priGoCurrentWeek(){
   priWeekStart=getMondayISO();
+  priHighlightQueue=null;
   if(priEditMode) cancelPrioritiesEdit();
   renderPriorities();
 }
@@ -6476,6 +6541,7 @@ function initPriGridEvents(){
 function togglePrioritiesEdit(){
   if(!canEditContent()){ openConfig(); return; }
   priEditMode=true;
+  priHighlightQueue=null;
   ensurePrioritiesData();
   priResetSelection();
   startPriEditDraft();
@@ -6625,18 +6691,30 @@ function renderPriorities(){
     meta.textContent='Grade da semana atual do pack.';
   }
   const grid=document.getElementById('priGrid');
+  const isCurrentWeek=priIsCurrentWeek();
+  const todayKey=isCurrentWeek?priGetTodayDayKey():null;
   let html='<thead><tr><th class="pri-corner"></th>';
-  PRI_DAYS.forEach(d=>{ html+=`<th>${d.label}</th>`; });
+  PRI_DAYS.forEach((d,di)=>{
+    const isToday=d.key===todayKey;
+    const thCls=isToday?' class="pri-col-today"':'';
+    const dateNum=priGetDayDateNum(di);
+    html+=`<th${thCls}><div class="pri-day-head"><span>${d.label} · ${dateNum}</span>${isToday?'<span class="pri-today-badge">Hoje</span>':''}</div></th>`;
+  });
   html+='</tr></thead><tbody>';
   PRI_SHIFTS.forEach(shift=>{
-    html+=`<tr><td class="pri-shift">${shift.label}</td>`;
+    const shiftIcon=shift.icon?`<i class="ti ${shift.icon} pri-shift-icon"></i>`:'';
+    html+=`<tr><td class="pri-shift">${shiftIcon}${shift.label}</td>`;
     PRI_DAYS.forEach(day=>{
       const key=priSlotKey(day.key,shift.key);
       const val=priGetSlot(day.key,shift.key);
+      const isTodayCol=day.key===todayKey;
+      const colCls=isTodayCol?' pri-col-today':'';
+      const queueAttr=val?` data-pri-queue="${escapeAttr(val)}"`:'';
+      const queueMatch=val&&priHighlightQueue===val?' pri-cell-queue-match':'';
       if(priEditMode){
         const selCls=priSelectedSlots.has(key)?' pri-cell-selected':'';
         const emptyCls=val?'':' pri-cell-empty';
-        html+=`<td class="pri-cell pri-cell-editable${selCls}${emptyCls}" data-pri-slot="${key}" title="${escapeAttr(val||'Clique para escolher a fila')}">`;
+        html+=`<td class="pri-cell pri-cell-editable${selCls}${emptyCls}${colCls}" data-pri-slot="${key}"${queueAttr} title="${escapeAttr(val||'Clique para escolher a fila')}">`;
         if(val){
           html+=`<span class="pri-queue-short">${escapeHtml(formatQueueShort(val))}</span>`;
           html+=`<span class="pri-queue-full">${escapeHtml(val)}</span>`;
@@ -6644,7 +6722,7 @@ function renderPriorities(){
         html+='</td>';
       } else {
         const cls=val?' pri-cell-has-badge':' pri-cell-empty';
-        html+=`<td class="pri-cell${cls}" title="${escapeAttr(val)}">`;
+        html+=`<td class="pri-cell${cls}${colCls}${queueMatch}"${queueAttr} title="${escapeAttr(val)}">`;
         if(val) html+=priCellViewHtml(val);
         else html+='—';
         html+='</td>';
@@ -6665,12 +6743,18 @@ function renderPriorities(){
   const showQueueEdit=priEditMode;
   if(queuesHint) queuesHint.style.display=showQueueEdit?'block':'none';
   if(queuesToolbar) queuesToolbar.style.display=showQueueEdit?'flex':'none';
-  let total=0;
-  let shtml='<thead><tr><th>Fila</th><th style="text-align:right;width:140px">Casos</th></tr></thead><tbody>';
-  pri.queues.forEach(q=>{
-    const qCount=priGetQueueCount(q);
-    total+=qCount;
-    shtml+=`<tr><td class="pri-queue-name">${escapeHtml(q.name)}</td><td style="text-align:right">`;
+  const counts=pri.queues.map(q=>priGetQueueCount(q));
+  let total=counts.reduce((a,b)=>a+b,0);
+  let shtml='<thead><tr><th>Fila</th><th style="text-align:right;min-width:180px">Casos</th></tr></thead><tbody>';
+  pri.queues.forEach((q,qi)=>{
+    const qCount=counts[qi];
+    const pct=total>0?Math.round(qCount/total*100):0;
+    const barW=total>0?Math.max(2,Math.round(qCount/total*100)):0;
+    const rowCls=[
+      !priEditMode?'pri-summary-row-clickable':'',
+      priHighlightQueue===q.name?'pri-summary-row-active':'',
+    ].filter(Boolean).join(' ');
+    shtml+=`<tr${rowCls?` class="${rowCls}"`:''} data-pri-queue="${escapeAttr(q.name)}"><td class="pri-queue-name">${escapeHtml(q.name)}</td><td style="text-align:right">`;
     if(priEditMode){
       shtml+=`<div class="pri-queue-actions">`;
       shtml+=`<input type="number" min="0" class="pri-count-input" data-pri-queue-id="${escapeAttr(q.id)}" value="${qCount}">`;
@@ -6678,13 +6762,18 @@ function renderPriorities(){
       shtml+=`<span style="font-size:10px;color:var(--text3);white-space:nowrap">remover</span>`;
       shtml+=`</div>`;
     } else {
+      shtml+=`<div class="pri-bar-wrap">`;
+      shtml+=`<div class="pri-bar-track" title="${pct}% do total"><div class="pri-bar-fill" style="width:${barW}%"></div></div>`;
+      shtml+=`<span class="pri-bar-pct">${pct}%</span>`;
       shtml+=`<strong>${qCount}</strong>`;
+      shtml+=`</div>`;
     }
     shtml+='</td></tr>';
   });
   shtml+=`<tr class="pri-summary-total"><td>TOTAL DE AMOSTRAS</td><td style="text-align:right"><strong>${total}</strong></td></tr>`;
   shtml+='</tbody>';
   sum.innerHTML=shtml;
+  priApplyQueueHighlight();
   updatePriEditUI();
 }
 
@@ -6760,6 +6849,7 @@ function hubHardResetNavigate(){
 }
 window.addEventListener('DOMContentLoaded',async()=>{
   initPriGridEvents();
+  initPriSummaryEvents();
   try{
     if(isVisitor()) clearPlaceholderPackCache();
     loadLocal();
@@ -6936,6 +7026,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
   </div>
   <div class="pri-card">
     <h4><i class="ti ti-chart-bar" style="color:#7c3aed"></i> Quantidade de casos por fila</h4>
+    <p class="pri-summary-hint" id="priSummaryHint" style="display:none"></p>
     <p class="pri-queues-hint" id="priQueuesHint" style="display:none">Gerencie as filas disponíveis na grade. Ao apagar, slots que usavam a fila ficam vazios.</p>
     <div class="pri-queues-toolbar" id="priQueuesToolbar" style="display:none">
       <input type="text" id="priNewQueueName" placeholder="Nome da fila (ex: data-labeling-hsp-id-nova)" onkeydown="if(event.key==='Enter')addPriQueue()">
