@@ -560,6 +560,7 @@ function membersSaveProfile_(payload) {
 
   var areas = membersParseAreas_(profile.areas);
   var level = profile.level != null ? String(profile.level).trim() : (row[6] ? String(row[6]).trim() : '');
+  delete profile.avatar;
 
   u.name = name;
   if (email) u.email = email;

@@ -2972,6 +2972,28 @@ let feriasSheetLoadError='';
 let membersSheetLoadState='idle';
 let membersSheetLoadError='';
 
+function profileForSheetTransport(profile){
+  if(!profile||typeof profile!=='object') return {};
+  const out={};
+  if(profile.level!=null&&String(profile.level).trim()) out.level=String(profile.level).trim();
+  if(Array.isArray(profile.areas)&&profile.areas.length) out.areas=profile.areas.slice();
+  if(profile.email) out.email=String(profile.email).toLowerCase().trim();
+  if(profile.updatedAt) out.updatedAt=profile.updatedAt;
+  return out;
+}
+function profilesForSheetTransport(profiles,names){
+  const src=profiles||{};
+  const out={};
+  const keys=Array.isArray(names)&&names.length
+    ? names.map(n=>Object.keys(src).find(k=>namesMatch(k,n))||n).filter((k,i,arr)=>k&&arr.indexOf(k)===i)
+    : Object.keys(src);
+  keys.forEach(k=>{
+    if(!k||!src[k]) return;
+    const slim=profileForSheetTransport(src[k]);
+    if(Object.keys(slim).length) out[k]=slim;
+  });
+  return out;
+}
 function membersSheetActive(){
   return !!getFeriasBridgeUrl();
 }
@@ -3036,12 +3058,12 @@ async function syncOwnProfileViaSheet(name,oldName){
   const email=profile.email||getProfileEmail(name)||'';
   showStatus('loading','Publicando perfil na planilha...');
   try{
-    const res=await feriasApi('saveMemberProfile',Object.assign({
+    const res=await feriasJsonpApi('saveMemberProfile',Object.assign({
       inviteCode:code,
       name,
       memberName:name,
       oldName:oldName||'',
-      profile,
+      profile:profileForSheetTransport(profile),
       email,
       userEmail:email,
     },feriasApiPayloadExtra()));
@@ -3070,11 +3092,11 @@ async function syncMembersToSheet(){
   syncAccessUserEmailsFromProfiles();
   showStatus('loading','Salvando membros na planilha...');
   try{
-    const res=await feriasApi('patchMembers',Object.assign({
+    const res=await feriasJsonpApi('patchMembers',Object.assign({
       inviteCode:code||'',
       memberName:getUserName(),
       accessUsers:data.accessUsers||[],
-      profiles:data.profiles||{},
+      profiles:profilesForSheetTransport(data.profiles,(data.accessUsers||[]).map(u=>u.name)),
       userEmail:getProfileEmail(getUserName())||'',
     },feriasApiPayloadExtra()));
     applyMembersSheetPayload(res);
@@ -3099,7 +3121,10 @@ async function migrateMembersFromGistToSheet(){
   if(!confirm('Importar '+accessUsers.length+' membro(s) para a aba Membros? A aba será substituída.')) return;
   showStatus('loading','Importando membros para a planilha...');
   try{
-    const res=await feriasApi('migrateMembers',Object.assign({ accessUsers, profiles },feriasApiPayloadExtra()));
+    const res=await feriasJsonpApi('migrateMembers',Object.assign({
+      accessUsers,
+      profiles:profilesForSheetTransport(profiles,accessUsers.map(u=>u.name)),
+    },feriasApiPayloadExtra()));
     applyMembersSheetPayload(res);
     saveLocal();
     showStatus('success','Membros importados para a planilha.');
@@ -3140,36 +3165,14 @@ function feriasBridgeExecBase(){
   if(!url) return '';
   return url.replace(/\/dev$/,'/exec').replace(/\?.*$/,'');
 }
-const FERIAS_POST_ACTIONS={ migrateMembers:1, patchMembers:1, migrateFerias:1 };
-function feriasUsesPost(action,payload){
-  if(FERIAS_POST_ACTIONS[action]) return true;
-  try{ return JSON.stringify(payload||{}).length>1800; }catch(e){ return false; }
-}
-function feriasPostApi(action,payload,timeoutMs){
-  timeoutMs=timeoutMs||60000;
-  const base=feriasBridgeExecBase();
-  if(!base) return Promise.reject(new Error('URL Planilha Hub não configurada. Admin: Configuração → Técnico → URL Planilha Hub.'));
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),timeoutMs);
-  return fetch(base,{
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body:JSON.stringify({ ferias:action, payload:payload||{} }),
-    signal:controller.signal,
-    redirect:'follow',
-    cache:'no-store'
-  }).then(r=>r.text()).then(text=>{
-    let res;
-    try{ res=JSON.parse(text); }catch(e){ throw new Error('Resposta inválida da ponte de férias'); }
-    if(res&&res.ok) return res.data;
-    throw new Error((res&&res.error)||'Erro na ponte de férias');
-  }).catch(e=>{
-    if(e&&e.name==='AbortError') throw new Error('Timeout ao comunicar com a ponte de férias');
-    throw e;
-  }).finally(()=>clearTimeout(timer));
-}
+const FERIAS_JSONP_MAX_PAYLOAD=7500;
 function feriasApi(action,payload,timeoutMs){
-  return feriasUsesPost(action,payload)?feriasPostApi(action,payload,timeoutMs):feriasJsonpApi(action,payload,timeoutMs);
+  const pl=payload||{};
+  const size=JSON.stringify(pl).length;
+  if(size>FERIAS_JSONP_MAX_PAYLOAD){
+    return Promise.reject(new Error('Payload grande demais para a ponte ('+size+' caracteres). Avatares não são enviados à planilha — recarregue e tente de novo.'));
+  }
+  return feriasJsonpApi(action,pl,timeoutMs);
 }
 function feriasJsonpApi(action,payload,timeoutMs){
   timeoutMs=timeoutMs||45000;
