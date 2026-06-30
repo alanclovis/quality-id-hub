@@ -1287,7 +1287,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <p class="access-hint" id="accessHint"></p>
     </div>
     <div class="config-panel" id="configPanelTech">
-      <p class="access-hint" id="techConfigHint">Token GitHub com permissão <code>gist</code> para publicar perfil e (se editor) links. Férias usam a planilha (URL Férias abaixo). O Gist ID já vem preenchido.</p>
+      <p class="access-hint" id="techConfigHint">Token GitHub com permissão <code>gist</code> para publicar links e prioridades (se editor). <strong>Membros, perfis e férias</strong> usam a planilha (URL Planilha Hub abaixo). O Gist ID já vem preenchido.</p>
       <label>GitHub Token</label>
       <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
       <label style="margin-top:10px">Gist ID</label>
@@ -1298,10 +1298,11 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       <label style="margin-top:14px">URL ponte Dimensionamento (Apps Script)</label>
       <input type="url" id="dimBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="access-hint" style="margin-top:6px">Web App publicado com <code>?view=bridge</code>. Conecta o Hub à planilha Google Sheets.</p>
-      <label style="margin-top:14px">URL Férias (Apps Script + planilha)</label>
+      <label style="margin-top:14px">URL Planilha Hub (Apps Script + planilha)</label>
       <input type="url" id="feriasBridgeUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
-      <p class="access-hint" style="margin-top:6px">Ponte da <strong>página Férias</strong> apenas. Admin configura uma vez; o time recebe ao carregar o pack.</p>
+      <p class="access-hint" style="margin-top:6px">Ponte da planilha compartilhada: abas <strong>Férias</strong> e <strong>Membros</strong> (login, papéis, perfis). Admin configura uma vez; o time recebe ao carregar o pack.</p>
       <button class="btn btn-sm" type="button" id="btnMigrateFeriasGist" style="margin-top:10px;display:none" onclick="migrateFeriasFromGistToSheet()"><i class="ti ti-database-import"></i> Importar férias do Gist para planilha</button>
+      <button class="btn btn-sm" type="button" id="btnMigrateMembersGist" style="margin-top:10px;display:none" onclick="migrateMembersFromGistToSheet()"><i class="ti ti-database-import"></i> Importar membros do Gist para planilha</button>
       <p class="access-hint" style="margin-top:10px">Token GitHub (acima) é opcional se a bridge do pack estiver configurada. Caso contrário, fica <strong>só neste navegador</strong>.</p>
       <div id="configSaveStatus" class="config-save-status" role="status" aria-live="polite"></div>
       <div class="modal-actions" style="margin-top:14px">
@@ -1310,7 +1311,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
       </div>
     </div>
     <div class="config-panel" id="configPanelUsers">
-      <p class="access-hint">Cadastre cada pessoa com nome e papel. Membros recebem <strong>código pessoal</strong> no Slack. Visitantes entram pelo hub sem código.</p>
+      <p class="access-hint">Cadastre cada pessoa com nome e papel. Membros recebem <strong>código pessoal</strong> no Slack. Com a planilha ativa, alterações vão para a aba <strong>Membros</strong> (não duplicam no Gist).</p>
       <div class="profiles-publish-box" id="profilesPublishBox" style="display:none">
         <p class="access-hint">Cada membro publica o próprio perfil ao salvar (código + bridge do pack, ou token em Técnico). Use o botão abaixo só para recuperar perfis que existam <strong>neste navegador</strong> — não alcança outros computadores.</p>
         <p class="access-hint" id="profilesPublishSummary"></p>
@@ -1788,7 +1789,7 @@ function isVisitor(){
   return getUserRole()==='visitor';
 }
 function needsMandatoryToken(){
-  return hasClaimedIdentity()&&!!getUserName()&&!isVisitor()&&!getToken()&&!canSyncViaBridge();
+  return hasClaimedIdentity()&&!!getUserName()&&!isVisitor()&&!getToken()&&!canSyncViaBridge()&&!canSyncProfileToSheet();
 }
 function canBrowseHub(){
   return hasClaimedIdentity()&&!!getUserName();
@@ -2028,7 +2029,7 @@ async function claimAdminWithToken(){
     localStorage.setItem('qhub_saved_invite_code',u.inviteCode);
     ensureRegisteredMember(u.name);
     saveLocal();
-    if(canWriteGist()&&getGistId()) await saveToGist();
+    if(canWriteGist()&&getGistId()) await saveAccessUsersToPack();
     renderUserChip();
     renderAccessStatusBox();
     updateEditButtonVisibility();
@@ -2057,7 +2058,7 @@ async function claimBootstrapAdmin(){
   localStorage.setItem('qhub_claimed_name','1');
   localStorage.setItem('qhub_saved_invite_code',code);
   saveLocal();
-  if(canWriteGist()&&getGistId()) await saveToGist();
+  if(canWriteGist()&&getGistId()) await saveAccessUsersToPack();
   alert('Admin criado. Guarde seu código para outros dispositivos: '+code);
   ensureRegisteredMember(name);
   renderUserChip();
@@ -2091,7 +2092,7 @@ async function adminRegenerateInviteCode(id){
   if(!u) return;
   u.inviteCode=generateInviteCode(u.name);
   renderAccessUsersPanel();
-  await saveToGist();
+  await saveAccessUsersToPack();
   alert('Novo código para '+u.name+': '+u.inviteCode);
 }
 function ensureAccessUsers(){
@@ -2269,6 +2270,7 @@ function restoreMemberEmailFromLocal(name){
 function canSyncProfileToGist(){
   if(isVisitor()) return false;
   if(!getUserName()||!canUseMemberFeatures()) return false;
+  if(canSyncProfileToSheet()) return true;
   if(canSyncViaBridge()&&resolveBridgeInviteCode()) return true;
   if(getToken()&&getGistId()) return true;
   return false;
@@ -2418,6 +2420,7 @@ async function syncOwnProfileViaBridge(name,oldName){
 }
 async function syncOwnProfileToGist(name,oldName){
   if(!canSyncProfileToGist()) return false;
+  if(canSyncProfileToSheet()) return syncOwnProfileViaSheet(name,oldName);
   if(canSyncViaBridge()&&!getToken()) return syncOwnProfileViaBridge(name,oldName);
   const token=getToken(),gistId=getGistId();
   const profile=data.profiles[name];
@@ -2498,7 +2501,7 @@ function renderProfilesPublishSection(){
   const box=document.getElementById('profilesPublishBox');
   const summary=document.getElementById('profilesPublishSummary');
   if(!box) return;
-  const show=canManageAccess()&&canWriteGist();
+  const show=canManageAccess()&&canWriteGist()&&!membersSheetActive();
   box.style.display=show?'block':'none';
   if(!show||!summary) return;
   ensureProfilesData();
@@ -2514,6 +2517,10 @@ function renderProfilesPublishSection(){
   summary.textContent=text;
 }
 async function publishProfilesToGist(){
+  if(membersSheetActive()){
+    alert('Membros e perfis são salvos na planilha. Use Configuração → Usuários ou peça a cada pessoa para salvar o perfil.');
+    return;
+  }
   if(!canWriteGist()){ alert('Permissão de editor/admin necessária — token GitHub ou bridge do pack (aba Técnico).'); switchConfigTab('tech'); return; }
   if(!getGistId()){ alert('Informe o Gist ID na aba Técnico.'); switchConfigTab('tech'); return; }
   const {total}=mergeLocalProfilesIntoData();
@@ -2559,6 +2566,8 @@ function refreshTechConfigFields(){
   if(feriasInp) feriasInp.value=getFeriasBridgeUrl();
   const migBtn=document.getElementById('btnMigrateFeriasGist');
   if(migBtn) migBtn.style.display=(getUserRole()==='admin'||isAccessBootstrap())&&getFeriasBridgeUrl()?'inline-flex':'none';
+  const migMembersBtn=document.getElementById('btnMigrateMembersGist');
+  if(migMembersBtn) migMembersBtn.style.display=(getUserRole()==='admin'||isAccessBootstrap())&&getFeriasBridgeUrl()?'inline-flex':'none';
 }
 function switchConfigTab(tab){
   document.querySelectorAll('.config-tab').forEach(b=>b.classList.toggle('active',b.dataset.configTab===tab));
@@ -2601,6 +2610,10 @@ function renderAccessStatusBox(){
     hint.textContent='Token ativo — ao salvar o perfil, foto e dados vão para o pack. Você não edita links nem prioridades.';
   }else if(role==='visitor'){
     hint.textContent='Modo visitante — leitura de links, prioridades e férias. Dimensionamento não disponível.';
+  }else if(canSyncProfileToSheet()&&role==='member'){
+    hint.textContent='Planilha Hub ativa — publique perfil e férias com seu código, sem token no navegador.';
+  }else if(canSyncProfileToSheet()&&(role==='editor'||role==='admin')){
+    hint.textContent='Planilha Hub ativa — perfil e férias na planilha; links/prioridades no Gist via bridge ou token.';
   }else if(canSyncViaBridge()&&role==='member'){
     hint.textContent='Bridge do pack ativa — publique perfil e férias com seu código, sem token no navegador.';
   }else if(canSyncViaBridge()&&(role==='editor'||role==='admin')){
@@ -2684,7 +2697,8 @@ async function saveAccessUsersToPack(){
   sanitizeAuthConfig();
   syncAccessUserEmailsFromProfiles();
   saveLocal();
-  if(getToken()) return saveToGist({ skipFeriasMerge:true });
+  if(membersSheetActive()) return syncMembersToSheet();
+  if(getToken()) return saveToGist({ skipFeriasMerge:true, skipMembersMerge:true });
   if(canSyncViaBridge()&&isAppAdmin()&&resolveBridgeInviteCode()){
     showStatus('loading','Salvando usuários no pack...');
     try{
@@ -2700,7 +2714,7 @@ async function saveAccessUsersToPack(){
       return false;
     }
   }
-  return saveToGist({ skipFeriasMerge:true });
+  return saveToGist({ skipFeriasMerge:true, skipMembersMerge:true });
 }
 async function adminEditUserEmail(id){
   if(!canManageAccess()) return;
@@ -2713,9 +2727,9 @@ async function adminEditUserEmail(id){
   saveProfileEmail(u.name,email);
   saveLocal();
   renderAccessUsersPanel();
-  const ok=await saveToGist();
-  if(ok) alert('E-mail de '+u.name+' salvo no pack.');
-  else alert('Não foi possível publicar no Gist. O e-mail ficou só neste navegador — verifique token/bridge em Configuração → Técnico.');
+  const ok=membersSheetActive()?await syncMembersToSheet():await saveToGist();
+  if(ok) alert('E-mail de '+u.name+' salvo '+(membersSheetActive()?'na planilha':'no pack')+'.');
+  else alert('Não foi possível publicar '+(membersSheetActive()?'na planilha':'no Gist')+'. O e-mail ficou só neste navegador — verifique '+(membersSheetActive()?'a URL Planilha Hub':'token/bridge')+' em Configuração → Técnico.');
 }
 async function adminSetUserRole(id,role){
   if(!canManageAccess()) return;
@@ -2786,6 +2800,7 @@ async function saveConfig(){
     ensurePackBridgeData();
     ensureFeriasBridgeData();
     saveLocal();
+    if(getFeriasBridgeUrl()) await hydrateMembersAfterPackLoad(false);
     let published=false;
     if(canWriteGist()&&getGistId()){
       if(getToken()){
@@ -2950,10 +2965,152 @@ async function fetchPackViaBridge(){
   return {parsed:res.pack,updatedAt:res.updatedAt||null,source:'bridge'};
 }
 
-// ── Férias Bridge (planilha dedicada — só página Férias) ─────────────────────
+// ── Planilha Hub Bridge (Férias + Membros na mesma planilha) ─────────────────
 let feriasSheetData=[];
 let feriasSheetLoadState='idle';
 let feriasSheetLoadError='';
+let membersSheetLoadState='idle';
+let membersSheetLoadError='';
+
+function membersSheetActive(){
+  return !!getFeriasBridgeUrl();
+}
+function canSyncViaMembersSheet(){
+  return membersSheetActive()&&!isVisitor()&&hasClaimedIdentity()&&!!getUserName();
+}
+function canSyncProfileToSheet(){
+  return canSyncViaMembersSheet()&&!!resolveBridgeInviteCode();
+}
+function applyMembersSheetPayload(res){
+  if(!res) return false;
+  if(Array.isArray(res.accessUsers)) data.accessUsers=res.accessUsers;
+  if(res.profiles&&typeof res.profiles==='object'){
+    if(!data.profiles) data.profiles={};
+    Object.keys(res.profiles).forEach(function(k){
+      data.profiles[k]=mergeProfileRecords(data.profiles[k],res.profiles[k])||res.profiles[k];
+    });
+  }
+  migratePendingToActiveMembers();
+  syncAccessUserEmailsFromProfiles();
+  return true;
+}
+async function loadMembersFromSheet(){
+  if(!membersSheetActive()){
+    membersSheetLoadState='idle';
+    membersSheetLoadError='';
+    return false;
+  }
+  membersSheetLoadState='loading';
+  membersSheetLoadError='';
+  try{
+    const res=await feriasJsonpApi('getMembers',{});
+    const users=res?.accessUsers;
+    if(!Array.isArray(users)||!users.length){
+      membersSheetLoadState='ready';
+      membersSheetLoadError='';
+      return false;
+    }
+    applyMembersSheetPayload(res);
+    membersSheetLoadState='ready';
+    return true;
+  }catch(e){
+    membersSheetLoadState='error';
+    membersSheetLoadError=(e&&e.message)||'Erro ao carregar membros da planilha.';
+    return false;
+  }
+}
+function packDataForGistSave(src,opts){
+  opts=opts||{};
+  const payload=Object.assign({},src||data);
+  if(membersSheetActive()&&!opts.skipMembersMerge){
+    delete payload.profiles;
+    delete payload.accessUsers;
+  }
+  return payload;
+}
+async function syncOwnProfileViaSheet(name,oldName){
+  const code=getMemberInviteCode();
+  if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
+  const profile=data.profiles[name];
+  if(!profile) return false;
+  const email=profile.email||getProfileEmail(name)||'';
+  showStatus('loading','Publicando perfil na planilha...');
+  try{
+    const res=await feriasJsonpApi('saveMemberProfile',Object.assign({
+      inviteCode:code,
+      name,
+      memberName:name,
+      oldName:oldName||'',
+      profile,
+      email,
+      userEmail:email,
+    },feriasApiPayloadExtra()));
+    applyMembersSheetPayload(res);
+    if(email) saveProfileEmail(name,email);
+    if(oldName&&oldName!==name){
+      const lu=getAccessUserById(localStorage.getItem('qhub_user_id'));
+      if(lu) lu.name=name;
+    }
+    ensureRegisteredMember(name);
+    saveLocal();
+    document.getElementById('lastSaved').textContent='Perfil publicado';
+    showStatus('success','Perfil publicado na planilha!');
+    setTimeout(hideStatus,3000);
+    return true;
+  }catch(e){
+    showStatus('error','Erro ao publicar perfil: '+(e.message||e));
+    setTimeout(hideStatus,5000);
+    return false;
+  }
+}
+async function syncMembersToSheet(){
+  if(!membersSheetActive()||!isAppAdmin()) return false;
+  const code=resolveBridgeInviteCode();
+  if(!code&&!getToken()){ alert('Entre com código de admin ou configure token.'); return false; }
+  syncAccessUserEmailsFromProfiles();
+  showStatus('loading','Salvando membros na planilha...');
+  try{
+    const res=await feriasJsonpApi('patchMembers',Object.assign({
+      inviteCode:code||'',
+      memberName:getUserName(),
+      accessUsers:data.accessUsers||[],
+      profiles:data.profiles||{},
+      userEmail:getProfileEmail(getUserName())||'',
+    },feriasApiPayloadExtra()));
+    applyMembersSheetPayload(res);
+    saveLocal();
+    showStatus('success','Membros salvos na planilha!');
+    setTimeout(hideStatus,3000);
+    return true;
+  }catch(e){
+    showStatus('error','Erro ao salvar membros: '+(e.message||e));
+    setTimeout(hideStatus,5000);
+    return false;
+  }
+}
+async function migrateMembersFromGistToSheet(){
+  if(getUserRole()!=='admin'&&!isAccessBootstrap()){ alert('Somente admin.'); return; }
+  if(!getFeriasBridgeUrl()){ alert('Configure a URL da planilha antes.'); return; }
+  ensureAccessUsers();
+  ensureProfilesData();
+  const accessUsers=data.accessUsers||[];
+  const profiles=data.profiles||{};
+  if(!accessUsers.length){ alert('Nenhum usuário no pack local/Gist.'); return; }
+  if(!confirm('Importar '+accessUsers.length+' membro(s) para a aba Membros? A aba será substituída.')) return;
+  showStatus('loading','Importando membros para a planilha...');
+  try{
+    const res=await feriasJsonpApi('migrateMembers',Object.assign({ accessUsers, profiles },feriasApiPayloadExtra()));
+    applyMembersSheetPayload(res);
+    saveLocal();
+    showStatus('success','Membros importados para a planilha.');
+    setTimeout(hideStatus,4000);
+    renderAccessUsersPanel();
+    renderUserChip();
+  }catch(e){
+    showStatus('error','Erro na migração: '+(e.message||e));
+    setTimeout(hideStatus,5000);
+  }
+}
 
 function ensureFeriasBridgeData(){
   if(!data.feriasBridge) data.feriasBridge={url:''};
@@ -2986,7 +3143,7 @@ function feriasBridgeExecBase(){
 function feriasJsonpApi(action,payload,timeoutMs){
   timeoutMs=timeoutMs||45000;
   const base=feriasBridgeExecBase();
-  if(!base) return Promise.reject(new Error('URL Férias não configurada. Admin: Configuração → Técnico → URL Férias.'));
+  if(!base) return Promise.reject(new Error('URL Planilha Hub não configurada. Admin: Configuração → Técnico → URL Planilha Hub.'));
   return new Promise((resolve,reject)=>{
     const cb='feriasCb_'+Date.now()+'_'+Math.floor(Math.random()*1e6);
     let timer,script;
@@ -3009,11 +3166,14 @@ function feriasJsonpApi(action,payload,timeoutMs){
   });
 }
 function feriasApiPayloadExtra(){
-  return {
+  const extra={
     memberName:getUserName()||'',
     userEmail:getProfileEmail(getUserName())||'',
     isAdmin:getUserRole()==='admin'||!!isAccessBootstrap()
   };
+  const code=resolveBridgeInviteCode();
+  if(code) extra.inviteCode=code;
+  return extra;
 }
 function normalizeFeriasSheetRecords(list){
   (list||[]).forEach(f=>{
@@ -3028,7 +3188,7 @@ async function loadFeriasFromSheet(){
   if(!url){
     feriasSheetData=[];
     feriasSheetLoadState='error';
-    feriasSheetLoadError='URL Férias não configurada. Peça ao admin para publicar em Configuração → Técnico.';
+    feriasSheetLoadError='URL Planilha Hub não configurada. Peça ao admin para publicar em Configuração → Técnico.';
     return false;
   }
   feriasSheetLoadState='loading';
@@ -3059,14 +3219,14 @@ function ensureFeriasPageAccess(){
     return false;
   }
   if(!getFeriasBridgeUrl()){
-    alert('URL Férias não configurada. Admin: Configuração → Técnico → URL Férias.');
+    alert('URL Planilha Hub não configurada. Admin: Configuração → Técnico → URL Planilha Hub.');
     return false;
   }
   return true;
 }
 async function migrateFeriasFromGistToSheet(){
   if(getUserRole()!=='admin'&&!isAccessBootstrap()){ alert('Somente admin.'); return; }
-  if(!getFeriasBridgeUrl()){ alert('Configure a URL Férias antes.'); return; }
+  if(!getFeriasBridgeUrl()){ alert('Configure a URL Planilha Hub antes.'); return; }
   let records=[];
   try{
     const remote=await fetchRemotePackData();
@@ -3366,6 +3526,33 @@ function applyLoadedPackData(parsed,updatedAt){
   if(document.getElementById('configModal')?.classList.contains('active')) refreshTechConfigFields();
   return roleSynced||hadPackToken;
 }
+async function hydrateMembersAfterPackLoad(roleSynced){
+  if(!getFeriasBridgeUrl()) return roleSynced;
+  const ok=await loadMembersFromSheet();
+  if(!ok) return roleSynced;
+  migratePendingToActiveMembers();
+  syncAccessUserEmailsFromProfiles();
+  validateStoredIdentity();
+  if(getUserName()){
+    ensureRegisteredMember(getUserName());
+    restoreMemberEmailFromLocal(getUserName());
+  }
+  const rs=syncTokenHolderRole();
+  renderUserChip();
+  updateEditButtonVisibility();
+  renderMural();
+  render();
+  if(document.getElementById('configModal')?.classList.contains('active')){
+    renderAccessUsersPanel();
+    refreshTechConfigFields();
+  }
+  saveLocal();
+  return roleSynced||rs;
+}
+async function applyLoadedPackDataWithMembers(parsed,updatedAt){
+  const roleSynced=applyLoadedPackData(parsed,updatedAt);
+  return hydrateMembersAfterPackLoad(roleSynced);
+}
 async function refreshPackData(opts={}){
   const quiet=!!opts.quiet;
   const gistId=getGistId();
@@ -3376,7 +3563,7 @@ async function refreshPackData(opts={}){
   if(!quiet) showStatus('loading','Atualizando dados do pack...');
   try{
     const {parsed,updatedAt}=await fetchPackFromGist(gistId,{auth:false});
-    const roleSynced=applyLoadedPackData(parsed,updatedAt);
+    const roleSynced=await applyLoadedPackDataWithMembers(parsed,updatedAt);
     if(roleSynced&&canWriteGist()&&getGistId()) await saveToGist();
     if(!quiet){ showStatus('success','Dados atualizados!'); setTimeout(hideStatus,2500); }
     return true;
@@ -3447,7 +3634,7 @@ async function loadFromGistInner(){
   showStatus('loading','Carregando do Gist...');
   try{
     const {parsed,updatedAt}=await fetchPackFromGist(gistId,{auth:false});
-    const shouldPublish=applyLoadedPackData(parsed,updatedAt);
+    const shouldPublish=await applyLoadedPackDataWithMembers(parsed,updatedAt);
     hideStatus();
     if(isUsingPlaceholderData(parsed)){
       showDataLoadWarning('Não foi possível carregar os links do pack. Verifique VPN/rede ou tente novamente.');
@@ -3463,14 +3650,14 @@ async function loadFromGistInner(){
       }
     }else if(shouldPublish){
       saveLocal();
-      if(canWriteGist()&&getGistId()) await saveToGist();
+      if(canWriteGist()&&getGistId()) await saveAccessUsersToPack();
     }
   }catch(e){
     hideStatus();
     clearPlaceholderPackCache();
     try{
       const {parsed,updatedAt}=await fetchPackSnapshot();
-      applyLoadedPackData(parsed,updatedAt);
+      await applyLoadedPackDataWithMembers(parsed,updatedAt);
       hideDataLoadWarning();
       return;
     }catch(snapshotErr){ /* fall through */ }
@@ -3498,7 +3685,7 @@ async function saveToGistViaBridge(opts){
   sanitizeAuthConfig();
   syncAccessUserEmailsFromProfiles();
   try{
-    await packJsonpApi('patchPack',{inviteCode:code,memberName:getUserName(),pack:data});
+    await packJsonpApi('patchPack',{inviteCode:code,memberName:getUserName(),pack:packDataForGistSave(data,opts)});
     const lastSaved=document.getElementById('lastSaved');
     if(lastSaved) lastSaved.textContent='Salvo agora';
     initKnownFeriasIds();
@@ -3522,7 +3709,8 @@ async function saveToGist(opts){
   if(gistId&&!opts.skipFeriasMerge) await mergeRemoteFeriasBeforeSave();
   sanitizeAuthConfig();
   syncAccessUserEmailsFromProfiles();
-  const body={files:{[GIST_FILENAME]:{content:JSON.stringify(data,null,2)}}};
+  const gistPayload=packDataForGistSave(data,opts);
+  const body={files:{[GIST_FILENAME]:{content:JSON.stringify(gistPayload,null,2)}}};
   const method=gistId?'PATCH':'POST';
   const url=gistId?`https://api.github.com/gists/${gistId}`:`https://api.github.com/gists`;
   if(!gistId){body.description='Quality/Csat ID Hub Data';body.public=false;}
@@ -5551,7 +5739,7 @@ function openFeriasForm(){
     return;
   }
   if(!getFeriasBridgeUrl()){
-    alert('URL Férias não configurada. Admin: Configuração → Técnico → URL Férias.');
+    alert('URL Planilha Hub não configurada. Admin: Configuração → Técnico → URL Planilha Hub.');
     return;
   }
   form.classList.add('active');

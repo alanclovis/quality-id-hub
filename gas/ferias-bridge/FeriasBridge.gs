@@ -1,16 +1,19 @@
 /**
- * Quality ID Hub — Férias Bridge (planilha dedicada)
+ * Quality ID Hub — Planilha Hub Bridge (Férias + Membros)
  * Deploy como Web App (executar como: Eu, acesso conforme política Nubank).
  *
- * 1. Crie a planilha "Quality Hub — Férias" e copie o ID para FERIAS_SHEET_ID.
- * 2. Rode setupFeriasSheet() uma vez no editor para criar aba e cabeçalhos.
- * 3. Publique o Web App e cole a URL /exec no Hub (Config → Técnico → URL Férias).
+ * 1. Crie a planilha "Quality Hub" e copie o ID para FERIAS_SHEET_ID.
+ * 2. Rode setupFeriasSheet() e setupMembersSheet() uma vez no editor.
+ * 3. Publique o Web App e cole a URL /exec no Hub (Config → Técnico → URL Planilha Hub).
  */
 
 var FERIAS_SHEET_ID = '1xv0WyTghWTCiQON16nATiAW7kCqiTpcsK-nKvXWkubA';
 var FERIAS_TAB_NAME = 'Férias';
+var MEMBERS_TAB_NAME = 'Membros';
 var FERIAS_HEADERS = ['id', 'nome', 'email', 'inicio', 'fim', 'tipo', 'status', 'updated_at', 'updated_by'];
+var MEMBERS_HEADERS = ['id', 'nome', 'email', 'role', 'status', 'invite_code', 'level', 'areas', 'joined_at', 'approved_at', 'approved_by', 'updated_at', 'updated_by'];
 var FERIAS_TIMEZONE = 'America/Sao_Paulo';
+var MEMBERS_VALID_ROLES = { member: 1, editor: 1, admin: 1, visitor: 1 };
 
 function feriasGetSheetId_() {
   var fromProps = PropertiesService.getScriptProperties().getProperty('FERIAS_SHEET_ID');
@@ -74,6 +77,28 @@ function setupFeriasSheet() {
   return ss.getUrl();
 }
 
+/** Rode uma vez no editor para criar aba Membros */
+function setupMembersSheet() {
+  var sheetId = feriasGetSheetId_();
+  if (!sheetId) throw new Error('Defina FERIAS_SHEET_ID no script ou em Propriedades do script.');
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheetByName(MEMBERS_TAB_NAME);
+  if (!sheet) sheet = ss.insertSheet(MEMBERS_TAB_NAME);
+  sheet.clear();
+  sheet.getRange(1, 1, 1, MEMBERS_HEADERS.length).setValues([MEMBERS_HEADERS]);
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, MEMBERS_HEADERS.length).setFontWeight('bold');
+  Logger.log('Aba "' + MEMBERS_TAB_NAME + '" pronta em ' + ss.getUrl());
+  return ss.getUrl();
+}
+
+/** Cria abas Férias e Membros */
+function setupHubSheets() {
+  setupFeriasSheet();
+  setupMembersSheet();
+  return feriasGetSpreadsheet_().getUrl();
+}
+
 function feriasApiCall_(action, payloadJson) {
   try {
     var payload = payloadJson ? JSON.parse(payloadJson) : {};
@@ -101,6 +126,14 @@ function feriasHandleAction_(action, payload) {
       return feriasDelete_(payload);
     case 'migrateFerias':
       return feriasMigrate_(payload);
+    case 'getMembers':
+      return membersGetAll_();
+    case 'saveMemberProfile':
+      return membersSaveProfile_(payload);
+    case 'patchMembers':
+      return membersPatch_(payload);
+    case 'migrateMembers':
+      return membersMigrate_(payload);
     default:
       throw new Error('Ação desconhecida: ' + action);
   }
@@ -340,4 +373,258 @@ function feriasMigrate_(payload) {
     imported++;
   });
   return { imported: imported, skipped: skipped, total: feriasReadAll_().length };
+}
+
+// ── Membros (aba Membros) ─────────────────────────────────────────────────────
+
+function membersNormalizeInviteCode_(code) {
+  return String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+}
+
+function membersGetSheet_() {
+  var ss = feriasGetSpreadsheet_();
+  var sheet = ss.getSheetByName(MEMBERS_TAB_NAME);
+  if (!sheet) feriasThrow_('Aba "' + MEMBERS_TAB_NAME + '" não encontrada. Rode setupMembersSheet().', 500);
+  return sheet;
+}
+
+function membersParseAreas_(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(function (a) { return String(a).toLowerCase().trim(); }).filter(Boolean);
+  return String(raw).split(',').map(function (a) { return a.trim().toLowerCase(); }).filter(function (a) {
+    return a && a !== 'none';
+  });
+}
+
+function membersAreasToCell_(areas) {
+  if (!areas || !areas.length) return '';
+  return areas.map(function (a) { return String(a).toLowerCase().trim(); }).filter(Boolean).join(',');
+}
+
+function membersRowToAccessUser_(row) {
+  if (!row || !row[0]) return null;
+  var role = String(row[3] || 'member').trim().toLowerCase() || 'member';
+  if (!MEMBERS_VALID_ROLES[role]) role = 'member';
+  return {
+    id: String(row[0] || '').trim(),
+    name: String(row[1] || '').trim(),
+    email: String(row[2] || '').trim().toLowerCase(),
+    role: role,
+    status: String(row[4] || 'active').trim() || 'active',
+    inviteCode: String(row[5] || '').trim(),
+    joinedAt: row[8] ? String(row[8]) : '',
+    approvedAt: row[9] ? String(row[9]) : '',
+    approvedBy: row[10] ? String(row[10]) : ''
+  };
+}
+
+function membersRowToProfile_(row) {
+  if (!row || !row[0]) return null;
+  var nome = String(row[1] || '').trim();
+  if (!nome) return null;
+  var areas = membersParseAreas_(row[7]);
+  var prof = {
+    level: row[6] ? String(row[6]).trim() : '',
+    areas: areas,
+    updatedAt: row[11] ? Date.parse(String(row[11])) || Date.now() : Date.now()
+  };
+  var email = String(row[2] || '').trim().toLowerCase();
+  if (email) prof.email = email;
+  return { key: nome, profile: prof };
+}
+
+function membersAccessUserToRow_(u, profile, updatedBy) {
+  profile = profile || {};
+  var areas = profile.areas != null ? profile.areas : membersParseAreas_(u.areas);
+  var email = u.email || profile.email || '';
+  return [
+    u.id,
+    u.name,
+    email,
+    u.role || 'member',
+    u.status || 'active',
+    u.inviteCode || '',
+    profile.level || u.level || '',
+    membersAreasToCell_(areas),
+    u.joinedAt || '',
+    u.approvedAt || '',
+    u.approvedBy || '',
+    feriasNow_(),
+    updatedBy || ''
+  ];
+}
+
+function membersReadAll_() {
+  var sheet = membersGetSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var values = sheet.getRange(2, 1, lastRow, MEMBERS_HEADERS.length).getValues();
+  var out = [];
+  for (var i = 0; i < values.length; i++) {
+    var u = membersRowToAccessUser_(values[i]);
+    if (u && u.id) out.push(u);
+  }
+  return out;
+}
+
+function membersFindRowIndexById_(sheet, id) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2 || !id) return -1;
+  var ids = sheet.getRange(2, 1, lastRow, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === String(id).trim()) return i + 2;
+  }
+  return -1;
+}
+
+function membersFindUserByCode_(inviteCode) {
+  var norm = membersNormalizeInviteCode_(inviteCode);
+  if (!norm) return null;
+  var users = membersReadAll_();
+  for (var i = 0; i < users.length; i++) {
+    var u = users[i];
+    if (u.status === 'active' && u.inviteCode && membersNormalizeInviteCode_(u.inviteCode) === norm) return u;
+  }
+  return null;
+}
+
+function membersValidateMember_(inviteCode, memberName, opts) {
+  opts = opts || {};
+  var u = membersFindUserByCode_(inviteCode);
+  if (!u) feriasThrow_('Código inválido ou usuário inativo', 403);
+  if (u.role === 'visitor') feriasThrow_('Visitantes não podem publicar no pack', 403);
+  if (memberName && !feriasNamesMatch_(u.name, memberName)) {
+    feriasThrow_('Código não corresponde a este perfil', 403);
+  }
+  if (opts.requireAdmin && u.role !== 'admin') {
+    feriasThrow_('Somente admin pode executar esta ação', 403);
+  }
+  if (opts.requireEditor && u.role !== 'admin' && u.role !== 'editor') {
+    feriasThrow_('Permissão insuficiente', 403);
+  }
+  return u;
+}
+
+function membersBuildHubPayload_() {
+  var sheet = membersGetSheet_();
+  var lastRow = sheet.getLastRow();
+  var accessUsers = [];
+  var profiles = {};
+  if (lastRow >= 2) {
+    var values = sheet.getRange(2, 1, lastRow, MEMBERS_HEADERS.length).getValues();
+    for (var i = 0; i < values.length; i++) {
+      var u = membersRowToAccessUser_(values[i]);
+      if (!u || !u.id) continue;
+      accessUsers.push(u);
+      var pf = membersRowToProfile_(values[i]);
+      if (pf && pf.key) profiles[pf.key] = pf.profile;
+    }
+  }
+  return { accessUsers: accessUsers, profiles: profiles };
+}
+
+function membersGetAll_() {
+  return membersBuildHubPayload_();
+}
+
+function membersSaveProfile_(payload) {
+  payload = payload || {};
+  var name = String(payload.name || payload.memberName || '').trim();
+  var profile = payload.profile || {};
+  var oldName = String(payload.oldName || '').trim();
+  var email = payload.email ? String(payload.email).toLowerCase().trim() : '';
+  if (!email && profile.email) email = String(profile.email).toLowerCase().trim();
+  if (!name || !profile) feriasThrow_('Perfil inválido');
+
+  var ctx = membersValidateMember_(payload.inviteCode, oldName || name);
+  var sheet = membersGetSheet_();
+  var rowIdx = membersFindRowIndexById_(sheet, ctx.id);
+  if (rowIdx < 0) feriasThrow_('Membro não encontrado na planilha', 404);
+
+  var row = sheet.getRange(rowIdx, 1, rowIdx, MEMBERS_HEADERS.length).getValues()[0];
+  var u = membersRowToAccessUser_(row);
+  var updatedBy = String(payload.userEmail || payload.memberName || ctx.name || '').trim();
+
+  if (oldName && oldName !== name && !feriasNamesMatch_(u.name, oldName)) {
+    feriasThrow_('Nome não corresponde ao registro', 403);
+  }
+
+  var areas = membersParseAreas_(profile.areas);
+  var level = profile.level != null ? String(profile.level).trim() : (row[6] ? String(row[6]).trim() : '');
+
+  u.name = name;
+  if (email) u.email = email;
+
+  var outProfile = {
+    level: level,
+    areas: areas,
+    updatedAt: Date.now()
+  };
+  if (email) outProfile.email = email;
+
+  sheet.getRange(rowIdx, 1, rowIdx, MEMBERS_HEADERS.length).setValues([
+    membersAccessUserToRow_(u, outProfile, updatedBy)
+  ]);
+
+  if (oldName && oldName !== name) {
+    membersRenameFeriasRows_(oldName, name);
+  }
+
+  var hub = membersBuildHubPayload_();
+  return {
+    name: name,
+    profiles: hub.profiles,
+    accessUsers: hub.accessUsers,
+    savedAt: feriasNow_()
+  };
+}
+
+function membersRenameFeriasRows_(oldName, newName) {
+  try {
+    var sheet = feriasGetSheet_();
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return;
+    var names = sheet.getRange(2, 2, lastRow, 1).getValues();
+    for (var i = 0; i < names.length; i++) {
+      if (feriasNamesMatch_(names[i][0], oldName)) {
+        sheet.getRange(i + 2, 2).setValue(newName);
+      }
+    }
+  } catch (e) { /* férias tab may be empty */ }
+}
+
+function membersPatch_(payload) {
+  payload = payload || {};
+  if (!feriasIsAdmin_(payload)) {
+    membersValidateMember_(payload.inviteCode, payload.memberName, { requireAdmin: true });
+  }
+  var accessUsers = payload.accessUsers;
+  if (!Array.isArray(accessUsers)) feriasThrow_('Lista accessUsers inválida');
+  var profiles = payload.profiles || {};
+  var sheet = membersGetSheet_();
+  var updatedBy = String(payload.userEmail || payload.memberName || 'admin').trim();
+  var rows = [MEMBERS_HEADERS];
+  accessUsers.forEach(function (u) {
+    if (!u || !u.id || !u.name) return;
+    var pk = u.name;
+    Object.keys(profiles).forEach(function (k) {
+      if (feriasNamesMatch_(k, u.name)) pk = k;
+    });
+    var prof = profiles[pk] || profiles[u.name] || {};
+    rows.push(membersAccessUserToRow_(u, prof, updatedBy));
+  });
+  sheet.clear();
+  sheet.getRange(1, 1, rows.length, MEMBERS_HEADERS.length).setValues(rows);
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, MEMBERS_HEADERS.length).setFontWeight('bold');
+  return membersBuildHubPayload_();
+}
+
+function membersMigrate_(payload) {
+  payload = payload || {};
+  if (!feriasIsAdmin_(payload)) feriasThrow_('Somente admin pode migrar.', 403);
+  var accessUsers = payload.accessUsers;
+  var profiles = payload.profiles || {};
+  if (!Array.isArray(accessUsers)) feriasThrow_('Lista accessUsers inválida');
+  return membersPatch_(Object.assign({}, payload, { accessUsers: accessUsers, profiles: profiles }));
 }
