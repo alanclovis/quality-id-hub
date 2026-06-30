@@ -2359,7 +2359,7 @@ function ensureRegisteredMemberInData(pack,name){
 function renameMemberIdentity(oldName,newName){
   const normNew=(newName||'').trim().replace(/\s+/g,' ');
   if(!normNew) return null;
-  if(namesMatch(normNew,oldName)) return normNew;
+  if(normalizeNameKey(normNew)===normalizeNameKey(oldName)) return normNew;
   ensureAccessUsers();
   const uid=localStorage.getItem('qhub_user_id');
   if(!uid||uid===VISITOR_PACK_USER_ID) return null;
@@ -3051,22 +3051,23 @@ function packDataForGistSave(src,opts){
   return payload;
 }
 async function syncOwnProfileViaSheet(name,oldName){
-  const code=getMemberInviteCode();
+  const code=resolveBridgeInviteCode();
   if(!code){ alert('Código de acesso não encontrado. Entre novamente com seu código.'); return false; }
-  const profile=data.profiles[name];
+  let profile=data.profiles[name];
+  if(!profile&&oldName&&oldName!==name) profile=data.profiles[oldName];
   if(!profile) return false;
-  const email=profile.email||getProfileEmail(name)||'';
+  const email=profile.email||getProfileEmail(name)||getProfileEmail(oldName)||'';
   showStatus('loading','Publicando perfil na planilha...');
   try{
-    const res=await feriasJsonpApi('saveMemberProfile',Object.assign({
+    const res=await feriasJsonpApi('saveMemberProfile',Object.assign({},feriasApiPayloadExtra(),{
       inviteCode:code,
       name,
-      memberName:name,
+      memberName:oldName&&oldName!==name?oldName:name,
       oldName:oldName||'',
       profile:profileForSheetTransport(profile),
       email,
       userEmail:email,
-    },feriasApiPayloadExtra()));
+    }));
     applyMembersSheetPayload(res);
     if(email) saveProfileEmail(name,email);
     if(oldName&&oldName!==name){
@@ -5058,7 +5059,8 @@ async function saveProfile(){
   let synced=true;
   if(canSyncProfileToGist()) synced=await syncOwnProfileToGist(val,oldName);
   if(emailRaw&&!synced){
-    alert('E-mail salvo neste navegador, mas não foi possível publicar no pack. Tente de novo ou peça ao admin para cadastrar seu e-mail em Configuração → Usuários.');
+    const dest=membersSheetActive()?'na planilha':'no pack';
+    alert('E-mail salvo neste navegador, mas não foi possível publicar '+dest+'. Tente de novo'+(membersSheetActive()?' (confira seu código de acesso).':' ou peça ao admin para cadastrar seu e-mail em Configuração → Usuários.'));
   }
   if(document.getElementById('pageDimensionamento')?.classList.contains('active')){
     syncDimensionamentoPageAccess();
