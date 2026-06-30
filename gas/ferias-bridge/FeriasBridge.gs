@@ -7,7 +7,7 @@
  * 3. Publique o Web App e cole a URL /exec no Hub (Config → Técnico → URL Férias).
  */
 
-var FERIAS_SHEET_ID = ''; // opcional se usar Propriedades do script (FERIAS_SHEET_ID)
+var FERIAS_SHEET_ID = '1xv0WyTghWTCiQON16nATiAW7kCqiTpcsK-nKvXWkubA';
 var FERIAS_TAB_NAME = 'Férias';
 var FERIAS_HEADERS = ['id', 'nome', 'email', 'inicio', 'fim', 'tipo', 'status', 'updated_at', 'updated_by'];
 var FERIAS_TIMEZONE = 'America/Sao_Paulo';
