@@ -4909,7 +4909,7 @@ function restoreIdentityFromCode(code){
 function canEditProfileFields(){
   if(isVisitor()) return false;
   if(!hasClaimedIdentity()||!getUserName()) return false;
-  if(!getToken()&&!canSyncViaBridge()) return false;
+  if(!getToken()&&!canSyncViaBridge()&&!canSyncViaMembersSheet()) return false;
   const rec=getAccessUserRecord(getUserName());
   if(rec&&rec.status==='revoked') return false;
   if(rec&&rec.status==='active') return true;

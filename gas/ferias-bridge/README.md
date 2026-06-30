@@ -90,6 +90,20 @@ Payload de perfil (membro):
 4. Valide códigos e papéis na planilha; teste login e edição de perfil.
 5. Após validação, o Hub deixa de gravar `profiles` / `accessUsers` no Gist automaticamente.
 
+## Quem edita o quê (acesso à planilha)
+
+**O time não precisa de acesso à planilha Google.** O Web App roda como quem fez o deploy (*Executar como: Eu*) e grava na planilha em nome dessa conta. Só **você (admin / dono do GAS)** precisa ser editor da planilha.
+
+| Ação | Quem | Como |
+|------|------|------|
+| Editar **próprio** perfil (nome, e-mail, nível, áreas) | Qualquer membro `active` | Login com **código** no hub → salva via `saveMemberProfile` |
+| Foto do perfil | Cada um | Só no navegador (`localStorage`) |
+| Mudar **role**, aprovar/revogar, e-mail de outro | **Admin** | Configuração → Usuários (ou editar aba `Membros` na planilha) |
+| Editar férias | Dono do registro ou admin | Página Férias no hub |
+| Editar planilha manualmente | Quem tiver acesso ao Google Sheet | Opcional para admin; hub recarrega na próxima abertura |
+
+Visitantes (`visitor`) não editam perfil nem publicam férias.
+
 ## clasp (opcional)
 
 ```bash
