@@ -167,6 +167,7 @@
     silentLoadInFlight: null,
     silentLoadStarted: 0,
     initInProgress: false,
+    recentlySaved: {},
     detailSaving: false
   };
 
@@ -1961,8 +1962,92 @@
   }
 
   function dimShowToast(msg, isErr) {
-    if (typeof showStatus === 'function') showStatus(msg, isErr);
-    else if (isErr) console.error(msg); else console.log(msg);
+    const text = String(msg || '');
+    if (typeof showStatus === 'function') {
+      showStatus(isErr ? 'error' : 'success', text);
+      if (!isErr) setTimeout(function () { if (typeof hideStatus === 'function') hideStatus(); }, 4000);
+    }
+    const dimBar = document.getElementById('dimStatus');
+    if (dimBar && text) {
+      dimBar.className = 'dim-status visible ' + (isErr ? 'err' : 'ok');
+      dimBar.innerHTML = (isErr ? '<i class="ti ti-alert-circle"></i>' : '<i class="ti ti-circle-check"></i>') +
+        '<span>' + escapeHtml(text) + '</span>';
+      if (!isErr) {
+        setTimeout(function () {
+          if (dimState.saving || dimState.saveQueue.length || Object.keys(dimState.pendingSaves).length) return;
+          dimUpdateStatus();
+        }, 5000);
+      }
+    } else if (isErr) {
+      console.error(text);
+    } else {
+      console.log(text);
+    }
+  }
+
+  function dimMarkRecentlySaved(dateIso, slots) {
+    if (!dateIso || !slots) return;
+    dimState.recentlySaved = dimState.recentlySaved || {};
+    Object.keys(slots).forEach(function (time) {
+      const key = dateIso + '|' + dimNormalizeTime(time);
+      dimState.recentlySaved[key] = { value: slots[time], at: Date.now() };
+    });
+  }
+
+  function dimMergeServerSchedule(incoming, localSchedule) {
+    if (!incoming || !localSchedule || !Array.isArray(incoming.days)) return incoming;
+    const merged = JSON.parse(JSON.stringify(incoming));
+    const now = Date.now();
+    const recentTtl = 120000;
+
+    function findDay(dayKey, dateIso) {
+      return merged.days.find(function (d) {
+        return d.day === dayKey || (dateIso && d.date === dateIso);
+      });
+    }
+
+    const pending = dimState.pendingSaves || {};
+    Object.keys(pending).forEach(function (dateIso) {
+      const dayKey = (dimState.pendingMeta && dimState.pendingMeta[dateIso]) || '';
+      const day = findDay(dayKey, dateIso);
+      if (!day) return;
+      if (!day.slots) day.slots = {};
+      Object.keys(pending[dateIso]).forEach(function (time) {
+        day.slots[dimNormalizeTime(time)] = pending[dateIso][time];
+      });
+    });
+
+    const recent = dimState.recentlySaved || {};
+    Object.keys(recent).forEach(function (key) {
+      const entry = recent[key];
+      if (!entry || now - entry.at > recentTtl) {
+        delete recent[key];
+        return;
+      }
+      const parts = key.split('|');
+      const dateIso = parts[0];
+      const time = parts.slice(1).join('|');
+      const day = merged.days.find(function (d) { return d.date === dateIso; });
+      if (!day) return;
+      if (!day.slots) day.slots = {};
+      day.slots[time] = entry.value;
+    });
+
+    if (dimState.saving && Array.isArray(localSchedule.days)) {
+      localSchedule.days.forEach(function (localDay) {
+        const day = findDay(localDay.day, localDay.date);
+        if (!day || !localDay.slots) return;
+        if (!day.slots) day.slots = {};
+        Object.keys(localDay.slots).forEach(function (time) {
+          const norm = dimNormalizeTime(time);
+          if (day.slots[norm] !== localDay.slots[time]) {
+            day.slots[norm] = localDay.slots[time];
+          }
+        });
+      });
+    }
+
+    return merged;
   }
 
   async function dimInit() {
@@ -2286,6 +2371,10 @@
         userEmail: dimResolveUserEmail() || undefined
       });
       if (loadId !== dimState.loadWeekSeq) return;
+      const localSchedule = dimState.schedule;
+      if (silent && localSchedule) {
+        schedule = dimMergeServerSchedule(schedule, localSchedule);
+      }
       dimApplySchedule(schedule);
       dimSaveWeekCache(week, schedule);
       dimSetLastUpdate();
@@ -3189,6 +3278,7 @@
     dimUpdateStatus();
     const date = dimState.saveQueue.shift();
     const slots = dimState.pendingSaves[date];
+    const dayKey = (dimState.pendingMeta && dimState.pendingMeta[date]) || '';
     delete dimState.pendingSaves[date];
     dimState.saveFailMeta = dimState.saveFailMeta || {};
 
@@ -3196,18 +3286,24 @@
       const res = await dimCall('saveBatchData', {
         week: dimState.week,
         date: date,
-        day: (dimState.pendingMeta && dimState.pendingMeta[date]) || '',
+        day: dayKey,
         slots: slots,
         userEmail: dimSaveUserEmail()
       });
       delete dimState.saveFailMeta[date];
+      if (dimState.pendingMeta) delete dimState.pendingMeta[date];
       if (res && res.validationRejected) {
         dimShowToast('Planilha rejeitou slot(s): verifique validação de dados', true);
       } else if (res && res.savedSlots === 0) {
         dimShowToast('Nada foi gravado na planilha — recarregue a semana e tente de novo', true);
       } else {
+        dimMarkRecentlySaved(date, slots);
         dimInvalidateWeekCache(dimState.week);
-        dimShowToast('Salvo na planilha' + (res && res.savedSlots ? ' (' + res.savedSlots + ' células)' : ''));
+        let toast = 'Salvo na planilha' + (res && res.savedSlots ? ' (' + res.savedSlots + ' células)' : '');
+        if (res && res.missedDates && res.missedDates.length) {
+          toast += ' — datas não encontradas: ' + res.missedDates.join(', ');
+        }
+        dimShowToast(toast, !!(res && res.missedDates && res.missedDates.length));
       }
     } catch (e) {
       const fail = dimState.saveFailMeta[date] || { count: 0 };
@@ -3219,17 +3315,17 @@
         if (!dimState.pendingSaves[date]) dimState.pendingSaves[date] = {};
         dimState.pendingSaves[date][time] = slots[time];
       });
+      if (!dimState.pendingMeta) dimState.pendingMeta = {};
+      if (dayKey) dimState.pendingMeta[date] = dayKey;
 
       if (fail.count <= DIM_SAVE_MAX_RETRIES) {
         if (dimState.saveQueue.indexOf(date) < 0) dimState.saveQueue.push(date);
         dimShowToast('Erro ao salvar (tentativa ' + fail.count + '/' + DIM_SAVE_MAX_RETRIES + '): ' + fail.lastError, true);
       } else {
         delete dimState.saveFailMeta[date];
-        dimShowToast('Não foi possível salvar. Verifique a URL da ponte (Config → Técnico) ou use o GAS direto. ' + fail.lastError, true);
+        dimShowToast('Não foi possível salvar. Verifique o e-mail no perfil e na planilha. ' + fail.lastError, true);
       }
     }
-
-    if (dimState.pendingMeta) delete dimState.pendingMeta[date];
 
     dimState.saving = false;
     dimUpdateStatus();

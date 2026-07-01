@@ -478,6 +478,7 @@ function _core_dateFromWeekAndDay_(weekNum, dayName) {
 
 function _core_normalizeUserKey_(s) {
   return String(s || '').toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, '.')
     .replace(/@.*$/, '')
     .replace(/[^a-z0-9._-]/g, '');
