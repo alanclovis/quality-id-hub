@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Google Sans", Arial, sans-serif;
+      margin: 0; padding: 20px 24px 28px;
+      color: #1f1f1f; background: #fafafa; font-size: 13px;
+    }
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+    h1 { font-size: 22px; font-weight: 600; margin: 0; color: #111; }
+    .sub { color: #5f6368; font-size: 12px; margin-top: 4px; }
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .pill {
+      border: 1px solid #dadce0; background: #fff; border-radius: 999px;
+      padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; color: #444;
+    }
+    .pill.active { background: #820ad1; border-color: #820ad1; color: #fff; }
+    .pill-dist.active { background: #5c0f73; border-color: #5c0f73; color: #fff; }
+    input[type=date] {
+      border: 1px solid #dadce0; border-radius: 8px; padding: 7px 10px; font-size: 12px; background: #fff;
+    }
+    .btn-analisar {
+      background: #820ad1; color: #fff; border: none; border-radius: 8px;
+      padding: 9px 20px; font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    .btn-analisar:disabled { background: #ccc; cursor: default; }
+    .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 18px 0; }
+    .kpi {
+      background: #fff; border: 1px solid #e8eaed; border-radius: 12px;
+      padding: 12px 14px; min-height: 72px;
+    }
+    .kpi .val { font-size: 22px; font-weight: 700; color: #820ad1; line-height: 1.1; }
+    .kpi .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #5f6368; margin-top: 6px; font-weight: 600; }
+    .kpi .hint { font-size: 11px; color: #80868b; margin-top: 2px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+    .card { background: #fff; border: 1px solid #e8eaed; border-radius: 12px; padding: 14px 16px; }
+    .card h3 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+      color: #5f6368; margin: 0 0 12px; font-weight: 700;
+    }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; }
+    .bar-label { flex: 0 0 38%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #333; }
+    .bar-track { flex: 1; height: 10px; background: #f1f3f4; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #820ad1, #b06fe8); }
+    .bar-fill.green { background: linear-gradient(90deg, #34a853, #7bc67e); }
+    .bar-val { flex: 0 0 52px; text-align: right; color: #5f6368; font-size: 11px; }
+    .empty { color: #80868b; font-size: 12px; padding: 40px 0; text-align: center; }
+    .loading { text-align: center; padding: 40px; color: #5f6368; }
+    .err { color: #c5221f; font-size: 12px; margin-top: 8px; }
+    select#analistas {
+      min-width: 140px; max-width: 200px; border: 1px solid #dadce0;
+      border-radius: 8px; padding: 6px; font-size: 12px;
+    }
+    @media (max-width: 900px) {
+      .kpis { grid-template-columns: repeat(3, 1fr); }
+      .grid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1>Deep Dive</h1>
+      <div class="sub" id="periodLabel">Utilização de escala · dimensionamento</div>
+    </div>
+    <div class="filters">
+      <button type="button" class="pill" data-preset="HOJE">Hoje</button>
+      <button type="button" class="pill active" data-preset="ESTA_SEMANA">Semana</button>
+      <button type="button" class="pill" data-preset="ESTE_MES">Mês</button>
+      <button type="button" class="pill" data-preset="H2_2026">H2</button>
+      <input type="date" id="dataInicio" title="Início">
+      <span style="color:#80868b">→</span>
+      <input type="date" id="dataFim" title="Fim">
+      <button type="button" class="pill pill-dist active" data-dist="ID">ID</button>
+      <button type="button" class="pill pill-dist active" data-dist="VP">VP</button>
+      <button type="button" class="pill pill-dist active" data-dist="Csat">Csat</button>
+      <select id="analistas" multiple size="2" title="Analistas (opcional)"></select>
+      <button type="button" class="btn-analisar" id="btnAnalisar">analisar</button>
+    </div>
+  </div>
+  <div id="content">
+    <div class="empty">Selecione o período e clique em <strong>analisar</strong>.</div>
+  </div>
+  <div id="err" class="err"></div>
+
+  <script>
+    var state = { preset: 'ESTA_SEMANA' };
+
+    function $(id) { return document.getElementById(id); }
+    function setErr(m) { $('err').textContent = m || ''; }
+
+    function readDistritos() {
+      var out = [];
+      document.querySelectorAll('.pill-dist.active').forEach(function (b) {
+        out.push(b.getAttribute('data-dist'));
+      });
+      return out.length ? out : ['ID', 'VP', 'Csat'];
+    }
+
+    function readPayload() {
+      var an = [];
+      var sel = $('analistas');
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].selected) an.push(sel.options[i].value);
+      }
+      return {
+        preset: state.preset,
+        distritos: readDistritos(),
+        analistas: an,
+        dataInicio: $('dataInicio').value,
+        dataFim: $('dataFim').value,
+        incluirBreak: true,
+        incluirAusencia: true,
+        presetMode: state.preset
+      };
+    }
+
+    function fmt(n) {
+      return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    function renderBars(items, maxVal, cls) {
+      if (!items || !items.length) {
+        return '<div class="empty">Sem dados no período</div>';
+      }
+      return items.map(function (it) {
+        var v = it.slots || 0;
+        var pct = maxVal ? Math.round(v / maxVal * 100) : 0;
+        var label = (it.label || '—').replace(/"/g, '&quot;');
+        return '<div class="bar-row">' +
+          '<div class="bar-label" title="' + label + '">' + (it.label || '—') + '</div>' +
+          '<div class="bar-track"><div class="bar-fill ' + (cls || '') + '" style="width:' + pct + '%"></div></div>' +
+          '<div class="bar-val">' + v + ' sl</div></div>';
+      }).join('');
+    }
+
+    function renderReport(r) {
+      if (!r || !r.kpis) {
+        $('content').innerHTML = '<div class="empty">Nenhum dado no período</div>';
+        return;
+      }
+      var k = r.kpis;
+      $('periodLabel').textContent = 'Período: ' + (r.period && r.period.label || '') +
+        ' · ' + (r.period && r.period.distritos || []).join(', ');
+
+      var maxSlot = 0;
+      (r.porSlot || []).forEach(function (x) { if (x.slots > maxSlot) maxSlot = x.slots; });
+      var maxDia = 0;
+      (r.porDia || []).forEach(function (x) { if (x.slots > maxDia) maxDia = x.slots; });
+
+      var detMax = 1;
+      (r.detalhes || []).forEach(function (d) { if (d.slots > detMax) detMax = d.slots; });
+
+      $('content').innerHTML =
+        '<div class="kpis">' +
+          kpi(k.totalSlots, 'Slots', 'períodos de 30min') +
+          kpi(k.totalHoras + 'h', 'Horas', 'total alocado') +
+          kpi(k.analistasAtivos, 'Analistas', 'ativos') +
+          kpi(k.itensDistintos, 'Tipos slot', 'distintos') +
+          kpi(k.slotsPorAnalista, 'Slots/analista', 'média') +
+          kpi(k.pctBreak + '%', 'Break', 'do total') +
+        '</div>' +
+        '<div class="grid2">' +
+          '<div class="card"><h3>Por slot</h3>' + renderBars(r.porSlot, maxSlot, '') + '</div>' +
+          '<div class="card"><h3>Por analista</h3>' + renderBars(
+            (r.porAnalista || []).map(function (a) {
+              return { label: a.label + ' · ' + a.distrito, slots: a.slots };
+            }), maxSlot, '') + '</div>' +
+        '</div>' +
+        '<div class="grid2" style="margin-top:16px">' +
+          '<div class="card"><h3>Por distrito</h3>' + renderBars(
+            (r.porDistrito || []).map(function (d) { return { label: d.label, slots: d.slots }; }),
+            maxSlot, 'green') + '</div>' +
+          '<div class="card"><h3>Detalhes</h3>' + renderBars(
+            (r.detalhes || []).map(function (d) { return { label: d.label, slots: d.slots }; }),
+            detMax, '') + '</div>' +
+        '</div>' +
+        '<div class="card" style="margin-top:16px"><h3>Por dia</h3>' +
+          renderBars(r.porDia, maxDia, 'green') + '</div>';
+    }
+
+    function kpi(val, lbl, hint) {
+      return '<div class="kpi"><div class="val">' + fmt(val) + '</div>' +
+        '<div class="lbl">' + lbl + '</div><div class="hint">' + hint + '</div></div>';
+    }
+
+    function runAnalysis() {
+      var btn = $('btnAnalisar');
+      btn.disabled = true;
+      setErr('');
+      $('content').innerHTML = '<div class="loading">Analisando escala…</div>';
+      google.script.run
+        .withSuccessHandler(function (r) {
+          btn.disabled = false;
+          renderReport(r);
+        })
+        .withFailureHandler(function (e) {
+          btn.disabled = false;
+          setErr(String(e));
+          $('content').innerHTML = '<div class="empty">Erro ao carregar dados</div>';
+        })
+        .executarDeepDive(readPayload());
+    }
+
+    function applyDefaults(d) {
+      if (!d) return;
+      state.preset = d.preset || 'ESTA_SEMANA';
+      document.querySelectorAll('.pill[data-preset]').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-preset') === state.preset);
+      });
+      if (d.dataInicio) $('dataInicio').value = d.dataInicio;
+      if (d.dataFim) $('dataFim').value = d.dataFim;
+      var dist = d.distritos || ['ID', 'VP', 'Csat'];
+      document.querySelectorAll('.pill-dist').forEach(function (p) {
+        p.classList.toggle('active', dist.indexOf(p.getAttribute('data-dist')) >= 0);
+      });
+    }
+
+    function loadAnalistas() {
+      var p = readPayload();
+      google.script.run
+        .withSuccessHandler(function (list) {
+          var sel = $('analistas');
+          var selected = [];
+          for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].selected) selected.push(sel.options[i].value);
+          }
+          sel.innerHTML = '';
+          (list || []).forEach(function (a) {
+            var o = document.createElement('option');
+            o.value = a;
+            o.textContent = a;
+            if (selected.indexOf(a) >= 0) o.selected = true;
+            sel.appendChild(o);
+          });
+        })
+        .listDeepDiveAnalistas(p.distritos, p.dataInicio, p.dataFim);
+    }
+
+    document.querySelectorAll('.pill[data-preset]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.pill[data-preset]').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        state.preset = btn.getAttribute('data-preset');
+        google.script.run
+          .withSuccessHandler(function (d) {
+            if (d.dataInicio) $('dataInicio').value = d.dataInicio;
+            if (d.dataFim !== undefined) $('dataFim').value = d.dataFim;
+          })
+          .resolveDeepDivePresetDates(state.preset);
+      });
+    });
+
+    document.querySelectorAll('.pill-dist').forEach(function (btn) {
+      btn.addEventListener('click', function () { btn.classList.toggle('active'); });
+    });
+
+    $('btnAnalisar').addEventListener('click', runAnalysis);
+    $('dataInicio').addEventListener('change', function () { state.preset = 'PERSONALIZADO'; });
+    $('dataFim').addEventListener('change', function () { state.preset = 'PERSONALIZADO'; });
+
+    google.script.run
+      .withSuccessHandler(function (b) {
+        applyDefaults(b && b.defaults);
+        loadAnalistas();
+      })
+      .withFailureHandler(function (e) { setErr(String(e)); })
+      .getDeepDiveDialogBootstrap();
+  </script>
+</body>
+</html>

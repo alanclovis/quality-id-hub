@@ -25,7 +25,8 @@ A pasta `gas/` aqui no GitHub é referência + ponte Hub; **não substitua** seu
 | `Bridge.html` | Iframe postMessage ↔ Hub |
 | `Config_Slots.gs` | Constantes de slots e analistas |
 | `Estilos_Cores.gs` | Cores por categoria |
-| `DeepDive Slots.gs` | Agregação DeepDive |
+| `Deep Dive.js` | Painel Deep Dive (menu, modal, abas IC4) |
+| `DeepDive Slots.js` | Legado — substituído por `Deep Dive.js` |
 | `Preenchimento automatico.gs` | Dimensionamento automático |
 | `GerarLinhas.gs` | Novos analistas (aba Auxiliar) |
 | `Index.html` | Web App standalone (legado) |

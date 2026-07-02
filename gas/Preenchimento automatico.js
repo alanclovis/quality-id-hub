@@ -260,7 +260,7 @@ const SLOTS_VALIDOS = [
   'AVLB', 'DTQ', 'Quality Monitoring', 'Support',
   'Break', '1:1', 'MEET-DT', 'Monthly', 'CoffeeBreak', 'Mandatorios',
   'DIM_QLT', 'DIM_Csat',
-  'FLC', 'Appeal Flow', 'Pangaea', 'Reversals', 'CSAT-HE', 'OBF',
+  'FLC', 'Sensitives', 'Appeal Flow', 'Pangaea', 'Reversals', 'CSAT-HE', 'OBF',
   'FUP Legal', 'Reativação OBF', 'Triagem OBF', 'Projeto Csat',
   'ProjFLC', 'ProjAF', 'ProjRVS', 'ProjONB', 'ProjOPS', 'ProjQLT',
   'Doc Csat', 'Reunião Csat', 'Weekly Csat', 'Sync RVS', 'Sync Legal',
@@ -296,6 +296,10 @@ function onOpen() {
     .addSeparator()
     .addItem('Ver turnos configurados', 'menuVerTurnos')
     .addToUi();
+
+  if (typeof installDeepDiveMenu_ === 'function') {
+    installDeepDiveMenu_();
+  }
 }
 
 function showDimensionarDialog() {

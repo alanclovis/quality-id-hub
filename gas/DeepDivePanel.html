@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Google Sans", Arial, sans-serif;
+      margin: 0; padding: 20px 24px 28px;
+      color: #1f1f1f; background: #fafafa; font-size: 13px;
+    }
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+    h1 { font-size: 22px; font-weight: 600; margin: 0; color: #111; }
+    .sub { color: #5f6368; font-size: 12px; margin-top: 4px; }
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .pill {
+      border: 1px solid #dadce0; background: #fff; border-radius: 999px;
+      padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; color: #444;
+    }
+    .pill.active { background: #820ad1; border-color: #820ad1; color: #fff; }
+    .pill-dist.active { background: #5c0f73; border-color: #5c0f73; color: #fff; }
+    input[type=date] {
+      border: 1px solid #dadce0; border-radius: 8px; padding: 7px 10px; font-size: 12px; background: #fff;
+    }
+    .btn-analisar {
+      background: #820ad1; color: #fff; border: none; border-radius: 8px;
+      padding: 9px 20px; font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    .btn-analisar:disabled { background: #ccc; cursor: default; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px 0; }
+    .kpi {
+      background: #fff; border: 1px solid #e8eaed; border-radius: 12px;
+      padding: 12px 14px; min-height: 72px; cursor: help;
+    }
+    .kpi .val { font-size: 22px; font-weight: 700; color: #820ad1; line-height: 1.1; }
+    .kpi .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #5f6368; margin-top: 6px; font-weight: 600; }
+    .kpi .hint { font-size: 11px; color: #80868b; margin-top: 2px; }
+    .insight {
+      background: #f3e8fd; border: 1px solid #d7b8f5; border-radius: 10px;
+      padding: 10px 14px; font-size: 13px; color: #3c4043; margin-bottom: 14px; line-height: 1.45;
+    }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+    .card { background: #fff; border: 1px solid #e8eaed; border-radius: 12px; padding: 14px 16px; }
+    .card.warning { border-color: #f9ab00; background: #fef7e0; }
+    .card.warning h3 { color: #b06000; }
+    .card h3 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+      color: #5f6368; margin: 0 0 12px; font-weight: 700;
+    }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; }
+    .bar-label { flex: 0 0 34%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #333; }
+    .bar-track { flex: 1; height: 10px; background: #f1f3f4; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #820ad1, #b06fe8); }
+    .bar-fill.green { background: linear-gradient(90deg, #34a853, #7bc67e); }
+    .bar-val { flex: 0 0 96px; text-align: right; color: #5f6368; font-size: 11px; white-space: nowrap; }
+    .bar-more { margin-top: 6px; }
+    .btn-more {
+      background: none; border: none; color: #820ad1; font-size: 12px;
+      font-weight: 600; cursor: pointer; padding: 4px 0;
+    }
+    .btn-more:hover { text-decoration: underline; }
+    .empty { color: #80868b; font-size: 12px; padding: 40px 0; text-align: center; }
+    .empty-msg { color: #80868b; font-size: 12px; padding: 16px 0; text-align: center; line-height: 1.5; }
+    .loading { text-align: center; padding: 48px 24px; color: #5f6368; }
+    .loading-title { font-size: 15px; font-weight: 600; color: #3c4043; }
+    .loading-sub { font-size: 12px; color: #80868b; margin-top: 8px; }
+    .loading-steps { margin-top: 16px; text-align: left; max-width: 320px; margin-left: auto; margin-right: auto; }
+    .loading-step { font-size: 12px; color: #bdc1c6; padding: 4px 0; }
+    .loading-step.active { color: #820ad1; font-weight: 600; }
+    .loading-step.done { color: #34a853; }
+    .err { color: #c5221f; font-size: 12px; margin-top: 8px; }
+    .filter-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .filter-label { font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: .04em; margin-right: 4px; }
+    select#analista {
+      min-width: 180px; border: 1px solid #dadce0;
+      border-radius: 8px; padding: 7px 10px; font-size: 12px; background: #fff;
+    }
+    .filters-wrap { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+    @media (max-width: 900px) {
+      .kpis { grid-template-columns: repeat(3, 1fr); }
+      .grid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1>Deep Dive</h1>
+      <div class="sub" id="periodLabel">Utilização de escala · dimensionamento</div>
+    </div>
+    <div class="filters-wrap">
+      <div class="filter-group">
+        <button type="button" class="pill" data-preset="HOJE">Hoje</button>
+        <button type="button" class="pill active" data-preset="ESTA_SEMANA">Semana</button>
+        <button type="button" class="pill" data-preset="ESTE_MES">Mês</button>
+        <button type="button" class="pill" data-preset="H2_2026">H2</button>
+        <input type="date" id="dataInicio" title="Início">
+        <span style="color:#80868b">→</span>
+        <input type="date" id="dataFim" title="Fim">
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Distrito</span>
+        <button type="button" class="pill pill-dist active" data-dist="ID">ID</button>
+        <button type="button" class="pill pill-dist" data-dist="VP">VP</button>
+        <button type="button" class="pill pill-dist" data-dist="Csat">Csat</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Analista</span>
+        <select id="analista" title="Filtrar após escolher distrito">
+          <option value="">Todos do distrito</option>
+        </select>
+        <button type="button" class="btn-analisar" id="btnAnalisar">analisar</button>
+      </div>
+    </div>
+  </div>
+  <div id="content">
+    <div class="empty">1) Escolha o <strong>distrito</strong> · 2) opcionalmente o <strong>analista</strong> · 3) <strong>analisar</strong></div>
+  </div>
+  <div id="err" class="err"></div>
+
+  <script>
+    var state = { preset: 'ESTA_SEMANA', hadReport: false };
+    var BAR_TOP_N = 10;
+
+    function $(id) { return document.getElementById(id); }
+    function setErr(m) { $('err').textContent = m || ''; }
+
+    function readDistritos() {
+      var out = [];
+      document.querySelectorAll('.pill-dist.active').forEach(function (b) {
+        out.push(b.getAttribute('data-dist'));
+      });
+      return out;
+    }
+
+    function readPayload() {
+      var analista = $('analista').value;
+      return {
+        preset: state.preset,
+        distritos: readDistritos(),
+        analistas: analista ? [analista] : [],
+        dataInicio: $('dataInicio').value,
+        dataFim: $('dataFim').value,
+        incluirBreak: true,
+        incluirAusencia: true,
+        presetMode: state.preset
+      };
+    }
+
+    function fmt(n) {
+      return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    function esc(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    function renderBarRows(items, maxVal, cls) {
+      return items.map(function (it) {
+        var v = it.slots || 0;
+        var barPct = maxVal ? Math.round(v / maxVal * 100) : 0;
+        var sharePct = it.pct != null ? it.pct : 0;
+        var label = esc(it.label || '—');
+        return '<div class="bar-row">' +
+          '<div class="bar-label" title="' + label + '">' + (it.label || '—') + '</div>' +
+          '<div class="bar-track"><div class="bar-fill ' + (cls || '') + '" style="width:' + barPct + '%"></div></div>' +
+          '<div class="bar-val">' + v + ' sl · ' + sharePct + '%</div></div>';
+      }).join('');
+    }
+
+    function renderBars(items, maxVal, cls, opts) {
+      opts = opts || {};
+      if (!items || !items.length) {
+        return '<div class="empty">Sem dados no período</div>';
+      }
+      var limit = opts.limit != null ? opts.limit : items.length;
+      var visible = items.slice(0, limit);
+      var hidden = items.slice(limit);
+      var html = renderBarRows(visible, maxVal, cls);
+      if (hidden.length) {
+        html += '<div class="bar-more" data-hidden="' + esc(JSON.stringify(hidden)) + '" data-max="' + maxVal + '" data-cls="' + esc(cls || '') + '">' +
+          '<button type="button" class="btn-more">Ver mais (' + hidden.length + ')</button></div>';
+      }
+      return html;
+    }
+
+    function renderDetalhes(items, maxVal) {
+      if (!items || !items.length) {
+        return '<div class="empty-msg">Nenhum registro em <strong>Base_Detalhes</strong> para este período e filtros.<br>Os detalhes personalizados aparecem quando há lançamentos na aba.</div>';
+      }
+      return renderBars(items, maxVal, '');
+    }
+
+    function bindVerMais() {
+      document.querySelectorAll('.bar-more').forEach(function (wrap) {
+        var btn = wrap.querySelector('.btn-more');
+        if (!btn || btn._bound) return;
+        btn._bound = true;
+        btn.addEventListener('click', function () {
+          var hidden = JSON.parse(wrap.getAttribute('data-hidden') || '[]');
+          var maxVal = Number(wrap.getAttribute('data-max')) || 1;
+          var cls = wrap.getAttribute('data-cls') || '';
+          wrap.insertAdjacentHTML('beforebegin', renderBarRows(hidden, maxVal, cls));
+          wrap.remove();
+        });
+      });
+    }
+
+    function renderReport(r) {
+      if (!r || !r.kpis) {
+        $('content').innerHTML = '<div class="empty">Nenhum dado no período</div>';
+        return;
+      }
+      state.hadReport = true;
+      var k = r.kpis;
+      var analistaTxt = r.period && r.period.analista ? (' · analista: ' + r.period.analista) : '';
+      $('periodLabel').textContent = 'Período: ' + (r.period && r.period.label || '') +
+        ' · ' + (r.period && r.period.distritos || []).join(', ') + analistaTxt;
+
+      var maxSlot = 0;
+      (r.porSlot || []).forEach(function (x) { if (x.slots > maxSlot) maxSlot = x.slots; });
+      var detMax = 1;
+      (r.detalhes || []).forEach(function (d) { if (d.slots > detMax) detMax = d.slots; });
+
+      var insightHtml = r.insight ? '<div class="insight">' + esc(r.insight) + '</div>' : '';
+
+      $('content').innerHTML =
+        '<div class="kpis">' +
+          kpi(k.totalSlots, 'Slots', 'no recorte') +
+          kpi(k.totalHoras + 'h', 'Horas', 'alocadas') +
+          kpi(k.itensDistintos, 'Tipos de slot', 'utilizados') +
+        '</div>' +
+        insightHtml +
+        '<div class="card" style="margin-top:8px"><h3>O que está na escala (por slot)</h3>' +
+          renderBars(r.porSlot, maxSlot, '', { limit: BAR_TOP_N }) + '</div>' +
+        '<div class="card" style="margin-top:16px"><h3>Detalhes personalizados (Base_Detalhes)</h3>' +
+          renderDetalhes(r.detalhes, detMax) + '</div>';
+
+      bindVerMais();
+    }
+
+    function kpi(val, lbl, hint, tooltip) {
+      var t = tooltip ? ' title="' + esc(tooltip) + '"' : '';
+      return '<div class="kpi"' + t + '><div class="val">' + fmt(val) + '</div>' +
+        '<div class="lbl">' + lbl + '</div><div class="hint">' + hint + '</div></div>';
+    }
+
+    function setLoading(title, steps, activeIdx) {
+      var stepsHtml = (steps || []).map(function (s, i) {
+        var cls = 'loading-step';
+        if (i < activeIdx) cls += ' done';
+        else if (i === activeIdx) cls += ' active';
+        var mark = i < activeIdx ? '\u2713 ' : (i === activeIdx ? '\u2192 ' : '\u00b7 ');
+        return '<div class="' + cls + '">' + mark + s + '</div>';
+      }).join('');
+      $('content').innerHTML =
+        '<div class="loading">' +
+        '<div class="loading-title">' + (title || 'Carregando\u2026') + '</div>' +
+        (stepsHtml ? '<div class="loading-steps">' + stepsHtml + '</div>' : '') +
+        '</div>';
+    }
+
+    var LOAD_STEPS = [
+      'Selecionando filtros',
+      'Lendo escala no per\u00edodo',
+      'Enriquecendo dicion\u00e1rio de slots',
+      'Montando insights'
+    ];
+
+    function runAnalysis() {
+      var btn = $('btnAnalisar');
+      btn.disabled = true;
+      setErr('');
+      setLoading('Iniciando an\u00e1lise\u2026', LOAD_STEPS, 0);
+
+      google.script.run
+        .withSuccessHandler(function (runId) {
+          setLoading('Lendo escala no per\u00edodo\u2026', LOAD_STEPS, 1);
+          google.script.run
+            .withSuccessHandler(function () {
+              setLoading('Enriquecendo dicion\u00e1rio de slots\u2026', LOAD_STEPS, 2);
+              google.script.run
+                .withSuccessHandler(function () {
+                  setLoading('Montando insights\u2026', LOAD_STEPS, 3);
+                  google.script.run
+                    .withSuccessHandler(function (r) {
+                      btn.disabled = false;
+                      renderReport(r);
+                    })
+                    .withFailureHandler(function (e) {
+                      btn.disabled = false;
+                      setErr(String(e));
+                      $('content').innerHTML = '<div class="empty">Erro ao montar insights</div>';
+                    })
+                    .deepDiveFase4_MontarRelatorio(runId);
+                })
+                .withFailureHandler(function (e) {
+                  btn.disabled = false;
+                  setErr(String(e));
+                  $('content').innerHTML = '<div class="empty">Erro ao enriquecer slots</div>';
+                })
+                .deepDiveFase3_Enriquecer(runId);
+            })
+            .withFailureHandler(function (e) {
+              btn.disabled = false;
+              setErr(String(e));
+              $('content').innerHTML = '<div class="empty">Erro ao ler escala</div>';
+            })
+            .deepDiveFase2_LerEscala(runId);
+        })
+        .withFailureHandler(function (e) {
+          btn.disabled = false;
+          setErr(String(e));
+          $('content').innerHTML = '<div class="empty">Erro ao aplicar filtros</div>';
+        })
+        .deepDiveFase1_PrepararFiltros(readPayload());
+    }
+
+    function applyDefaults(d) {
+      if (!d) return;
+      state.preset = d.preset || 'ESTA_SEMANA';
+      document.querySelectorAll('.pill[data-preset]').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-preset') === state.preset);
+      });
+      if (d.dataInicio) $('dataInicio').value = d.dataInicio;
+      if (d.dataFim) $('dataFim').value = d.dataFim;
+      var dist = d.distritos || ['ID'];
+      document.querySelectorAll('.pill-dist').forEach(function (p) {
+        p.classList.toggle('active', dist.indexOf(p.getAttribute('data-dist')) >= 0);
+      });
+    }
+
+    function loadAnalistas(callback) {
+      var dist = readDistritos();
+      if (!dist.length) {
+        setErr('Selecione ao menos um distrito.');
+        return;
+      }
+      setErr('');
+      var p = readPayload();
+      var prev = $('analista').value;
+      google.script.run
+        .withSuccessHandler(function (list) {
+          var sel = $('analista');
+          sel.innerHTML = '<option value="">Todos do distrito</option>';
+          (list || []).forEach(function (a) {
+            var o = document.createElement('option');
+            o.value = a;
+            o.textContent = a;
+            sel.appendChild(o);
+          });
+          if (prev && list && list.indexOf(prev) >= 0) sel.value = prev;
+          if (callback) callback();
+        })
+        .withFailureHandler(function (e) { setErr(String(e)); })
+        .listDeepDiveAnalistas(p.distritos, p.dataInicio, p.dataFim);
+    }
+
+    function onDistritoChange() {
+      var active = readDistritos();
+      if (!active.length) {
+        setErr('Selecione ao menos um distrito.');
+        return;
+      }
+      $('analista').value = '';
+      var reanalyze = state.hadReport;
+      loadAnalistas(function () {
+        if (reanalyze) runAnalysisGuarded();
+      });
+    }
+
+    document.querySelectorAll('.pill[data-preset]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.pill[data-preset]').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        state.preset = btn.getAttribute('data-preset');
+        google.script.run
+          .withSuccessHandler(function (d) {
+            if (d.dataInicio) $('dataInicio').value = d.dataInicio;
+            if (d.dataFim !== undefined) $('dataFim').value = d.dataFim;
+          })
+          .resolveDeepDivePresetDates(state.preset);
+      });
+    });
+
+    document.querySelectorAll('.pill-dist').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        btn.classList.toggle('active');
+        onDistritoChange();
+      });
+    });
+
+    function runAnalysisGuarded() {
+      if (!readDistritos().length) {
+        setErr('Selecione ao menos um distrito antes de analisar.');
+        return;
+      }
+      runAnalysis();
+    }
+
+    $('btnAnalisar').addEventListener('click', runAnalysisGuarded);
+    $('dataInicio').addEventListener('change', function () { state.preset = 'PERSONALIZADO'; });
+    $('dataFim').addEventListener('change', function () { state.preset = 'PERSONALIZADO'; });
+
+    google.script.run
+      .withSuccessHandler(function (b) {
+        applyDefaults(b && b.defaults);
+        loadAnalistas();
+      })
+      .withFailureHandler(function (e) { setErr(String(e)); })
+      .getDeepDiveDialogBootstrap();
+  </script>
+</body>
+</html>

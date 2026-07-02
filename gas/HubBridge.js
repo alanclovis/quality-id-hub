@@ -604,7 +604,7 @@ function hubRawSlotOptions_() {
     'Pratica', 'Project Meet', 'Qulture Rocks',
     'qlt', 'qlt-HE', 'Quality Monitoring', 'Quicksight', 'RFC', 'Reuniao', 'Reciclagem',
     'RT', 'Slides', 'Shadowing Qlt', 'Stk Talk', 'Support', 'Talk IC4', 'Talk Quality', 'Trainer', 'TESTE-DT',
-    'VP', 'Weekly', 'Workflow (Slack)', 'FLC', 'Appeal Flow', 'Pangaea', 'Reversals', 'CSAT-HE', 'OBF',
+    'VP', 'Weekly', 'Workflow (Slack)', 'FLC', 'Sensitives', 'Appeal Flow', 'Pangaea', 'Reversals', 'CSAT-HE', 'OBF',
     'FUP Legal', 'Reativação OBF', 'Triagem OBF', 'Projeto Csat',
     'ProjFLC', 'ProjAF', 'ProjRVS', 'ProjONB', 'ProjOPS', 'ProjQLT',
     'Doc Csat', 'Reunião Csat', 'Weekly Csat', 'Sync RVS', 'Sync Legal',
