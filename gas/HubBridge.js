@@ -617,18 +617,21 @@ function hubRawSlotOptions_() {
 function hubGetSlotOptions_() {
   var dict = hubGetSlotDictionary_();
   var seen = {};
-  var fromSheet = [];
-  (dict.items || []).forEach(function (it) {
-    var t = String(it.tipoSlot || '').trim();
-    if (t && !seen[t]) {
-      seen[t] = true;
-      fromSheet.push(t);
-    }
-  });
-  if (fromSheet.length >= 20) {
-    return fromSheet.sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); });
+  var merged = [];
+  function addOption(t) {
+    t = String(t || '').trim();
+    if (!t) return;
+    var key = t.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = true;
+    merged.push(t);
   }
-  return hubRawSlotOptions_();
+  (dict.items || []).forEach(function (it) {
+    addOption(it.tipoSlot);
+  });
+  hubRawSlotOptions_().forEach(addOption);
+  merged.sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); });
+  return merged;
 }
 
 function hubGetSlotColors_() {

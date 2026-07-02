@@ -172,7 +172,7 @@
   };
 
   const DIM_WEEK_CACHE_TTL = 21600000; // 6h
-  const DIM_WEEK_CACHE_VERSION = 3;
+  const DIM_WEEK_CACHE_VERSION = 4;
   const DIM_SESSION_TTL = 28800000; // 8h
   const DIM_GAS_EXEC_URL = 'https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec';
   const DIM_GAS_LEGACY_DEPLOY_IDS = [
@@ -285,32 +285,48 @@
       });
   }
 
+  function dimMergeSlotOptionLists_(lists) {
+    const seen = {};
+    const out = [];
+    (lists || []).forEach(function (list) {
+      (list || []).forEach(function (opt) {
+        const key = String(opt || '').trim();
+        if (!key) return;
+        const lk = key.toLowerCase();
+        if (!seen[lk]) {
+          seen[lk] = true;
+          out.push(key);
+        }
+      });
+    });
+    return out;
+  }
+
   function dimGetSlotOptions() {
+    const lists = [];
     const fromConfig = (dimState.schedule && dimState.schedule.config && dimState.schedule.config.slotOptions) || [];
-    if (fromConfig.length) return fromConfig.slice();
+    if (fromConfig.length) lists.push(fromConfig);
     if (dimState.slotOptionsFallback && dimState.slotOptionsFallback.length) {
-      return dimState.slotOptionsFallback.slice();
+      lists.push(dimState.slotOptionsFallback);
     }
     if (dimState.dictionary && dimState.dictionary.items) {
+      const fromDict = [];
       const seen = {};
-      const out = [];
       dimState.dictionary.items.forEach(function (it) {
         const t = it.tipoSlot || it.atividade;
         if (t && !seen[t]) {
           seen[t] = true;
-          out.push(t);
+          fromDict.push(t);
         }
       });
-      if (out.length) return out;
+      if (fromDict.length) lists.push(fromDict);
     }
-    return [];
+    return dimMergeSlotOptionLists_(lists);
   }
 
   function dimEnsureSlotOptions(schedule) {
     if (!schedule.config) schedule.config = {};
-    if (!schedule.config.slotOptions || !schedule.config.slotOptions.length) {
-      schedule.config.slotOptions = dimGetSlotOptions();
-    }
+    schedule.config.slotOptions = dimGetSlotOptions();
   }
 
   function dimGetBridgeTarget() {
@@ -2506,7 +2522,7 @@
       return { bg: '#7dd3fc', text: '#0c4a6e', border: '#38bdf8' };
     }
 
-    const csatGroup = ['flc', 'appeal flow', 'pangaea', 'reversals', 'obf', 'csat-he'];
+    const csatGroup = ['flc', 'sensitives', 'appeal flow', 'pangaea', 'reversals', 'obf', 'csat-he'];
     if (csatGroup.indexOf(l) >= 0) return { bg: '#93c5fd', text: '#1e3a8a', border: '#60a5fa' };
 
     if (l === 'dim_qlt') return { bg: '#e9d5ff', text: '#581c87', border: '#d8b4fe' };
