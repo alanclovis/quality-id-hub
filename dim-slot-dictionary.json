@@ -513,6 +513,13 @@
     },
     {
       "atividade": "Core Job (CSAT)",
+      "tipoSlot": "Sensitives",
+      "significado": "tratamento de casos de sensitive cases",
+      "classificacao": "Exclusivo de Csat",
+      "conversao": "CSAT"
+    },
+    {
+      "atividade": "Core Job (CSAT)",
       "tipoSlot": "Appeal Flow",
       "significado": "Slot destinado à ação efetiva em casos de appeal flow",
       "classificacao": "Exclusivo de Csat",
