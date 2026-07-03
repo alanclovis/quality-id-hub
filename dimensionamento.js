@@ -172,7 +172,7 @@
   };
 
   const DIM_WEEK_CACHE_TTL = 21600000; // 6h
-  const DIM_WEEK_CACHE_VERSION = 4;
+  const DIM_WEEK_CACHE_VERSION = 5;
   const DIM_FRESH_CACHE_REVALIDATE_MS = 30000;
   const DIM_SESSION_TTL = 28800000; // 8h
   const DIM_GAS_EXEC_URL = 'https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec';
@@ -1506,6 +1506,14 @@
     const week = dimState.week || dimGetIsoWeek();
     const schedule = dimState.schedule;
 
+    const local = dimBuildAdjustmentsLocal(week);
+    if (local.records.length) return local;
+
+    try {
+      const api = await dimCall('getAdjustments', { week: week });
+      if ((api.records || []).length) return api;
+    } catch (e) { /* API may be unavailable on older deploy */ }
+
     if (schedule && schedule.adjustments && schedule.adjustments.length &&
         String(schedule.week) === String(week)) {
       const records = schedule.adjustments;
@@ -1517,15 +1525,7 @@
       };
     }
 
-    const local = dimBuildAdjustmentsLocal(week);
-    if (local.records.length) return local;
-
-    try {
-      const api = await dimCall('getAdjustments', { week: week });
-      if ((api.records || []).length) return api;
-    } catch (e) { /* API may be unavailable on older deploy */ }
-
-    return dimBuildAdjustmentsLocal(week);
+    return local;
   }
 
   function dimGetSlotGroups() {
@@ -3760,6 +3760,9 @@
     }
     el.innerHTML = '<div class="dim-controle-empty"><span class="dim-saving-dot"></span> Carregando ajustes…</div>';
     try {
+      if (!dimLookupRawSchedule(dimState.schedule.rawSchedule, dimState.week || dimGetIsoWeek())) {
+        await dimLoadWeek(dimState.week || dimGetIsoWeek(), { silent: true, skipCacheCheck: true }).catch(function () {});
+      }
       const res = await dimFetchAdjustmentsData();
       dimRenderAjustesTable(el, res);
     } catch (e) {

@@ -423,15 +423,24 @@ function getUserSchedule(payload) {
       };
     }
 
+    const ss = _core_getSpreadsheet_();
+
     if (targetWeek) {
       const cached = _core_getScheduleCache_(userEmail, targetWeek);
-      if (cached) return cached;
+      if (cached && cached.schedule) {
+        const freshDetails = _core_loadDetailsForUser_(ss, userEmail, targetWeek);
+        _core_applyDetailsMapToSchedule_(cached.schedule, freshDetails, targetWeek, cached.datesByDay);
+        cached.datesByDay = cached.datesByDay || {};
+        cached.meta = cached.meta || {};
+        cached.meta.cached = true;
+        cached.meta.filledSlots = cached.meta.filledSlots || 0;
+        return cached;
+      }
     }
 
     _core_scheduleLog_('getUserSchedule', userEmail, targetWeek || 'all');
 
-    const ss = _core_getSpreadsheet_();
-    const detailsMap = _core_loadDetailsForUser_(ss, userEmail);
+    const detailsMap = _core_loadDetailsForUser_(ss, userEmail, targetWeek);
     const result = {};
     const datesByDay = {};
     let timeSlotsNorm = null;
@@ -533,7 +542,8 @@ function getUserSchedule(payload) {
           const key = meta.dateIso + '_' + timeKey;
           result[meta.weekNum][meta.dayName][timeKey] = {
             task: cellValue,
-            details: detailsMap[key] || null
+            details: detailsMap[key] || null,
+            dateIso: meta.dateIso
           };
           filledInTab++;
         });
@@ -565,7 +575,46 @@ function getUserSchedule(payload) {
   }
 }
 
-function _core_loadDetailsForUser_(ss, userEmail) {
+function _core_addHalfHours_(timeStr, steps) {
+  steps = steps || 0;
+  const parts = String(timeStr || '00:00').split(':');
+  let hh = parseInt(parts[0], 10);
+  let mm = parseInt(String(parts[1] || '0').replace(/\D/g, ''), 10);
+  if (isNaN(hh)) hh = 0;
+  if (isNaN(mm)) mm = 0;
+  const total = hh * 60 + mm + steps * 30;
+  const nh = Math.floor(total / 60) % 24;
+  const nm = total % 60;
+  return String(nh).padStart(2, '0') + ':' + String(nm).padStart(2, '0');
+}
+
+function _core_applyDetailsMapToSchedule_(schedule, detailsMap, targetWeek, datesByDay) {
+  if (!schedule || !detailsMap) return;
+  datesByDay = datesByDay || {};
+  const weeks = targetWeek ? [String(targetWeek)] : Object.keys(schedule);
+  weeks.forEach(function (weekNum) {
+    const weekData = schedule[weekNum];
+    if (!weekData) return;
+    Object.keys(weekData).forEach(function (dayName) {
+      const daySlots = weekData[dayName];
+      if (!daySlots) return;
+      const dayDateIso = datesByDay[dayName] || '';
+      Object.keys(daySlots).forEach(function (timeKey) {
+        const cell = daySlots[timeKey];
+        if (!cell || !cell.task) return;
+        const normTime = _core_normalizeTimeStr(timeKey) || timeKey;
+        const dateIso = cell.dateIso || dayDateIso;
+        if (!dateIso) return;
+        const key = dateIso + '_' + normTime;
+        const slotKey = String(cell.task).trim().toLowerCase() + '|' + dateIso + '|' + normTime;
+        const detail = detailsMap[key] || detailsMap[slotKey] || null;
+        if (detail) cell.details = detail;
+      });
+    });
+  });
+}
+
+function _core_loadDetailsForUser_(ss, userEmail, targetWeek) {
   const detailsMap = {};
   const detailsSheet = ss.getSheetByName(DETAILS_TAB_NAME);
   if (!detailsSheet || detailsSheet.getLastRow() < 2) return detailsMap;
@@ -576,15 +625,34 @@ function _core_loadDetailsForUser_(ss, userEmail) {
     if (!row[4]) continue;
     const rowAnalyst = String(row[4]).toLowerCase().trim();
     if (!_core_rowMatchesUser_(rowAnalyst, rowAnalyst, userEmail)) continue;
+
     const keyDate = _core_formatDateToISO(row[2]);
-    const keyTime = _core_normalizeTimeStr(row[3]);
-    const key = keyDate + '_' + keyTime;
-    detailsMap[key] = {
+    if (!keyDate) continue;
+    if (targetWeek) {
+      const rowWeek = _core_parseWeekNum_(_core_getWeekNumber(_core_parseDate(keyDate)));
+      if (rowWeek && rowWeek !== String(targetWeek)) continue;
+    }
+
+    const startTime = _core_normalizeTimeStr(row[3]);
+    if (!startTime) continue;
+    const slotName = String(row[0] || '').trim();
+    const qty = Math.max(1, parseInt(row[1], 10) || 1);
+    const detail = {
       action: row[5],
       project: row[6],
       otherSpec: row[7],
-      quantity: row[1]
+      quantity: row[1],
+      slot: slotName
     };
+
+    for (let i = 0; i < qty; i++) {
+      const timeKey = _core_addHalfHours_(startTime, i);
+      const key = keyDate + '_' + timeKey;
+      detailsMap[key] = detail;
+    }
+    if (slotName) {
+      detailsMap[slotName.toLowerCase() + '|' + keyDate + '|' + startTime] = detail;
+    }
   }
   return detailsMap;
 }
@@ -931,6 +999,14 @@ function saveBatchData(payload) {
       )[0];
       const invalidateWeek = weekFromPayload || _core_parseWeekNum_(_core_getWeekNumber(_core_parseDate(firstDate)));
       if (invalidateWeek) _core_invalidateScheduleCache_(userEmail, invalidateWeek);
+    } else if (payload.details && payload.details.length > 0) {
+      const detDate = _core_formatDateToISO(payload.details[0].date);
+      if (detDate) {
+        const invalidateWeek = payload.week != null
+          ? _core_parseWeekNum_(payload.week)
+          : _core_parseWeekNum_(_core_getWeekNumber(_core_parseDate(detDate)));
+        if (invalidateWeek) _core_invalidateScheduleCache_(userEmail, invalidateWeek);
+      }
     }
 
     return {
