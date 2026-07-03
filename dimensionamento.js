@@ -173,6 +173,7 @@
 
   const DIM_WEEK_CACHE_TTL = 21600000; // 6h
   const DIM_WEEK_CACHE_VERSION = 4;
+  const DIM_FRESH_CACHE_REVALIDATE_MS = 30000;
   const DIM_SESSION_TTL = 28800000; // 8h
   const DIM_GAS_EXEC_URL = 'https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-u7kAIC9GsR8GO0X8zQzjwyrZlFi-HdNtjJsHkmJNItx5ivvvjd0EAExL6PEkuGVo/exec';
   const DIM_GAS_LEGACY_DEPLOY_IDS = [
@@ -555,6 +556,23 @@
     week = week || dimState.week || dimGetIsoWeek();
     if (dimState.silentLoadInFlight) return dimState.silentLoadInFlight;
     return dimLoadWeek(week, { silent: true, skipCacheCheck: true }).catch(function () { /* ignore */ });
+  }
+
+  function dimPrefetchAdjacentWeeks(currentWeek) {
+    const w = parseInt(currentWeek, 10);
+    if (isNaN(w)) return;
+    [w - 1, w + 1].forEach(function (adj) {
+      if (adj < 1 || adj > 53) return;
+      if (dimReadWeekCache(adj)) return;
+      dimLoadWeek(adj, { silent: true }).catch(function () { /* ignore */ });
+    });
+  }
+
+  function dimScheduleFreshCacheRevalidate(week) {
+    setTimeout(function () {
+      if (dimState.week !== week) return;
+      dimRefreshWeekInBackground(week);
+    }, DIM_FRESH_CACHE_REVALIDATE_MS);
   }
 
   function dimReadWeekCache(week, options) {
@@ -1131,15 +1149,16 @@
       return Promise.reject(new Error('E-mail não identificado. Atualize seu cadastro no Hub ou conecte à planilha.'));
     }
 
-    // JSONP works from GitHub Pages when GAS is deployed as USER_DEPLOYING + ANYONE (userEmail in payload)
+    // JSONP first; bridge only as fallback (avoids 3 parallel GAS executions)
     if (action === 'getUserSchedule' && callPayload.userEmail) {
-      return dimFirstResolved([
-        dimJsonpApi(action, callPayload, timeoutMs),
-        viaBridge(15000),
-        dimFetchApi(action, callPayload, Math.min(35000, timeoutMs))
-      ]).catch(function (err) {
-        return Promise.reject(new Error(dimFormatGasError(err, action)));
-      });
+      const jsonpMs = Math.min(timeoutMs, 45000);
+      return dimJsonpApi(action, callPayload, jsonpMs)
+        .catch(function () {
+          return viaBridge(12000);
+        })
+        .catch(function (err) {
+          return Promise.reject(new Error(dimFormatGasError(err, action)));
+        });
     }
 
     return dimFirstResolved([
@@ -2364,7 +2383,8 @@
         if (fresh) {
           dimApplySchedule(fresh);
           dimSetLastUpdate();
-          dimRefreshWeekInBackground(week);
+          dimScheduleFreshCacheRevalidate(week);
+          dimPrefetchAdjacentWeeks(week);
           return;
         }
         usedStaleCache = dimApplyCachedWeekIfAny(week);
@@ -2395,6 +2415,7 @@
       dimSaveWeekCache(week, schedule);
       dimSetLastUpdate();
       dimRefreshPendingBadge();
+      if (!silent) dimPrefetchAdjacentWeeks(week);
 
       dimLoadSlotOptionsFallback().then(function () {
         if (loadId !== dimState.loadWeekSeq || !dimState.schedule) return;

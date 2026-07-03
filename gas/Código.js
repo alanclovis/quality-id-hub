@@ -4,6 +4,8 @@ const SHEET_ID = "1S_rJTdcqvzvUD_-qa-Q-GWrMb9DTScQPbilqa8EzAKE";
 const MAIN_TAB_NAME = "H1.2026";
 const SCHEDULE_TAB_HALF1 = 1;
 const SCHEDULE_TAB_HALF2 = 2;
+const SCHEDULE_CACHE_TTL_SEC = 180;
+const DEBUG_SCHEDULE = false;
 
 function _core_halfFromTabName_(name) {
   const n = String(name || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -83,6 +85,128 @@ function _core_tabYearScore_(name) {
 function _core_mainTabName_() {
   const h1 = _core_findScheduleTab_(_core_getSpreadsheet_(), SCHEDULE_TAB_HALF1);
   return h1 ? h1.getName() : MAIN_TAB_NAME;
+}
+
+function _core_getScheduleSlotRange_(sheet) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol <= SLOT_START_COL_INDEX) return null;
+
+  var headerRange = sheet.getRange(1, 1, 1, lastCol);
+  var headers = headerRange.getDisplayValues()[0];
+  var headersRaw = headerRange.getValues()[0];
+  var cols = _core_mapSheetColumns_(headers, headersRaw);
+  var slotStart = cols.slotStart >= 0 ? cols.slotStart : SLOT_START_COL_INDEX;
+  if (slotStart < SLOT_START_COL_INDEX) slotStart = SLOT_START_COL_INDEX;
+
+  var numSlotCols = lastCol - slotStart;
+  if (numSlotCols < 1) return null;
+
+  return sheet.getRange(2, slotStart + 1, lastRow - 1, numSlotCols);
+}
+
+function _slotColorCfRule_(formula, range, bg, fg) {
+  var builder = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied(formula)
+    .setBackground(bg)
+    .setRanges([range]);
+  if (fg) builder = builder.setFontColor(fg);
+  return builder.build();
+}
+
+/** Paleta alinhada a gas/Estilos_Cores.html (formatação condicional por texto do slot). */
+function _buildSlotColorConditionalRules_(range) {
+  var c = range.getCell(1, 1).getA1Notation();
+  var rules = [];
+  function add(re, bg, fg) {
+    rules.push(_slotColorCfRule_(
+      '=REGEXMATCH(LOWER(' + c + '),"' + re + '")',
+      range,
+      bg,
+      fg
+    ));
+  }
+
+  add('^break$', '#1f2937', '#ffffff');
+  add('^jr -', '#991b1b', '#ffffff');
+  add('^(avlb|dtq|quality monitoring|support|qlt|qlt-he)$', '#5c5c5c', '#ffffff');
+  add('^(at|at-h|aus|escl|flg|flg-h|fr|itp|rt|oci|frdo)$', '#d1d5db', '#1f2937');
+  add('^(gs - id|planilhaid|id)$', '#bbf7d0', '#14532d');
+  add('^(gs - vp|planilhavp|vp)$', '#7dd3fc', '#0c4a6e');
+  add('^csat$', '#34d399', '#14532d');
+  add('^projcsat$', '#6ee7b7', '#14532d');
+  add('^(flc|sensitives|appeal flow|pangaea|reversals|obf|csat-he)$', '#93c5fd', '#1e3a8a');
+  add('^(deep dive|docs|inv\\. brain|planilha|playbook|rfc|slides)$', '#ffedd5', '#7c2d12');
+  add('^(buddy|quality|projflc|projaf|projrvs|projonb|projops|projqlt|doc csat|reunião csat|weekly csat|projeto csat|fup legal|reativação obf|triagem obf|onboarding|prática|reciclagem|rvs dd|legal dd|ops dd|flc dd|af dd|qlt dd|qr csat|updates|sync rvs|sync legal|sync ops|sync flc|sync af|sync qlt|sync onb|ops projeção|ops ajustes)$', '#bfdbfe', '#1e3a8a');
+  add('^(drive|confluence|jira/atlassian|databricks|quicksight|workflow \\(slack\\)|playvox|calibration|calibration packs|onb qlt|stk talk|extraction|shadowing qlt|ai agent)$', '#e9d5ff', '#581c87');
+  add('^(1:1|meet-dt|monthly|mandatorios|move pratica|move teoria|pratica|reciclagem|reuniao|qulture rocks|hub|mission control|project meet|talk ic4|talk quality|weekly|dev|coffeebreak|teste-dt|trainer)$', '#fbcfe8', '#831843');
+
+  return rules;
+}
+
+/**
+ * Volta ao modo "validação por cores": remove dropdown e reaplica formatação condicional.
+ * Para regras idênticas às antigas, use Arquivo → Histórico de versões na planilha.
+ */
+function restoreScheduleSlotColorFormatting() {
+  var ui = SpreadsheetApp.getUi();
+  var confirm = ui.alert(
+    'Restaurar cores dos slots',
+    'Remove o dropdown das colunas de horário e reaplica cores por tipo de slot (formatação condicional).\n\n' +
+      'Regra exata de antes: Arquivo → Histórico de versões.\n\nContinuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirm !== ui.Button.YES) return;
+
+  var ss = _core_getSpreadsheet_();
+  var touched = [];
+  _core_listScheduleTabs_(ss).forEach(function (tab) {
+    var sheet = tab.sheet;
+    var range = _core_getScheduleSlotRange_(sheet);
+    if (!range) return;
+    range.clearDataValidations();
+    var rules = sheet.getConditionalFormatRules().concat(_buildSlotColorConditionalRules_(range));
+    sheet.setConditionalFormatRules(rules);
+    touched.push(tab.name);
+  });
+
+  if (!touched.length) {
+    ui.alert('Nenhuma aba H1/H2 com colunas de slot encontrada.');
+    return;
+  }
+
+  ui.alert(
+    'Cores restauradas',
+    'Dropdown removido. Formatação condicional aplicada em:\n' + touched.join('\n'),
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * Remove apenas dropdown (validação de dados). Não altera formatação condicional.
+ */
+function clearScheduleSlotDataValidation() {
+  var ui = SpreadsheetApp.getUi();
+  var ss = _core_getSpreadsheet_();
+  var cleared = [];
+  _core_listScheduleTabs_(ss).forEach(function (tab) {
+    var range = _core_getScheduleSlotRange_(tab.sheet);
+    if (!range) return;
+    range.clearDataValidations();
+    cleared.push(tab.name);
+  });
+
+  if (!cleared.length) {
+    ui.alert('Nenhuma aba H1/H2 com colunas de slot encontrada.');
+    return;
+  }
+
+  ui.alert(
+    'Dropdown removido',
+    'Validação de lista retirada das colunas de slot em:\n' + cleared.join('\n') +
+      '\n\nAs cores (formatação condicional) não foram alteradas.',
+    ui.ButtonSet.OK
+  );
 }
 
 const DETAILS_TAB_NAME = "Base_Detalhes";
@@ -215,6 +339,64 @@ function _core_readSlotRow_(sheet, sheetRow, slotStart, numCols) {
   return out;
 }
 
+function _core_scheduleCacheKey_(email, week) {
+  return 'sched:v1:' + String(email || '').toLowerCase() + ':' + String(week || '');
+}
+
+function _core_getScheduleCache_(email, week) {
+  if (!email || !week) return null;
+  try {
+    const raw = CacheService.getDocumentCache().get(_core_scheduleCacheKey_(email, week));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+
+function _core_putScheduleCache_(email, week, data) {
+  if (!email || !week || !data) return;
+  try {
+    CacheService.getDocumentCache().put(
+      _core_scheduleCacheKey_(email, week),
+      JSON.stringify(data),
+      SCHEDULE_CACHE_TTL_SEC
+    );
+  } catch (e) { /* ignore quota */ }
+}
+
+function _core_invalidateScheduleCache_(email, week) {
+  if (!email || !week) return;
+  try {
+    CacheService.getDocumentCache().remove(_core_scheduleCacheKey_(email, week));
+  } catch (e) { /* ignore */ }
+}
+
+/** Lê slots de várias linhas em um único getRange (linhas contíguas). */
+function _core_readSlotRowsBatch_(sheet, sheetRows, slotStart, numCols) {
+  const out = {};
+  if (!sheetRows.length || !numCols) return out;
+  const sorted = sheetRows.slice().sort(function (a, b) { return a - b; });
+  const minRow = sorted[0];
+  const maxRow = sorted[sorted.length - 1];
+  const height = maxRow - minRow + 1;
+  const range = sheet.getRange(minRow, slotStart + 1, height, numCols);
+  const display = range.getDisplayValues();
+  const raw = range.getValues();
+  sheetRows.forEach(function (sheetRow) {
+    const idx = sheetRow - minRow;
+    const rowOut = [];
+    for (let i = 0; i < numCols; i++) {
+      rowOut.push(_core_cellToTaskLabel_(display[idx][i], raw[idx][i]));
+    }
+    out[sheetRow] = rowOut;
+  });
+  return out;
+}
+
+function _core_scheduleLog_() {
+  if (!DEBUG_SCHEDULE) return;
+  console.log.apply(console, arguments);
+}
+
 function _core_loadH1TimeHeaders_(ss, slotStart) {
   const h1 = _core_findScheduleTab_(ss, 1);
   if (!h1 || h1.getLastColumn() <= slotStart) return [];
@@ -231,15 +413,7 @@ function getUserSchedule(payload) {
   payload = payload || {};
   try {
     const userEmail = _core_resolveUserEmail_(payload);
-    
-    // LOG DE DEBUG — remover após resolver problema da Mayara
-    console.log("=== getUserSchedule ===");
-    console.log("Session.getActiveUser: " + Session.getActiveUser().getEmail());
-    console.log("Session.getEffectiveUser: " + Session.getEffectiveUser().getEmail());
-    console.log("Email resolvido: " + userEmail);
-
-    const ss = _core_getSpreadsheet_();
-    console.log('Planilha SHEET_ID: ' + ss.getId() + ' | abas: ' + ss.getSheets().map(function (s) { return s.getName(); }).join(', '));
+    const targetWeek = payload.week != null ? _core_parseWeekNum_(payload.week) : '';
 
     if (!userEmail) {
       return {
@@ -249,18 +423,20 @@ function getUserSchedule(payload) {
       };
     }
 
-    const targetWeek = payload.week != null ? _core_parseWeekNum_(payload.week) : '';
+    if (targetWeek) {
+      const cached = _core_getScheduleCache_(userEmail, targetWeek);
+      if (cached) return cached;
+    }
+
+    _core_scheduleLog_('getUserSchedule', userEmail, targetWeek || 'all');
+
+    const ss = _core_getSpreadsheet_();
     const detailsMap = _core_loadDetailsForUser_(ss, userEmail);
     const result = {};
+    const datesByDay = {};
+    let timeSlotsNorm = null;
 
     const scheduleTabs = _core_listScheduleTabs_(ss);
-    console.log('Abas escala encontradas: ' + (scheduleTabs.length
-      ? scheduleTabs.map(function (t) { return t.name; }).join(', ')
-      : 'nenhuma'));
-
-    if (!scheduleTabs.some(function (t) { return t.half === SCHEDULE_TAB_HALF2; })) {
-      console.log('AVISO: nenhuma aba H2 (H2.2024, H2.2026, H2…) — semanas 27+ não serão lidas.');
-    }
 
     for (const tabInfo of scheduleTabs) {
       if (targetWeek) {
@@ -286,14 +462,17 @@ function getUserSchedule(payload) {
         const fallbackHeaders = _core_loadH1TimeHeaders_(ss, slotStart);
         if (fallbackHeaders.length) timeHeaders = fallbackHeaders;
       }
-      const physicalCols = Math.max(0, lastCol - slotStart);
-      const readNumCols = physicalCols > 0 ? physicalCols : timeHeaders.length;
       const resolvedTime = _core_resolveTimeColMap_(ss, sheet, headers, headersRaw, slotStart);
       const timeColMap = resolvedTime.map;
       slotStart = resolvedTime.slotStart;
-      console.log('Aba ' + tabName + ': slotStart=' + slotStart + ', colunasHorario=' + Object.keys(timeColMap).length);
-      const numDataRows = Math.max(0, lastRow - 1);
+      const numSlotCols = Object.keys(timeColMap).length;
+      if (!timeSlotsNorm && numSlotCols) {
+        timeSlotsNorm = Object.keys(timeColMap).map(function (k) {
+          return _core_normalizeTimeStr(k) || k;
+        }).filter(Boolean);
+      }
 
+      const numDataRows = Math.max(0, lastRow - 1);
       const idColEnd = Math.min(lastCol, Math.max(cols.dia, cols.data, cols.semana, cols.analista, cols.email, 0) + 1);
       const idData = numDataRows > 0
         ? sheet.getRange(2, 1, numDataRows, idColEnd).getDisplayValues()
@@ -302,9 +481,14 @@ function getUserSchedule(payload) {
 
       for (let i = 0; i < idData.length; i++) {
         const row = idData[i];
+
+        if (targetWeek && cols.semana >= 0) {
+          const rowWeek = _core_parseWeekNum_(row[cols.semana]);
+          if (rowWeek && rowWeek !== targetWeek) continue;
+        }
+
         const rowEmail = cols.email >= 0 && row[cols.email] ? String(row[cols.email]).toLowerCase().trim() : '';
         const rowAnalyst = cols.analista >= 0 && row[cols.analista] ? String(row[cols.analista]).toLowerCase().trim() : '';
-        
         if (!_core_rowMatchesUser_(rowEmail, rowAnalyst, userEmail)) continue;
 
         const dayName = _core_dayNameFromRow_(row, null, cols.dia);
@@ -323,21 +507,23 @@ function getUserSchedule(payload) {
         if (!weekNum) continue;
         if (targetWeek && weekNum !== targetWeek) continue;
 
-        matchMeta.push({ sheetRow: i + 2, weekNum, dayName, dateIso });
+        matchMeta.push({ sheetRow: i + 2, weekNum: weekNum, dayName: dayName, dateIso: dateIso });
+        if (targetWeek === weekNum) datesByDay[dayName] = dateIso;
       }
 
-      console.log("Aba " + tabName + ": " + matchMeta.length + " linhas encontradas para " + userEmail);
-
       if (!matchMeta.length) continue;
+
+      const sheetRows = matchMeta.map(function (m) { return m.sheetRow; });
+      const slotRowsBySheetRow = numSlotCols
+        ? _core_readSlotRowsBatch_(sheet, sheetRows, slotStart, numSlotCols)
+        : {};
 
       let filledInTab = 0;
       matchMeta.forEach(function (meta) {
         if (!result[meta.weekNum]) result[meta.weekNum] = {};
         if (!result[meta.weekNum][meta.dayName]) result[meta.weekNum][meta.dayName] = {};
 
-        const slotRow = Object.keys(timeColMap).length > 0
-          ? _core_readSlotRow_(sheet, meta.sheetRow, slotStart, Object.keys(timeColMap).length)
-          : [];
+        const slotRow = slotRowsBySheetRow[meta.sheetRow] || [];
 
         Object.keys(timeColMap).forEach(function (timeKey) {
           const colIdx = timeColMap[timeKey] - (slotStart + 1);
@@ -352,11 +538,8 @@ function getUserSchedule(payload) {
           filledInTab++;
         });
       });
-      console.log("Aba " + tabName + ": " + filledInTab + " slots preenchidos");
+      _core_scheduleLog_('Aba ' + tabName + ': ' + matchMeta.length + ' linhas, ' + filledInTab + ' slots');
     }
-
-    const semanas = Object.keys(result);
-    console.log("Semanas encontradas: " + (semanas.length ? semanas.join(', ') : 'nenhuma'));
 
     let metaFilled = 0;
     if (targetWeek && result[targetWeek]) {
@@ -365,11 +548,20 @@ function getUserSchedule(payload) {
       });
     }
 
-    return { schedule: result, userEmail: userEmail, meta: { targetWeek: targetWeek || null, filledSlots: metaFilled } };
+    const response = {
+      schedule: result,
+      userEmail: userEmail,
+      datesByDay: datesByDay,
+      timeSlots: timeSlotsNorm || [],
+      meta: { targetWeek: targetWeek || null, filledSlots: metaFilled, cached: false }
+    };
+
+    if (targetWeek) _core_putScheduleCache_(userEmail, targetWeek, response);
+    return response;
 
   } catch (e) {
-    console.log("ERRO em getUserSchedule: " + e.toString());
-    return { error: "Erro no Backend: " + e.toString(), userEmail: Session.getActiveUser().getEmail() };
+    console.log('ERRO em getUserSchedule: ' + e.toString());
+    return { error: 'Erro no Backend: ' + e.toString(), userEmail: Session.getActiveUser().getEmail() };
   }
 }
 
@@ -731,6 +923,16 @@ function saveBatchData(payload) {
     }
 
     SpreadsheetApp.flush();
+
+    if (payload.slots && payload.slots.length > 0) {
+      const weekFromPayload = payload.week != null ? _core_parseWeekNum_(payload.week) : '';
+      const firstDate = Object.keys(
+        payload.slots.reduce(function (acc, s) { acc[s.dayDate] = true; return acc; }, {})
+      )[0];
+      const invalidateWeek = weekFromPayload || _core_parseWeekNum_(_core_getWeekNumber(_core_parseDate(firstDate)));
+      if (invalidateWeek) _core_invalidateScheduleCache_(userEmail, invalidateWeek);
+    }
+
     return {
       success: true,
       savedSlots: savedSlots,

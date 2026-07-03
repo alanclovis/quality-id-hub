@@ -172,7 +172,9 @@ function hubGetUserSchedule_(payload) {
   if (!userEmail) {
     throw new Error('E-mail não identificado. Conecte à planilha no Hub ou abra o app GAS logado com sua conta @nubank.com.br.');
   }
-  var dateByDayName = hubGetWeekDateMap_(weekKey, userEmail);
+  var dateByDayName = (raw.datesByDay && Object.keys(raw.datesByDay).length)
+    ? raw.datesByDay
+    : hubGetWeekDateMap_(weekKey, userEmail);
 
   var days = [];
   var summary = {};
@@ -207,13 +209,15 @@ function hubGetUserSchedule_(payload) {
   var order = ['seg', 'ter', 'qua', 'qui', 'sex'];
   days.sort(function (a, b) { return order.indexOf(a.day) - order.indexOf(b.day); });
 
-  var config = hubGetConfig_(weekKey);
+  var timeSlotsOverride = (raw.timeSlots && raw.timeSlots.length) ? raw.timeSlots : null;
+  var config = hubGetConfig_(weekKey, timeSlotsOverride);
   var adjustments = hubBuildAdjustmentsFromWeekData_(
     weekKey,
     weekData,
     userEmail,
     config.detailSlots || [],
-    config.timeSlots || []
+    config.timeSlots || [],
+    dateByDayName
   );
 
   return {
@@ -467,8 +471,8 @@ function hubFormatVisualDate_(dateIso) {
   return p[2] + '/' + p[1];
 }
 
-function hubBuildAdjustmentsFromWeekData_(weekKey, weekData, userEmail, detailTypes, timeSlots) {
-  var dateByDayName = hubGetWeekDateMap_(weekKey, userEmail);
+function hubBuildAdjustmentsFromWeekData_(weekKey, weekData, userEmail, detailTypes, timeSlots, dateByDayNameOverride) {
+  var dateByDayName = dateByDayNameOverride || hubGetWeekDateMap_(weekKey, userEmail);
   var groups = hubGetGroupedRecords_(weekData, timeSlots, null);
   var records = [];
   var pending = [];
@@ -516,13 +520,16 @@ function hubGetAdjustments_(payload) {
   var weekKey = _core_parseWeekNum_(payload.week != null ? payload.week : hubGetCurrentWeek_());
   var weekData = _core_getScheduleWeek_(raw.schedule, weekKey);
   var userEmail = raw.userEmail || _core_resolveUserEmail_(payload);
-  var config = hubGetConfig_(weekKey);
+  var timeSlotsOverride = (raw.timeSlots && raw.timeSlots.length) ? raw.timeSlots : null;
+  var config = hubGetConfig_(weekKey, timeSlotsOverride);
+  var dates = (raw.datesByDay && Object.keys(raw.datesByDay).length) ? raw.datesByDay : null;
   return hubBuildAdjustmentsFromWeekData_(
     weekKey,
     weekData,
     userEmail,
     config.detailSlots || [],
-    config.timeSlots || []
+    config.timeSlots || [],
+    dates
   );
 }
 
@@ -689,12 +696,23 @@ function hubDefaultTimeSlots_() {
   }
   return slots;
 }
-function hubGetConfig_(weekKey) {
-  var slots = hubGetTimeSlotsFromSheet_(weekKey) || hubDefaultTimeSlots_();
+function hubGetSlotOptionsCached_() {
+  var cache = CacheService.getDocumentCache();
+  var raw = cache.get('hub:slotOptions:v1');
+  if (raw) {
+    try { return JSON.parse(raw); } catch (e) { /* refresh below */ }
+  }
+  var opts = hubGetSlotOptions_();
+  try { cache.put('hub:slotOptions:v1', JSON.stringify(opts), 600); } catch (e) { /* ignore quota */ }
+  return opts;
+}
+
+function hubGetConfig_(weekKey, timeSlotsOverride) {
+  var slots = timeSlotsOverride || hubGetTimeSlotsFromSheet_(weekKey) || hubDefaultTimeSlots_();
   return {
     timeSlots: slots,
     days: ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira'],
-    slotOptions: hubGetSlotOptions_(),
+    slotOptions: hubGetSlotOptionsCached_(),
     detailSlots: ['Planilha', 'Deep Dive', 'Docs', 'Playbook', 'RFC', 'Slides', 'Jira/Atlassian', 'Drive', 'Project Meet', 'Databricks', 'Quicksight', 'ProjCSAT', 'Projeto Csat', 'Doc Csat', 'Reunião Csat'],
     minSlotsAlert: 18
   };
