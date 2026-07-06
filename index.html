@@ -355,71 +355,29 @@ select.icon-select{background:var(--bg3);border:1px solid var(--border);border-r
 
 
 
-/* ── Stats panel ── */
-.stats-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:150;align-items:center;justify-content:center;}
-.stats-modal-backdrop.active{display:flex;}
-.stats-modal{background:var(--bg2);border:1px solid var(--border-h);border-radius:14px;padding:1.5rem;width:100%;max-width:500px;margin:1rem;max-height:80vh;display:flex;flex-direction:column;}
-.stats-modal h3{font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-.stats-list{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;}
-.stats-item{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:var(--rs);background:var(--bg3);transition:background .15s;}
-.stats-item.stats-top-1{background:linear-gradient(135deg,rgba(255,193,7,0.14),rgba(255,193,7,0.06));border:1px solid rgba(255,193,7,0.35);}
-.stats-item.stats-top-2{background:linear-gradient(135deg,rgba(148,163,184,0.16),rgba(148,163,184,0.06));border:1px solid rgba(148,163,184,0.35);}
-.stats-item.stats-top-3{background:linear-gradient(135deg,rgba(180,83,9,0.12),rgba(180,83,9,0.05));border:1px solid rgba(180,83,9,0.28);}
-.stats-rank{font-size:11px;color:var(--text3);width:22px;text-align:center;flex-shrink:0;line-height:1;}
-.stats-rank.stats-rank-medal{font-size:16px;}
-.stats-item.stats-top-1 .stats-name{font-weight:600;}
-.stats-item.stats-top-1 .stats-count{color:#b8860b;font-weight:600;}
-.stats-item.stats-top-2 .stats-count{color:#64748b;font-weight:600;}
-.stats-item.stats-top-3 .stats-count{color:#92400e;font-weight:600;}
-.stats-orphan-notice{font-size:12px;color:var(--text2);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;line-height:1.45;}
-.stats-orphan-notice i{color:#f59e0b;font-size:15px;flex-shrink:0;margin-top:1px;}
-.stats-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
-.stats-name{flex:1;font-size:13px;font-weight:500;}
-.stats-count{font-size:12px;color:var(--text3);flex-shrink:0;}
-.stats-bar-wrap{width:80px;background:var(--bg);border-radius:2px;height:4px;flex-shrink:0;}
-.stats-bar-fill{height:100%;background:var(--purple);border-radius:2px;}
-.stats-empty{text-align:center;color:var(--text3);font-size:13px;padding:24px;}
-.stats-footer{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
-.stats-reset{font-size:11px;color:#f87171;cursor:pointer;background:none;border:none;display:flex;align-items:center;gap:4px;}
-
-/* ── Onboarding Guide ── */
-.guide-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;align-items:center;justify-content:center;}
-.guide-backdrop.active{display:flex;}
-.guide-modal{background:var(--bg2);border:1px solid var(--border-h);border-radius:16px;width:100%;max-width:520px;margin:1rem;overflow:hidden;display:flex;flex-direction:column;max-height:90vh;}
-.guide-header{padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;}
-.guide-logo{width:44px;height:44px;border-radius:12px;background:var(--purple-bg);border:1px solid rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;color:var(--purple-l);font-size:22px;flex-shrink:0;}
-.guide-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;}
-.guide-close:hover{color:var(--text);}
-.guide-steps{flex:1;overflow-y:auto;position:relative;}
-.guide-step{display:none;padding:20px 24px 24px;animation:fadeSlide .25s ease;}
-.guide-step.active{display:block;}
-@keyframes fadeSlide{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
-.guide-step-num{font-size:11px;font-weight:600;color:var(--purple-l);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
-.guide-step h3{font-size:18px;font-weight:600;margin-bottom:8px;line-height:1.3;}
-.guide-step p{font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:12px;}
-.guide-step .tip{background:var(--purple-bg);border:1px solid rgba(139,92,246,0.2);border-radius:var(--rs);padding:10px 13px;font-size:12px;color:var(--purple-l);display:flex;align-items:flex-start;gap:8px;margin-top:8px;line-height:1.5;}
-.guide-step .tip i{flex-shrink:0;margin-top:2px;}
-.guide-step .tip span{flex:1;min-width:0;}
-.guide-caption{font-size:12px;color:var(--text3);line-height:1.5;margin-top:-6px;}
-.guide-illustration{width:100%;background:var(--bg3);border-radius:var(--rs);margin-bottom:14px;padding:16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;}
-.guide-pill{background:var(--bg2);border:1px solid var(--border-h);border-radius:20px;padding:6px 14px;font-size:12px;display:flex;align-items:center;gap:6px;color:var(--text);}
-.guide-pill i{color:var(--purple-l);}
-.guide-step-list{display:flex;flex-direction:column;gap:7px;width:100%;}
-.guide-step-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg2);border-radius:7px;padding:8px 10px;font-size:12px;color:var(--text2);line-height:1.45;}
-.guide-step-item strong{color:var(--text);}
-.guide-step-item .num{width:18px;height:18px;border-radius:50%;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--purple-l);flex-shrink:0;margin-top:1px;}
-.guide-mini-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;width:100%;}
-.guide-mini-cell{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:6px 2px;font-size:9px;text-align:center;color:var(--text3);}
-.guide-mini-cell.sel{background:#ede9fe;border-color:#7c3aed;color:#5b21b6;font-weight:600;}
-.guide-kbd{display:inline-flex;align-items:center;background:var(--bg3);border:1px solid var(--border-h);border-radius:5px;padding:2px 8px;font-size:12px;font-family:monospace;color:var(--text);margin:0 2px;}
-.guide-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.guide-dots{display:flex;gap:6px;}
-.guide-dot{width:7px;height:7px;border-radius:50%;background:var(--border-h);transition:background .2s;}
-.guide-dot.active{background:var(--purple);}
-.guide-nav{display:flex;gap:8px;}
-.guide-skip{font-size:12px;color:var(--text3);background:none;border:none;cursor:pointer;}
-.guide-skip:hover{color:var(--text2);}
-
+/* ── System scan panel ── */
+.scan-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:150;align-items:center;justify-content:center;}
+.scan-modal-backdrop.active{display:flex;}
+.scan-modal{background:var(--bg2);border:1px solid var(--border-h);border-radius:14px;padding:1.5rem;width:100%;max-width:560px;margin:1rem;max-height:82vh;display:flex;flex-direction:column;}
+.scan-modal h3{font-size:15px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.scan-intro{font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:12px;}
+.scan-summary{font-size:12px;padding:10px 12px;border-radius:var(--rs);margin-bottom:12px;display:none;line-height:1.45;}
+.scan-summary.scan-summary-ok{display:block;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:#16a34a;}
+.scan-summary.scan-summary-warn{display:block;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);color:#b45309;}
+.scan-summary.scan-summary-error{display:block;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);color:#dc2626;}
+.scan-list{overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;}
+.scan-item{display:grid;grid-template-columns:22px 1fr;gap:10px;padding:10px 12px;border-radius:var(--rs);background:var(--bg3);align-items:start;}
+.scan-item-icon{font-size:16px;line-height:1.3;margin-top:1px;}
+.scan-item-icon.ok{color:#22c55e;}
+.scan-item-icon.warn{color:#f59e0b;}
+.scan-item-icon.error{color:#f87171;}
+.scan-item-icon.skip{color:var(--text3);}
+.scan-item-body{min-width:0;}
+.scan-item-label{font-size:13px;font-weight:600;color:var(--text);line-height:1.35;}
+.scan-item-detail{font-size:12px;color:var(--text2);line-height:1.45;margin-top:2px;}
+.scan-item-fix{font-size:11px;color:var(--purple-l);margin-top:4px;line-height:1.4;}
+.scan-empty{text-align:center;color:var(--text3);font-size:13px;padding:24px;}
+.scan-footer{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
 
 /* ── User name ── */
 .user-chip{display:flex;align-items:center;gap:6px;background:var(--gray-bg);border:none;border-radius:20px;padding:4px 12px 4px 6px;cursor:pointer;transition:all .15s;font-size:12px;color:var(--text);}
@@ -921,24 +879,23 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 
 /* 4. Modal spring */
 .modal-backdrop.active .modal,
-.guide-backdrop.active .guide-modal,
+.scan-modal-backdrop.active .scan-modal,
 .name-backdrop.active .name-modal,
 .ferias-edit-backdrop.active .ferias-edit-modal,
-.logo-modal-backdrop.active .logo-modal,
-.stats-modal-backdrop.active .stats-modal{
+.logo-modal-backdrop.active .logo-modal{
   animation:modalSpring 320ms cubic-bezier(0.34,1.4,0.64,1) both;
 }
 @keyframes modalSpring{
   from{opacity:0;transform:scale(0.88) translateY(12px)}
   to{opacity:1;transform:scale(1) translateY(0)}
 }
-.modal-backdrop,.guide-backdrop,.name-backdrop,.ferias-edit-backdrop,.logo-modal-backdrop,.stats-modal-backdrop{
+.modal-backdrop,.scan-modal-backdrop,.name-backdrop,.ferias-edit-backdrop,.logo-modal-backdrop{
   transition:background 200ms ease;
   padding:1rem;
   overflow-y:auto;
   box-sizing:border-box;
 }
-.modal-backdrop .modal,.guide-backdrop .guide-modal,.name-backdrop .name-modal,.ferias-edit-backdrop .ferias-edit-modal,.logo-modal-backdrop .logo-modal,.stats-modal-backdrop .stats-modal{
+.modal-backdrop .modal,.scan-modal-backdrop .scan-modal,.name-backdrop .name-modal,.ferias-edit-backdrop .ferias-edit-modal,.logo-modal-backdrop .logo-modal{
   margin:auto;
   flex-shrink:0;
 }
@@ -1178,148 +1135,16 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
 </div>
 
 
-<!-- Onboarding Guide Modal -->
-<div class="guide-backdrop" id="guideBackdrop" onclick="if(event.target===this)closeGuide()">
-  <div class="guide-modal">
-    <div class="guide-header">
-      <div class="guide-logo"><i class="ti ti-shield-check"></i></div>
-      <button class="guide-close" onclick="closeGuide()"><i class="ti ti-x"></i></button>
-    </div>
-    <div class="guide-steps" id="guideSteps">
-
-      <!-- Step 1 -->
-      <div class="guide-step active" data-step="0">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 1 de 7</div>
-          <h3>Bem-vindo ao Quality/Csat ID Hub</h3>
-          <p>Ponto central do pack Quality/Csat ID: links, prioridades da semana e férias — tudo sincronizado pelo time.</p>
-          <div class="guide-illustration">
-            <div class="guide-pill"><i class="ti ti-layout-grid"></i> Links</div>
-            <div class="guide-pill"><i class="ti ti-calendar-week"></i> Prioridades</div>
-            <div class="guide-pill"><i class="ti ti-beach"></i> Férias e ausências</div>
-            <div class="guide-pill"><i class="ti ti-user"></i> Perfil</div>
-          </div>
-          <div class="tip"><i class="ti ti-info-circle"></i><span>Na primeira visita: <strong>Visitante</strong> ou <strong>Membro do pack</strong> com código pessoal.</span></div>
-        </div>
-      </div>
-
-      <!-- Step 2 -->
-      <div class="guide-step" data-step="1">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 2 de 7</div>
-          <h3>Seu perfil no pack</h3>
-          <p>Membros entram com o <strong>código do Slack</strong>. Se o admin embutiu o token no hub, não precisa configurar token — só completa o perfil.</p>
-          <div class="guide-illustration" style="flex-direction:column;gap:8px;align-items:stretch">
-            <div class="guide-step-list">
-              <div class="guide-step-item"><span class="num">1</span><span><strong>Visitante</strong> — um clique, sem código</span></div>
-              <div class="guide-step-item"><span class="num">2</span><span><strong>Membro</strong> — código pessoal → perfil</span></div>
-              <div class="guide-step-item"><span class="num">3</span><span>Complete foto, nível e área de atuação</span></div>
-            </div>
-          </div>
-          <p class="guide-caption">Abra seu perfil pelo botão com seu nome no canto superior direito a qualquer momento.</p>
-        </div>
-      </div>
-
-      <!-- Step 3 -->
-      <div class="guide-step" data-step="2">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 3 de 7</div>
-          <h3>Links, filtros e favoritos</h3>
-          <p>Passe o mouse sobre um card para ver detalhes. Use os filtros <strong>ID</strong>, <strong>CSAT</strong> e <strong>VP</strong> abaixo da busca. Clique na estrela para favoritar — favoritos ficam no topo.</p>
-          <div class="guide-illustration" style="flex-direction:column;gap:8px">
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);color:var(--text2)">Todos</div>
-              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(96,165,250,0.5);background:rgba(96,165,250,0.12);color:#93c5fd;font-weight:500">ID</div>
-              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(52,211,153,0.5);background:rgba(52,211,153,0.12);color:#6ee7b7;font-weight:500">CSAT</div>
-              <div style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid rgba(244,114,182,0.5);background:rgba(244,114,182,0.12);color:#f9a8d4;font-weight:500">VP</div>
-            </div>
-          </div>
-          <div class="tip"><i class="ti ti-info-circle"></i><span>Favoritos ficam salvos só no seu browser — cada pessoa tem os seus.</span></div>
-        </div>
-      </div>
-
-      <!-- Step 4 -->
-      <div class="guide-step" data-step="3">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 4 de 7</div>
-          <h3>Prioridade da semana</h3>
-          <p>Em <strong>Prioridades</strong> (menu lateral), veja a grade de filas por dia e turno. Editores podem configurar a semana, contagens por fila e instruções.</p>
-          <div class="guide-illustration" style="flex-direction:column;gap:10px;align-items:stretch">
-            <div class="guide-mini-grid">
-              <div class="guide-mini-cell sel">Seg</div><div class="guide-mini-cell sel">Ter</div><div class="guide-mini-cell">Qua</div><div class="guide-mini-cell">Qui</div><div class="guide-mini-cell">Sex</div>
-            </div>
-            <div style="font-size:11px;color:var(--text2);line-height:1.5"><strong>Dica:</strong> no modo edição, selecione várias células (clique + <span class="guide-kbd">Shift</span>) e aplique a mesma fila de uma vez — sem editar uma por uma.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 5 -->
-      <div class="guide-step" data-step="4">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 5 de 7</div>
-          <h3>Férias e ausências</h3>
-          <p>Na página <strong>Férias e ausências</strong>, registre férias, atestados, licenças e outros afastamentos — e acompanhe quem está fora do time.</p>
-          <div class="guide-illustration guide-step-list">
-            <div class="guide-step-item"><span class="num">1</span><span>Menu lateral → <strong>Férias e ausências</strong> → <strong>Registrar período</strong></span></div>
-            <div class="guide-step-item"><span class="num">2</span><span>Escolha o tipo (férias, atestado, licença…) e a situação</span></div>
-            <div class="guide-step-item"><span class="num">3</span><span>Clique em um item da timeline para editar</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 6 -->
-      <div class="guide-step" data-step="5">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 6 de 7</div>
-          <h3>Configuração e acessos</h3>
-          <p>Abra a <strong>engrenagem</strong>, no canto superior direito, para ver seu papel (Membro, Editor ou Admin) e, na aba <strong>Técnico</strong>, colar o Gist ID — qualquer membro pode configurar.</p>
-          <div class="guide-illustration guide-step-list">
-            <div class="guide-step-item"><i class="ti ti-eye" style="color:var(--text2);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Visitante</strong> — entra sem código; só leitura</span></div>
-            <div class="guide-step-item"><i class="ti ti-user-check" style="color:var(--green);font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Membro</strong> — código pessoal; perfil e férias</span></div>
-            <div class="guide-step-item"><i class="ti ti-pencil" style="color:#0071e3;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Editor</strong> — edita links e prioridades (bridge do pack ou token GitHub)</span></div>
-            <div class="guide-step-item"><i class="ti ti-shield" style="color:#7c3aed;font-size:16px;flex-shrink:0;margin-top:1px"></i><span><strong>Admin</strong> — tudo + gerenciar papéis na aba Usuários</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 7 -->
-      <div class="guide-step" data-step="6">
-        <div style="padding:20px 24px 0">
-          <div class="guide-step-num">Passo 7 de 7</div>
-          <h3>Atalhos no topo</h3>
-          <p>Ferramentas rápidas no canto superior direito:</p>
-          <div class="guide-illustration guide-step-list">
-            <div class="guide-step-item"><i class="ti ti-zoom-in" style="color:var(--blue);font-size:16px;flex-shrink:0"></i><span><strong>Zoom</strong> — ajusta a página de 70% a 150%</span></div>
-            <div class="guide-step-item"><i class="ti ti-chart-bar" style="color:#7c3aed;font-size:16px;flex-shrink:0"></i><span><strong>Estatísticas</strong> — links mais acessados</span></div>
-            <div class="guide-step-item"><i class="ti ti-pencil" style="color:#0071e3;font-size:16px;flex-shrink:0"></i><span><strong>Editar</strong> — modo edição de links (editores/admins)</span></div>
-            <div class="guide-step-item"><i class="ti ti-help" style="color:var(--text2);font-size:16px;flex-shrink:0"></i><span><strong>?</strong> — reabre este guia a qualquer momento</span></div>
-          </div>
-          <div class="tip" style="margin-top:10px"><i class="ti ti-check"></i><span>Pronto! Explore o hub e, se tiver dúvida, volte aqui pelo botão <strong>?</strong>.</span></div>
-        </div>
-      </div>
-
-    </div>
-    <div class="guide-footer">
-      <div class="guide-dots" id="guideDots"></div>
-      <div class="guide-nav">
-        <button class="guide-skip" onclick="closeGuide()">Pular</button>
-        <button class="btn primary" id="guideNextBtn" onclick="guideNext()">Próximo <i class="ti ti-arrow-right"></i></button>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-<!-- Stats modal -->
-<div class="stats-modal-backdrop" id="statsModal" onclick="if(event.target===this)closeStats()">
-  <div class="stats-modal">
-    <h3><i class="ti ti-chart-bar" style="color:var(--purple)"></i> Links mais acessados</h3>
-    <div class="stats-orphan-notice" id="statsOrphanNotice" style="display:none"></div>
-    <div class="stats-list" id="statsList"></div>
-    <div class="stats-footer">
-      <button class="stats-reset" onclick="resetStats()"><i class="ti ti-trash"></i> Zerar estatísticas</button>
-      <button class="btn" onclick="closeStats()">Fechar</button>
+<!-- System scan modal -->
+<div class="scan-modal-backdrop" id="scanModal" onclick="if(event.target===this)closeSystemScan()">
+  <div class="scan-modal">
+    <h3><i class="ti ti-stethoscope" style="color:#0071e3"></i> Varredura do sistema</h3>
+    <p class="scan-intro">Verifica bridges, planilha, Gist e seu acesso. Use após mudanças em Configuração → Técnico.</p>
+    <div class="scan-summary" id="scanSummary"></div>
+    <div class="scan-list" id="scanList"><div class="scan-empty">Clique em executar para iniciar.</div></div>
+    <div class="scan-footer">
+      <button class="btn btn-sm" type="button" id="btnScanRun" onclick="runSystemScan()"><i class="ti ti-player-play"></i> Executar varredura</button>
+      <button class="btn" type="button" onclick="closeSystemScan()">Fechar</button>
     </div>
   </div>
 </div>
@@ -1535,8 +1360,7 @@ mark.search-mark{background:rgba(0,113,227,0.18);color:inherit;border-radius:2px
     <button class="btn" id="btnSave" style="display:none" onclick="saveToGist()"><i class="ti ti-cloud-upload"></i> Salvar</button>
     <button class="btn primary" id="btnEnterHub" onclick="openNameModal()" style="display:none"><i class="ti ti-login"></i> Entrar</button>
     <div class="user-chip" id="userChip" onclick="openProfileOrVisitorModal()" title="Perfil" style="display:none"><div class="user-avatar profile-av" id="userAvatarEl"></div><span id="userNameEl"></span></div>
-    <button class="btn icon-only" onclick="openGuide()" title="Guia de uso" aria-label="Guia de uso"><i class="ti ti-help"></i></button>
-    <button class="btn icon-only" onclick="openStats()" title="Estatísticas de uso" aria-label="Estatísticas de uso" id="btnStats"><i class="ti ti-chart-bar"></i></button>
+    <button class="btn icon-only" onclick="openSystemScan()" title="Varredura do sistema" aria-label="Varredura do sistema" id="btnSystemScan"><i class="ti ti-stethoscope"></i></button>
     <button class="btn primary" id="btnEditMode" onclick="toggleEditMode()" style="display:none"><i class="ti ti-pencil"></i> Editar</button>
     <button class="btn icon-only" onclick="refreshPackData()" title="Atualizar dados do pack" aria-label="Atualizar dados do pack" id="btnRefreshPack" style="display:none"><i class="ti ti-refresh"></i></button>
     <button class="btn icon-only" onclick="openConfig()" title="Configuração" aria-label="Configuração"><i class="ti ti-settings"></i></button>
@@ -1924,7 +1748,6 @@ function enterAsVisitor(){
       showDataLoadWarning('Não foi possível carregar os links. Clique em Tentar novamente ou recarregue (Ctrl+Shift+R).');
     }
   });
-  if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
 }
 function showAuthChoose(){
   document.getElementById('authChoosePanel').style.display='block';
@@ -2063,7 +1886,6 @@ async function submitInviteCode(){
   if(!claimWithInviteCode(raw)) return;
   if(isVisitor()){
     closeName();
-    if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
     return;
   }
   document.getElementById('nameBackdrop').classList.add('active');
@@ -4122,8 +3944,7 @@ document.getElementById('searchInput').addEventListener('keydown',e=>{
     // close any open modal
     if(document.getElementById('configModal').classList.contains('active')) closeConfig();
     if(document.getElementById('logoModal').classList.contains('active')) closeLogoModal();
-    if(document.getElementById('guideBackdrop').classList.contains('active')) closeGuide();
-    if(document.getElementById('statsModal').classList.contains('active')) closeStats();
+    if(document.getElementById('scanModal').classList.contains('active')) closeSystemScan();
     if(document.getElementById('feriasEditBackdrop').classList.contains('active')) closeFeriasEdit();
     if(document.getElementById('detailSheetBackdrop').classList.contains('active')) closeDetailSheet();
     if(document.getElementById('nameBackdrop').classList.contains('active')&&!needsMandatoryToken()) closeName();
@@ -4135,7 +3956,7 @@ document.addEventListener('keydown',e=>{
     const active=document.activeElement;
     const tag=active?active.tagName.toLowerCase():'';
     if(tag==='input'||tag==='textarea') return;
-    const anyModal=document.querySelector('.guide-backdrop.active,.modal-backdrop.active,.logo-modal-backdrop.active,.stats-modal-backdrop.active,.name-backdrop.active,.detail-sheet-backdrop.active');
+    const anyModal=document.querySelector('.scan-modal-backdrop.active,.modal-backdrop.active,.logo-modal-backdrop.active,.name-backdrop.active,.detail-sheet-backdrop.active');
     if(anyModal) return;
     e.preventDefault();
     document.getElementById('searchInput').focus();
@@ -4184,7 +4005,7 @@ function openLink(url,linkId){
     doSearch('');
     return;
   }
-  if(linkId){addRecent(linkId);trackClick(linkId);}
+  if(linkId){addRecent(linkId);}
   window.open(url,'_blank');
   doSearch('');
 }
@@ -4288,7 +4109,7 @@ function showPreview(link,sectionName,cardEl){
   if(editMode) return;
   clearTimeout(tooltipTimeout);
   tooltipTimeout=setTimeout(()=>{
-    const anyModal=document.querySelector('.guide-backdrop.active,.modal-backdrop.active,.logo-modal-backdrop.active,.stats-modal-backdrop.active,.name-backdrop.active');
+    const anyModal=document.querySelector('.scan-modal-backdrop.active,.modal-backdrop.active,.logo-modal-backdrop.active,.name-backdrop.active');
     if(anyModal) return;
     const tip=document.getElementById('previewTooltip');
     populateLinkDetail('pt',link,sectionName);
@@ -5250,8 +5071,6 @@ function maybeShowOnboarding(){
     setTimeout(()=>openNameModal(),300);
   }else if(needsMandatoryToken()){
     setTimeout(()=>openNameModal(),300);
-  }else if(!localStorage.getItem('qhub_guide_seen')){
-    setTimeout(openGuide,600);
   }
 }
 function getInitials(name){
@@ -5340,7 +5159,6 @@ async function saveProfile(){
   if(document.getElementById('pageDimensionamento')?.classList.contains('active')){
     syncDimensionamentoPageAccess();
   }
-  if(!localStorage.getItem('qhub_guide_seen')) setTimeout(openGuide,300);
 }
 function openVisitorPanel(){
   showProfileModalStep('visitor');
@@ -6307,104 +6125,187 @@ function renderFavs(){
   section.classList.add('active');
 }
 
-// ── Stats ──────────────────────────────────────────────────────────────────────
-function getStats(){ return JSON.parse(localStorage.getItem('qhub_stats')||'{}'); }
-function trackClick(linkId){
-  const stats=getStats();
-  stats[linkId]=(stats[linkId]||0)+1;
-  localStorage.setItem('qhub_stats',JSON.stringify(stats));
+// ── System scan ───────────────────────────────────────────────────────────────
+let systemScanRunning=false;
+const SCAN_ICONS={ok:'ti-check',warn:'ti-alert-triangle',error:'ti-x',skip:'ti-minus'};
+function scanPush(results,label,status,detail,fix){
+  results.push({label,status:status||'skip',detail:detail||'',fix:fix||''});
 }
-function openStats(){
-  const stats=getStats();
-  const all=getAllLinks();
-  const entries=Object.entries(stats).map(([id,count])=>({id,link:all.find(l=>l.id===id),count}));
-  const ranked=entries.filter(x=>x.link).sort((a,b)=>b.count-a.count).slice(0,20);
-  const orphanClicks=entries.filter(x=>!x.link).reduce((s,x)=>s+x.count,0);
-  const orphanNotice=document.getElementById('statsOrphanNotice');
-  if(orphanClicks>0){
-    orphanNotice.style.display='flex';
-    orphanNotice.innerHTML=`<i class="ti ti-alert-triangle"></i><span>${orphanClicks} clique${orphanClicks!==1?'s':''} em link${orphanClicks!==1?'s':''} que não exist${orphanClicks!==1?'em':'e'} mais no hub. Esses acessos não aparecem no ranking.</span>`;
-  } else {
-    orphanNotice.style.display='none';
-    orphanNotice.innerHTML='';
+function renderSystemScanResults(results){
+  const list=document.getElementById('scanList');
+  const summary=document.getElementById('scanSummary');
+  if(!list) return;
+  const counts={ok:0,warn:0,error:0,skip:0};
+  results.forEach(r=>{ counts[r.status]=(counts[r.status]||0)+1; });
+  if(summary){
+    summary.className='scan-summary';
+    if(counts.error>0){
+      summary.classList.add('scan-summary-error');
+      summary.textContent=counts.error+' problema(s) encontrado(s). Corrija os itens em vermelho antes de confiar nos saves.';
+    }else if(counts.warn>0){
+      summary.classList.add('scan-summary-warn');
+      summary.textContent=counts.warn+' aviso(s). O hub pode funcionar, mas revise os itens em amarelo.';
+    }else{
+      summary.classList.add('scan-summary-ok');
+      summary.textContent='Tudo certo nos '+counts.ok+' checks principais.';
+    }
   }
-  const list=document.getElementById('statsList');
-  const rankMedals=['<i class="ti ti-trophy" style="color:#eab308"></i>','<i class="ti ti-medal" style="color:#94a3b8"></i>','<i class="ti ti-medal" style="color:#b45309"></i>'];
-  const rankClasses=['stats-top-1','stats-top-2','stats-top-3'];
-  if(!ranked.length){
-    list.innerHTML='<div class="stats-empty"><i class="ti ti-mouse" style="font-size:24px;display:block;margin-bottom:8px"></i>Nenhum clique registrado ainda.</div>';
-  } else {
-    const max=ranked[0].count;
-    list.innerHTML=ranked.map((item,i)=>{
-      const logo=findLogo(item.link.logo||'link');
-      const pct=Math.round((item.count/max)*100);
-      const topClass=i<3?rankClasses[i]:'';
-      const rankHtml=i<3?`<span class="stats-rank stats-rank-medal">${rankMedals[i]}</span>`:`<span class="stats-rank">${i+1}</span>`;
-      return `<div class="stats-item ${topClass}">
-        ${rankHtml}
-        <div class="stats-icon ${logo.color}"><i class="ti ${logo.icon}"></i></div>
-        <span class="stats-name">${escapeHtml(item.link.name)}</span>
-        <div class="stats-bar-wrap"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
-        <span class="stats-count">${item.count}x</span>
-      </div>`;
-    }).join('');
+  if(!results.length){
+    list.innerHTML='<div class="scan-empty">Nenhum resultado.</div>';
+    return;
   }
-  document.getElementById('statsModal').classList.add('active');
+  list.innerHTML=results.map(function(r){
+    const icon=SCAN_ICONS[r.status]||SCAN_ICONS.skip;
+    return '<div class="scan-item">'
+      +'<div class="scan-item-icon '+r.status+'"><i class="ti '+icon+'"></i></div>'
+      +'<div class="scan-item-body">'
+      +'<div class="scan-item-label">'+escapeHtml(r.label)+'</div>'
+      +(r.detail?'<div class="scan-item-detail">'+escapeHtml(r.detail)+'</div>':'')
+      +(r.fix?'<div class="scan-item-fix">'+escapeHtml(r.fix)+'</div>':'')
+      +'</div></div>';
+  }).join('');
 }
-function closeStats(){
-  document.getElementById('statsModal').classList.remove('active');
-  const orphanNotice=document.getElementById('statsOrphanNotice');
-  if(orphanNotice){ orphanNotice.style.display='none'; orphanNotice.innerHTML=''; }
-}
-function resetStats(){ if(!confirm('Zerar todas as estatísticas?')) return; localStorage.removeItem('qhub_stats'); closeStats(); }
-
-// ── Onboarding Guide ──────────────────────────────────────────────────────────
-let guideStep=0;
-const GUIDE_TOTAL=7;
-
-function initGuideDots(){
-  const dots=document.getElementById('guideDots');
-  dots.innerHTML='';
-  for(let i=0;i<GUIDE_TOTAL;i++){
-    const d=document.createElement('div');
-    d.className='guide-dot'+(i===0?' active':'');
-    dots.appendChild(d);
+async function runSystemScan(){
+  if(systemScanRunning) return;
+  systemScanRunning=true;
+  const btn=document.getElementById('btnScanRun');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Verificando…'; }
+  const list=document.getElementById('scanList');
+  if(list) list.innerHTML='<div class="scan-empty">Executando varredura…</div>';
+  const results=[];
+  const name=getUserName();
+  const role=getUserRole();
+  const gistId=getGistId();
+  const token=getToken();
+  const inviteCode=resolveBridgeInviteCode();
+  if(!hasClaimedIdentity()||!name){
+    scanPush(results,'Identidade','error','Ninguém logado no hub','Entre com seu código em Entrar');
+  }else if(isVisitor()){
+    scanPush(results,'Identidade','warn',name+' (visitante)','Visitantes só leem conteúdo; edição exige membro/editor');
+  }else{
+    scanPush(results,'Identidade','ok',name+' · '+((ACCESS_ROLE_LABELS[role])||role),'');
   }
-}
-
-function guideGoTo(step){
-  guideStep=step;
-  document.querySelectorAll('.guide-step').forEach((el,i)=>{
-    el.classList.toggle('active',i===step);
-  });
-  document.querySelectorAll('.guide-dot').forEach((d,i)=>{
-    d.classList.toggle('active',i===step);
-  });
-  const btn=document.getElementById('guideNextBtn');
-  if(step===GUIDE_TOTAL-1){
-    btn.innerHTML='Entendido <i class="ti ti-check"></i>';
-    btn.onclick=closeGuide;
-  } else {
-    btn.innerHTML='Próximo <i class="ti ti-arrow-right"></i>';
-    btn.onclick=guideNext;
+  if(token){
+    scanPush(results,'Token GitHub (local)','ok','Configurado neste navegador','');
+  }else{
+    scanPush(results,'Token GitHub (local)','skip','Não configurado','Opcional se a bridge do pack estiver ativa');
   }
+  if(gistId){
+    scanPush(results,'Gist ID','ok',gistId,'');
+  }else{
+    scanPush(results,'Gist ID','error','Não definido','Configuração → Técnico → Gist ID');
+  }
+  if(inviteCode){
+    const rosterUser=findUserByInviteCode(inviteCode)||getAccessUserRecord(name);
+    if(rosterUser?.status==='active'){
+      scanPush(results,'Código de convite','ok','Válido para '+rosterUser.name+' ('+rosterUser.role+')','');
+    }else{
+      scanPush(results,'Código de convite','warn','Código salvo, mas usuário não encontrado no roster','Recarregue o pack ou entre de novo');
+    }
+  }else if(!token&&(role==='editor'||role==='admin')){
+    scanPush(results,'Código de convite','error','Obrigatório para salvar via bridge','Entre novamente com seu código pessoal');
+  }else{
+    scanPush(results,'Código de convite','skip','Não necessário para leitura','');
+  }
+  if(canWriteGist()){
+    scanPush(results,'Permissão: salvar links/aviso','ok',token?'Via token ou bridge':'Via bridge do pack','');
+  }else if(role==='editor'||role==='admin'){
+    scanPush(results,'Permissão: salvar links/aviso','error','Editor sem bridge nem token','Configure URL da bridge ou token em Técnico');
+  }else{
+    scanPush(results,'Permissão: salvar links/aviso','skip','Seu papel não edita links','');
+  }
+  if(canSavePrioritiesViaBridge()){
+    scanPush(results,'Permissão: salvar prioridades','ok','Bridge do pack ativa','');
+  }else if(canEditContent()&&!getPackBridgeUrl()){
+    scanPush(results,'Permissão: salvar prioridades','error','Bridge do pack não configurada','Configuração → Técnico → URL bridge do pack');
+  }else{
+    scanPush(results,'Permissão: salvar prioridades','skip','Sem permissão de edição','');
+  }
+  const packUrl=getPackBridgeUrl();
+  if(!packUrl){
+    scanPush(results,'Bridge do pack — URL','error','Não configurada','Cole a URL /exec em Configuração → Técnico');
+  }else{
+    scanPush(results,'Bridge do pack — URL','ok',packUrl.replace(/^https?:\/\//,'').slice(0,60)+'…','');
+    try{
+      await packJsonpApi('ping',{},15000);
+      scanPush(results,'Bridge do pack — conexão','ok','Respondeu ao ping','');
+    }catch(e){
+      scanPush(results,'Bridge do pack — conexão','error',String(e.message||e),'Verifique deploy do Apps Script e VPN');
+    }
+    try{
+      const remote=await packJsonpApi('getPack',{},45000);
+      const pack=remote?.pack;
+      const sections=pack?.sections?.length||0;
+      const weeks=Object.keys(pack?.priorities?.weeks||{}).length;
+      const remoteUpdated=pack?.priorities?.updatedAt||remote?.updatedAt||'';
+      if(sections>0){
+        scanPush(results,'Gist — leitura via bridge','ok',sections+' seção(ões), '+weeks+' semana(s) de prioridades','');
+      }else{
+        scanPush(results,'Gist — leitura via bridge','error','Pack sem seções','Confira GIST_ID e token no Apps Script (packConfigureSecrets)');
+      }
+      if(weeks===0) scanPush(results,'Gist — prioridades','warn','Nenhuma semana salva ainda','');
+      const localPri=data?.priorities?.updatedAt;
+      if(localPri&&remoteUpdated&&localPri!==remoteUpdated){
+        scanPush(results,'Gist — sincronia local','warn','Local '+new Date(localPri).toLocaleString('pt-BR')+' · remoto '+new Date(remoteUpdated).toLocaleString('pt-BR'),'Atualize o pack (ícone refresh) se os dados parecerem antigos');
+      }else if(localPri&&remoteUpdated){
+        scanPush(results,'Gist — sincronia local','ok','Prioridades alinhadas com o Gist','');
+      }
+    }catch(e){
+      scanPush(results,'Gist — leitura via bridge','error',String(e.message||e),'Bridge pode estar sem GITHUB_PACK_TOKEN ou GIST_ID');
+    }
+  }
+  const feriasUrl=getFeriasBridgeUrl();
+  if(!feriasUrl){
+    scanPush(results,'Planilha Hub — URL','warn','Não configurada','Férias/membros podem vir só do Gist legado');
+  }else{
+    scanPush(results,'Planilha Hub — URL','ok',feriasUrl.replace(/^https?:\/\//,'').slice(0,60)+'…','');
+    try{
+      await feriasJsonpApi('ping',{},15000);
+      scanPush(results,'Planilha Hub — conexão','ok','Respondeu ao ping','');
+    }catch(e){
+      scanPush(results,'Planilha Hub — conexão','error',String(e.message||e),'Verifique deploy da ponte de férias');
+    }
+    if(membersSheetLoadState==='ready'){
+      const n=(data.accessUsers||[]).length;
+      const me=name?getAccessUserRecord(name):null;
+      scanPush(results,'Planilha — membros','ok',n+' membro(s) carregados'+(me?' · você: '+me.role:''),'');
+    }else if(membersSheetLoadState==='loading'){
+      scanPush(results,'Planilha — membros','warn','Ainda carregando','Aguarde e rode de novo');
+    }else if(membersSheetLoadState==='error'){
+      scanPush(results,'Planilha — membros','error',membersSheetLoadError||'Falha ao carregar','Confira URL Planilha Hub');
+    }else{
+      scanPush(results,'Planilha — membros','skip','Não carregado nesta sessão','Abra o hub logado ou atualize o pack');
+    }
+    if(feriasSheetLoadState==='ready'){
+      scanPush(results,'Planilha — férias','ok',(feriasSheetData||[]).length+' registro(s)','');
+    }else if(feriasSheetLoadState==='error'){
+      scanPush(results,'Planilha — férias','error',feriasSheetLoadError||'Falha ao carregar','');
+    }else{
+      scanPush(results,'Planilha — férias','skip',feriasSheetLoadState==='loading'?'Carregando…':'Não carregado','');
+    }
+  }
+  const dimUrl=typeof dimGetBridgeUrl==='function'?dimGetBridgeUrl():'';
+  if(dimUrl){
+    scanPush(results,'Bridge dimensionamento','ok','URL configurada','Erros CORS no console são da página Dim, não do hub');
+  }else{
+    scanPush(results,'Bridge dimensionamento','skip','URL não configurada','');
+  }
+  if(isUsingPlaceholderData(data)||isLoadingPackShell(data)){
+    scanPush(results,'Dados locais do pack','error','Pack ainda não carregou','Atualize ou verifique rede/VPN');
+  }else{
+    const links=(data.sections||[]).reduce((n,s)=>n+(s.links?.length||0),0);
+    scanPush(results,'Dados locais do pack','ok',(data.sections?.length||0)+' seções · '+links+' links','');
+  }
+  renderSystemScanResults(results);
+  systemScanRunning=false;
+  if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i> Executar de novo'; }
 }
-
-function guideNext(){
-  if(guideStep<GUIDE_TOTAL-1) guideGoTo(guideStep+1);
-  else closeGuide();
+function openSystemScan(){
+  document.getElementById('scanModal')?.classList.add('active');
+  runSystemScan();
 }
-
-function openGuide(){
-  guideStep=0;
-  initGuideDots();
-  guideGoTo(0);
-  document.getElementById('guideBackdrop').classList.add('active');
-}
-
-function closeGuide(){
-  document.getElementById('guideBackdrop').classList.remove('active');
-  localStorage.setItem('qhub_guide_seen','1');
+function closeSystemScan(){
+  document.getElementById('scanModal')?.classList.remove('active');
 }
 
 function renderChecklist(){} // no-op, kept for compatibility
