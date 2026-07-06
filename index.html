@@ -679,6 +679,7 @@ body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo
 .pri-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
 .pri-card h4{font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px;color:var(--text);}
 .pri-instructions{font-size:13px;color:var(--text2);line-height:1.65;white-space:pre-wrap;}
+.pri-instructions-empty{color:var(--text3);font-style:italic;}
 .pri-instructions-edit{width:100%;min-height:100px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;font-size:13px;font-family:inherit;line-height:1.55;resize:vertical;outline:none;}
 .pri-instructions-edit:focus{border-color:#0071e3;box-shadow:0 0 0 3px rgba(0,113,227,0.1);}
 .pri-summary-table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -1814,6 +1815,7 @@ const ARCHIVED_PRIORITY_WEEKS={
       'sex-tarde':'data-labeling-id-amostra-decision',
     },
     counts:{q1:93,q2:376,q3:213,q4:27,q5:41},
+    instructions:DEFAULT_PRIORITIES.instructions,
   },
 };
 
@@ -6811,10 +6813,10 @@ function seedArchivedPriorityWeeks(pri){
 function ensurePrioritiesData(){
   if(!data.priorities) data.priorities=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES));
   migratePrioritiesToWeeks(data.priorities);
+  migratePrioritiesInstructionsToWeeks(data.priorities);
   const seeded=seedArchivedPriorityWeeks(data.priorities);
   normalizePrioritiesForSave(data.priorities);
   if(!data.priorities.queues?.length) data.priorities.queues=JSON.parse(JSON.stringify(DEFAULT_PRIORITIES.queues));
-  if(!data.priorities.instructions) data.priorities.instructions=DEFAULT_PRIORITIES.instructions;
   if(priWeekStart===null) priWeekStart=getMondayISO();
   if(seeded) saveLocal();
   return data.priorities;
@@ -6830,7 +6832,26 @@ function migratePrioritiesToWeeks(pri){
   pri.weeks[weekKey]={
     slots:{...(pri.slots||{})},
     counts,
+    instructions:pri.instructions||'',
   };
+}
+function migratePrioritiesInstructionsToWeeks(pri){
+  migratePrioritiesToWeeks(pri);
+  if(!pri.weeks) pri.weeks={};
+  const global=pri.instructions;
+  if(global){
+    Object.keys(pri.weeks).forEach(function(wk){
+      if(pri.weeks[wk].instructions==null||pri.weeks[wk].instructions===''){
+        pri.weeks[wk].instructions=global;
+      }
+    });
+    delete pri.instructions;
+  }
+}
+function priGetWeekInstructions(weekStart=priWeekStart){
+  const wk=priGetWeekData(weekStart);
+  if(wk&&wk.instructions!=null) return wk.instructions;
+  return '';
 }
 function priGetWeekData(weekStart=priWeekStart){
   ensurePrioritiesData();
@@ -6838,8 +6859,10 @@ function priGetWeekData(weekStart=priWeekStart){
 }
 function normalizePrioritiesForSave(pri){
   migratePrioritiesToWeeks(pri);
+  migratePrioritiesInstructionsToWeeks(pri);
   delete pri.weekStart;
   delete pri.slots;
+  delete pri.instructions;
   (pri.queues||[]).forEach(q=>{ delete q.count; });
 }
 function formatPriWeekRange(weekStartISO){
@@ -7031,6 +7054,7 @@ function startPriEditDraft(){
     slots:wk?{...wk.slots}:priEmptySlots(),
     counts:wk?{...wk.counts}:priZeroQueueCounts(),
     goalMeta:priNormalizeGoalMeta(wk?.goalMeta||priDefaultGoalMeta()),
+    instructions:wk?.instructions!=null?wk.instructions:'',
   };
 }
 function priAllSlotKeys(){
@@ -7150,7 +7174,7 @@ function togglePrioritiesEdit(){
   ensurePrioritiesData();
   priResetSelection();
   startPriEditDraft();
-  document.getElementById('priInstructionsEdit').value=data.priorities.instructions||'';
+  document.getElementById('priInstructionsEdit').value=priEditDraft.instructions||'';
   updatePriEditUI();
   renderPriorities();
 }
@@ -7178,7 +7202,7 @@ function collectPrioritiesFromUI(){
   if(!priEditDraft) return;
   const pri=ensurePrioritiesData();
   priEditDraft.weekStart=priWeekStart;
-  pri.instructions=document.getElementById('priInstructionsEdit').value.trim()||pri.instructions;
+  priEditDraft.instructions=document.getElementById('priInstructionsEdit').value.trim();
   document.querySelectorAll('.pri-cell-select').forEach(sel=>{
     const key=sel.id.replace('pri-cell-','');
     if(key) priEditDraft.slots[key]=sel.value||'';
@@ -7197,6 +7221,7 @@ function applyPriEditDraft(){
     slots:{...priEditDraft.slots},
     counts:{...priEditDraft.counts},
     goalMeta:priNormalizeGoalMeta(priEditDraft.goalMeta),
+    instructions:priEditDraft.instructions||'',
     updatedAt:now,
   };
   normalizePrioritiesForSave(pri);
@@ -7281,7 +7306,6 @@ async function savePriorities(){
   collectPrioritiesFromUI();
   const pri=ensurePrioritiesData();
   const backup={
-    instructions:pri.instructions,
     updatedAt:pri.updatedAt,
     week:pri.weeks[priEditDraft.weekStart]?JSON.parse(JSON.stringify(pri.weeks[priEditDraft.weekStart])):null,
   };
@@ -7305,7 +7329,6 @@ async function savePriorities(){
     return;
   }
 
-  pri.instructions=backup.instructions;
   pri.updatedAt=backup.updatedAt;
   if(backup.week) pri.weeks[priEditDraft.weekStart]=backup.week;
   else delete pri.weeks[priEditDraft.weekStart];
@@ -7374,7 +7397,15 @@ function renderPriorities(){
   if(bulkQueue) bulkQueue.innerHTML=priBuildQueueOptions('');
   updatePriSelectionUI();
   const viewEl=document.getElementById('priInstructionsView');
-  if(viewEl) viewEl.textContent=pri.instructions||'';
+  const instrText=priEditMode?(priEditDraft?.instructions??''):priGetWeekInstructions(priWeekStart);
+  if(viewEl){
+    viewEl.textContent=instrText||(priIsConfiguredWeek()?'':'Nenhuma instrução para esta semana.');
+    viewEl.classList.toggle('pri-instructions-empty',!instrText);
+  }
+  if(priEditMode){
+    const editEl=document.getElementById('priInstructionsEdit');
+    if(editEl&&document.activeElement!==editEl) editEl.value=priEditDraft?.instructions??'';
+  }
   const sum=document.getElementById('priSummary');
   const queuesHint=document.getElementById('priQueuesHint');
   const queuesToolbar=document.getElementById('priQueuesToolbar');
@@ -7691,9 +7722,9 @@ window.addEventListener('DOMContentLoaded',async()=>{
     <div class="pri-goal-results" id="priGoalResults"></div>
   </div>
   <div class="pri-card">
-    <h4><i class="ti ti-info-circle" style="color:#0071e3"></i> Instruções</h4>
+    <h4><i class="ti ti-info-circle" style="color:#0071e3"></i> Instruções da semana</h4>
     <div class="pri-instructions" id="priInstructionsView"></div>
-    <textarea class="pri-instructions-edit" id="priInstructionsEdit" style="display:none"></textarea>
+    <textarea class="pri-instructions-edit" id="priInstructionsEdit" style="display:none" placeholder="Instruções específicas desta semana (uma por semana)…"></textarea>
   </div>
 </div>
 </div><!-- end layout -->
