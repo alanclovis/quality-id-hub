@@ -33,7 +33,7 @@ function doPost(e) {
   } catch (err) {
     body = {};
   }
-  var action = body.action || (e.parameter && e.parameter.pack);
+  var action = body.pack || body.action || (e.parameter && e.parameter.pack);
   var payload = body.payload != null ? body.payload : (e.parameter && e.parameter.payload) || {};
   if (typeof payload === 'string') {
     try { payload = JSON.parse(payload); } catch (e2) { payload = {}; }
