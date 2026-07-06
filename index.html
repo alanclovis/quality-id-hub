@@ -2553,7 +2553,7 @@ function renderAccessUsersPanel(){
   data.accessUsers.forEach(u=>{
     if(u.status==='active'&&!u.inviteCode){ u.inviteCode=generateInviteCode(u.name); codesAdded=true; }
   });
-  if(codesAdded){ saveLocal(); saveAccessUsersToPack(); }
+  if(codesAdded) saveLocal();
   const q=(document.getElementById('accessUsersSearch')?.value||'').trim().toLowerCase();
   const users=[...data.accessUsers]
     .filter(u=>{
@@ -3142,9 +3142,27 @@ async function syncOwnProfileViaSheet(name,oldName){
 }
 async function syncMembersToSheet(){
   if(!membersSheetActive()||!isAppAdmin()) return false;
+  if(membersSheetLoadState==='error'){
+    alert('Sincronização bloqueada: a lista de membros da planilha não carregou ('+(membersSheetLoadError||'erro desconhecido')+'). Recarregue a página antes de salvar.');
+    return false;
+  }
   const code=resolveBridgeInviteCode();
   if(!code&&!getToken()){ alert('Entre com código de admin ou configure token.'); return false; }
   syncAccessUserEmailsFromProfiles();
+  let remoteUsers;
+  try{
+    const remote=await feriasApi('getMembers',{});
+    remoteUsers=remote?.accessUsers;
+  }catch(e){
+    alert('Sincronização bloqueada: não foi possível ler a planilha ('+(e.message||e)+').');
+    return false;
+  }
+  const localActive=(data.accessUsers||[]).filter(u=>u&&u.status==='active').length;
+  const remoteActive=(remoteUsers||[]).filter(u=>u&&u.status==='active').length;
+  if(remoteActive>localActive){
+    alert('Sincronização bloqueada por segurança: a planilha tem '+remoteActive+' membro(s) ativo(s), mas este navegador só tem '+localActive+'. Recarregue a página para sincronizar antes de salvar.');
+    return false;
+  }
   showStatus('loading','Salvando membros na planilha...');
   try{
     const res=await feriasJsonpApi('patchMembers',Object.assign({
@@ -3729,7 +3747,7 @@ async function loadFromGistInner(){
   showStatus('loading','Carregando do Gist...');
   try{
     const {parsed,updatedAt}=await fetchPackFromGist(gistId,{auth:false});
-    const shouldPublish=await applyLoadedPackDataWithMembers(parsed,updatedAt);
+    await applyLoadedPackDataWithMembers(parsed,updatedAt);
     hideStatus();
     if(isUsingPlaceholderData(parsed)){
       showDataLoadWarning('Não foi possível carregar os links do pack. Verifique VPN/rede ou tente novamente.');
@@ -3743,9 +3761,6 @@ async function loadFromGistInner(){
         await saveToGist();
         showStatus('success','Semana 15–19 jun restaurada no pack.');setTimeout(hideStatus,4000);
       }
-    }else if(shouldPublish){
-      saveLocal();
-      if(canWriteGist()&&getGistId()) await saveAccessUsersToPack();
     }
   }catch(e){
     hideStatus();
