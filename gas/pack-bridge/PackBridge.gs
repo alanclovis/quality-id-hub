@@ -162,9 +162,13 @@ function packNamesMatch_(a, b) {
 }
 
 function packFindUserByCode_(pack, inviteCode) {
+  return packFindUserByCodeInList_(packGetAccessRoster_(pack), inviteCode);
+}
+
+function packFindUserByCodeInList_(users, inviteCode) {
   var norm = packNormalizeInviteCode_(inviteCode);
   if (!norm) return null;
-  var users = packGetAccessRoster_(pack);
+  users = users || [];
   for (var i = 0; i < users.length; i++) {
     var u = users[i];
     if (u.status === 'active' && u.inviteCode && packNormalizeInviteCode_(u.inviteCode) === norm) return u;
@@ -232,10 +236,13 @@ function packReadMembersFromSheet_() {
 function packValidateMember_(inviteCode, memberName, opts) {
   opts = opts || {};
   var remote = packFetchGist_();
-  var u = packFindUserByCode_(remote.pack, inviteCode);
+  var serverRoster = packGetAccessRoster_(remote.pack);
+  var u = packFindUserByCodeInList_(serverRoster, inviteCode);
+  if (!u && !serverRoster.length && opts.fallbackRoster && opts.fallbackRoster.length) {
+    u = packFindUserByCodeInList_(opts.fallbackRoster, inviteCode);
+  }
   if (!u) {
-    var roster = packGetAccessRoster_(remote.pack);
-    if (!roster.length) {
+    if (!serverRoster.length && !(opts.fallbackRoster && opts.fallbackRoster.length)) {
       throw new Error('Roster de acesso vazio. Confira a aba Membros na planilha e feriasBridge.url no Gist (URL da Planilha Hub em Técnico).');
     }
     throw new Error('Código inválido ou usuário inativo');
@@ -364,11 +371,16 @@ function packPatchPriorities_(payload) {
   payload = payload || {};
   var incoming = payload.priorities;
   if (!incoming || typeof incoming !== 'object') throw new Error('Dados de prioridades inválidos');
-  var ctx = packValidateMember_(payload.inviteCode, payload.memberName || '', { requireEditor: true });
+  var fallbackRoster = Array.isArray(payload.accessUsers) ? payload.accessUsers : [];
+  var ctx = packValidateMember_(payload.inviteCode, payload.memberName || '', {
+    requireEditor: true,
+    fallbackRoster: fallbackRoster
+  });
   var pack = ctx.remote.pack;
   pack.priorities = incoming;
   if (!pack.accessUsers || !pack.accessUsers.length) {
     var roster = packGetAccessRoster_(pack);
+    if (!roster.length && fallbackRoster.length) roster = fallbackRoster;
     if (roster.length) pack.accessUsers = roster;
   }
   packPatchGist_(pack);

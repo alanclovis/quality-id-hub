@@ -31,7 +31,7 @@ packConfigureSecrets(
 
 **Implantar → Nova implantação → App da web**
 
-- Executar como: **Eu**
+- Executar como: **Eu** (obrigatório — com "Quem acessa" a bridge não lê a planilha Membros)
 - Quem tem acesso: conforme política Nubank (geralmente **Qualquer pessoa** ou domínio `@nubank.com.br`)
 
 Copie a URL `/exec`, ex.:  

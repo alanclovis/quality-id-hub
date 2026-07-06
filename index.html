@@ -7177,10 +7177,14 @@ async function savePrioritiesViaBridge(opts){
     return false;
   }
   if(!opts.silent) showStatus('loading','Salvando prioridades via bridge...');
+  const roster=(data.accessUsers||[]).map(function(u){
+    return {id:u.id,name:u.name,role:u.role,status:u.status,inviteCode:u.inviteCode};
+  });
   const payload={
     inviteCode:code,
     memberName:getUserName(),
     priorities:data.priorities,
+    accessUsers:roster,
   };
   try{
     await packJsonpApi('patchPriorities',payload);
