@@ -12,12 +12,13 @@ Intermediário entre o **Quality ID Hub** e o **GitHub Gist**. Membros usam só 
 |-------------|--------|
 | `GIST_ID` | `a82a82743ae0bc3d8887a69fb685d612` |
 | `GITHUB_PACK_TOKEN` | PAT com escopo `gist` |
+| `FERIAS_SHEET_ID` | ID da planilha Hub (aba **Membros**) — necessário quando `accessUsers` não está no Gist |
 | `PACK_FILENAME` | `quality-hub-data.json` (opcional) |
 
 No editor, executar:
 
 ```javascript
-packConfigureSecrets('a82a82743ae0bc3d8887a69fb685d612', 'ghp_SEU_TOKEN_NOVO');
+packConfigureSecrets('a82a82743ae0bc3d8887a69fb685d612', 'ghp_SEU_TOKEN_NOVO', '1xv0WyTghWTCiQON16nATiAW7kCqiTpcsK-nKvXWkubA');
 ```
 
 ## 2. Publicar Web App
@@ -45,6 +46,8 @@ Salve. Membros entram com código — **sem token no navegador**.
 | `saveFerias` | membro + código | Publica férias |
 | `saveProfile` | membro + código | Publica perfil |
 | `patchPack` | editor/admin + código | Salva pack inteiro (modo Editar) |
+| `patchPriorities` | editor/admin + código | Salva prioridades da semana |
+| `patchAccessUsers` | admin + código | Salva roster de usuários |
 
 JSONP (Hub):  
 `.../exec?pack=getPack&payload={}&callback=packCb_1`

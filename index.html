@@ -7140,10 +7140,36 @@ function clearPriQueueCounts(){
   priEditDraft.counts=priZeroQueueCounts();
   renderPriorities();
 }
+async function verifyPrioritiesSaveAuth_(){
+  const code=resolveBridgeInviteCode();
+  const name=getUserName();
+  if(!code||!name){
+    return {ok:false,error:'Código ou perfil não encontrado. Saia e entre de novo com seu código pessoal.'};
+  }
+  if(membersSheetActive()){
+    try{ await loadMembersFromSheet(); }catch(e){/* ignore */}
+    const u=findUserByInviteCode(code);
+    if(!u){
+      return {ok:false,error:'Seu código não está na aba Membros da planilha. Peça ao admin para conferir o cadastro.'};
+    }
+    if(!namesMatch(u.name,name)){
+      return {ok:false,error:'Código não corresponde ao perfil '+name+'. Use o código de '+u.name+'.'};
+    }
+    if(u.role!=='admin'&&u.role!=='editor'){
+      return {ok:false,error:'Seu perfil não tem permissão de editor para publicar prioridades.'};
+    }
+  }
+  return {ok:true};
+}
 async function savePrioritiesViaBridge(opts){
   opts=opts||{};
   if(!opts.skipRefresh){
     try{ await loadFromGist({force:true}); }catch(e){/* segue com cache local */ }
+  }
+  const auth=await verifyPrioritiesSaveAuth_();
+  if(!auth.ok){
+    if(!opts.silent) showStatus('error','Erro ao salvar: '+auth.error);
+    return false;
   }
   let code=resolveBridgeInviteCode();
   if(!code){
@@ -7178,7 +7204,7 @@ async function savePrioritiesViaBridge(opts){
     if(!opts.silent){
       let hint=msg;
       if(/código inválido|usuário inativo/i.test(msg)){
-        hint+=' Saia e entre de novo com seu código pessoal (Perfil).';
+        hint+=' Os membros estão na planilha (aba Membros). Atualize o código da Pack Bridge no Apps Script e publique nova versão do Web App.';
       }
       showStatus('error','Erro ao salvar: '+hint);setTimeout(hideStatus,6000);
     }

@@ -43,10 +43,11 @@ function doPost(e) {
 }
 
 /** Rode uma vez no editor: packConfigureSecrets('a82a...', 'ghp_...') */
-function packConfigureSecrets(gistId, githubToken) {
+function packConfigureSecrets(gistId, githubToken, feriasSheetId) {
   var props = PropertiesService.getScriptProperties();
   if (gistId) props.setProperty('GIST_ID', String(gistId).trim());
   if (githubToken) props.setProperty('GITHUB_PACK_TOKEN', String(githubToken).trim());
+  if (feriasSheetId) props.setProperty('FERIAS_SHEET_ID', String(feriasSheetId).trim());
   props.setProperty('PACK_FILENAME', PACK_FILENAME_DEFAULT_);
 }
 
@@ -162,7 +163,7 @@ function packNamesMatch_(a, b) {
 function packFindUserByCode_(pack, inviteCode) {
   var norm = packNormalizeInviteCode_(inviteCode);
   if (!norm) return null;
-  var users = pack.accessUsers || [];
+  var users = packGetAccessRoster_(pack);
   for (var i = 0; i < users.length; i++) {
     var u = users[i];
     if (u.status === 'active' && u.inviteCode && packNormalizeInviteCode_(u.inviteCode) === norm) return u;
@@ -170,11 +171,51 @@ function packFindUserByCode_(pack, inviteCode) {
   return null;
 }
 
+/** Gist roster first; if vazio (membros na planilha), lê aba Membros. */
+function packGetAccessRoster_(pack) {
+  var users = (pack && pack.accessUsers) || [];
+  if (users.length) return users;
+  return packReadMembersFromSheet_();
+}
+
+function packReadMembersFromSheet_() {
+  var props = PropertiesService.getScriptProperties();
+  var sheetId = String(props.getProperty('FERIAS_SHEET_ID') || '1xv0WyTghWTCiQON16nATiAW7kCqiTpcsK-nKvXWkubA').trim();
+  if (!sheetId) return [];
+  try {
+    var ss = SpreadsheetApp.openById(sheetId);
+    var sheet = ss.getSheetByName('Membros');
+    if (!sheet || sheet.getLastRow() < 2) return [];
+    var values = sheet.getRange(2, 1, sheet.getLastRow(), 6).getValues();
+    var out = [];
+    for (var i = 0; i < values.length; i++) {
+      var row = values[i];
+      if (!row[0]) continue;
+      out.push({
+        id: String(row[0]).trim(),
+        name: String(row[1]).trim(),
+        role: String(row[3] || 'member').trim().toLowerCase() || 'member',
+        status: String(row[4] || 'active').trim() || 'active',
+        inviteCode: String(row[5] || '').trim()
+      });
+    }
+    return out;
+  } catch (err) {
+    return [];
+  }
+}
+
 function packValidateMember_(inviteCode, memberName, opts) {
   opts = opts || {};
   var remote = packFetchGist_();
   var u = packFindUserByCode_(remote.pack, inviteCode);
-  if (!u) throw new Error('Código inválido ou usuário inativo');
+  if (!u) {
+    var roster = packGetAccessRoster_(remote.pack);
+    if (!roster.length) {
+      throw new Error('Roster de acesso vazio. Configure FERIAS_SHEET_ID na bridge ou publique accessUsers no Gist.');
+    }
+    throw new Error('Código inválido ou usuário inativo');
+  }
   if (u.role === 'visitor') throw new Error('Visitantes não podem publicar no pack');
   if (memberName && !packNamesMatch_(u.name, memberName)) {
     throw new Error('Código não corresponde a este perfil');
