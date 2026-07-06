@@ -374,12 +374,8 @@ function packPatchPriorities_(payload) {
   var remote = packFetchGist_();
   var pack = remote.pack;
   pack.priorities = incoming;
-  if (!pack.accessUsers || !pack.accessUsers.length) {
-    var roster = packGetAccessRoster_(pack);
-    if (!roster.length && Array.isArray(payload.accessUsers) && payload.accessUsers.length) {
-      roster = payload.accessUsers;
-    }
-    if (roster.length) pack.accessUsers = roster;
+  if ((!pack.accessUsers || !pack.accessUsers.length) && Array.isArray(payload.accessUsers) && payload.accessUsers.length) {
+    pack.accessUsers = payload.accessUsers;
   }
   packPatchGist_(pack);
   return { priorities: pack.priorities, savedAt: new Date().toISOString() };
