@@ -81,9 +81,75 @@ function packHandleAction_(action, payload) {
       return packPatchPriorities_(payload);
     case 'patchAccessUsers':
       return packPatchAccessUsers_(payload);
+    case 'pbChunkPut':
+      return packChunkPut_(payload);
+    case 'pbChunkCommit':
+      return packChunkCommit_(payload);
     default:
       throw new Error('Ação desconhecida: ' + action);
   }
+}
+
+/**
+ * Upload fragmentado via JSONP (GET puro, sem CORS) para payloads grandes.
+ * fetch() POST cross-origin para /exec falha ("Failed to fetch") porque o
+ * Apps Script redireciona para script.googleusercontent.com sem headers CORS
+ * e o ContentService não permite setar Access-Control-Allow-Origin. Por isso
+ * payloads grandes (ex.: patchPriorities) são fragmentados em várias chamadas
+ * GET (JSONP) e remontados aqui antes de rodar a ação real.
+ */
+var PACK_CHUNK_TTL_SEC_ = 600;
+
+function packChunkKey_(uploadId, index) {
+  return 'pbchunk_' + uploadId + '_' + index;
+}
+
+function packChunkMetaKey_(uploadId) {
+  return 'pbchunk_' + uploadId + '_meta';
+}
+
+function packChunkPut_(payload) {
+  payload = payload || {};
+  var uploadId = String(payload.uploadId || '').trim();
+  var total = Number(payload.total);
+  var index = Number(payload.index);
+  var chunk = payload.chunk != null ? String(payload.chunk) : '';
+  if (!uploadId || !(total > 0) || !(index >= 0) || index >= total) {
+    throw new Error('Upload fragmentado inválido');
+  }
+  var cache = CacheService.getScriptCache();
+  cache.put(packChunkKey_(uploadId, index), chunk, PACK_CHUNK_TTL_SEC_);
+  cache.put(packChunkMetaKey_(uploadId), String(total), PACK_CHUNK_TTL_SEC_);
+  return { received: index, total: total };
+}
+
+function packChunkCommit_(payload) {
+  payload = payload || {};
+  var uploadId = String(payload.uploadId || '').trim();
+  var total = Number(payload.total);
+  var action = String(payload.action || '').trim();
+  if (!uploadId || !(total > 0) || !action) throw new Error('Commit de upload inválido');
+  if (action === 'pbChunkPut' || action === 'pbChunkCommit') throw new Error('Ação inválida no upload fragmentado');
+  var cache = CacheService.getScriptCache();
+  var meta = Number(cache.get(packChunkMetaKey_(uploadId)) || 0);
+  if (meta !== total) throw new Error('Upload fragmentado incompleto ou expirado');
+  var keys = [];
+  for (var i = 0; i < total; i++) keys.push(packChunkKey_(uploadId, i));
+  var stored = cache.getAll(keys);
+  var parts = [];
+  for (var j = 0; j < total; j++) {
+    var part = stored[packChunkKey_(uploadId, j)];
+    if (part == null) throw new Error('Upload fragmentado incompleto ou expirado (parte ' + j + ')');
+    parts.push(part);
+  }
+  cache.removeAll(keys.concat([packChunkMetaKey_(uploadId)]));
+  var realPayload;
+  try {
+    realPayload = JSON.parse(parts.join(''));
+  } catch (err) {
+    throw new Error('Payload remontado inválido');
+  }
+  return packHandleAction_(action, realPayload);
 }
 
 function packGetProps_() {
