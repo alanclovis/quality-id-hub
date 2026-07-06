@@ -1503,29 +1503,28 @@
   }
 
   async function dimFetchAdjustmentsData() {
-    const week = dimState.week || dimGetIsoWeek();
+    const week = dimNormalizeWeekKey(dimState.week || dimGetIsoWeek());
     const schedule = dimState.schedule;
 
-    const local = dimBuildAdjustmentsLocal(week);
-    if (local.records.length) return local;
-
+    // Prefer server data (Base_Detalhes merged in HubBridge). Local rebuild from
+    // rawSchedule/days often lacks `details` and wrongly marks slots as Pendente.
     try {
       const api = await dimCall('getAdjustments', { week: week });
       if ((api.records || []).length) return api;
     } catch (e) { /* API may be unavailable on older deploy */ }
 
     if (schedule && schedule.adjustments && schedule.adjustments.length &&
-        String(schedule.week) === String(week)) {
+        String(dimNormalizeWeekKey(schedule.week)) === String(week)) {
       const records = schedule.adjustments;
       return {
         records: records,
         pending: records.filter(function (r) { return r.pending; }),
         pendingCount: schedule.pendingCount != null ? schedule.pendingCount : records.filter(function (r) { return r.pending; }).length,
-        week: schedule.week
+        week: Number(week)
       };
     }
 
-    return local;
+    return dimBuildAdjustmentsLocal(week);
   }
 
   function dimGetSlotGroups() {
