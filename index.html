@@ -3043,8 +3043,7 @@ function getMemberInviteCode(){
   return normalizeInviteCode(localStorage.getItem('qhub_saved_invite_code')||'');
 }
 function resolveBridgeInviteCode(){
-  const saved=getMemberInviteCode();
-  if(saved) return saved;
+  const name=getUserName();
   const uid=localStorage.getItem('qhub_user_id');
   if(uid&&uid!==VISITOR_PACK_USER_ID){
     const byId=getAccessUserById(uid);
@@ -3054,13 +3053,18 @@ function resolveBridgeInviteCode(){
       return code;
     }
   }
-  const name=getUserName();
-  if(!name) return '';
-  const u=getAccessUserRecord(name);
-  if(u?.inviteCode){
-    const code=normalizeInviteCode(u.inviteCode);
-    try{ localStorage.setItem('qhub_saved_invite_code',code); }catch(e){/* ignore */}
-    return code;
+  if(name){
+    const u=getAccessUserRecord(name);
+    if(u?.status==='active'&&u.inviteCode){
+      const code=normalizeInviteCode(u.inviteCode);
+      try{ localStorage.setItem('qhub_saved_invite_code',code); }catch(e){/* ignore */}
+      return code;
+    }
+  }
+  const saved=getMemberInviteCode();
+  if(saved&&findUserByInviteCode(saved)) return saved;
+  if(saved){
+    try{ localStorage.removeItem('qhub_saved_invite_code'); }catch(e){/* ignore */}
   }
   return '';
 }
@@ -7138,6 +7142,9 @@ function clearPriQueueCounts(){
 }
 async function savePrioritiesViaBridge(opts){
   opts=opts||{};
+  if(!opts.skipRefresh){
+    try{ await loadFromGist({force:true}); }catch(e){/* segue com cache local */ }
+  }
   let code=resolveBridgeInviteCode();
   if(!code){
     alert('Código de acesso não encontrado. Entre com seu código pessoal ou peça ao admin.');
@@ -7164,14 +7171,14 @@ async function savePrioritiesViaBridge(opts){
         await loadFromGist({force:true});
         const code2=resolveBridgeInviteCode();
         if(code2){
-          return savePrioritiesViaBridge({silent:opts.silent,retried:true});
+          return savePrioritiesViaBridge({silent:opts.silent,retried:true,skipRefresh:true});
         }
       }catch(e2){/* tenta fallback abaixo */}
     }
     if(!opts.silent){
       let hint=msg;
       if(/código inválido|usuário inativo/i.test(msg)){
-        hint+=' Confira seu código em Perfil ou use o token GitHub em Configuração → Técnico.';
+        hint+=' Saia e entre de novo com seu código pessoal (Perfil).';
       }
       showStatus('error','Erro ao salvar: '+hint);setTimeout(hideStatus,6000);
     }
@@ -7192,13 +7199,10 @@ async function savePriorities(){
   data.priorities.updatedAt=new Date().toISOString();
 
   let ok=false;
-  if(getToken()){
-    ok=await saveToGist({skipFeriasMerge:true});
-  }else if(canWriteViaBridge()){
+  if(canWriteViaBridge()){
     ok=await savePrioritiesViaBridge();
-    if(!ok&&getToken()) ok=await saveToGist({skipFeriasMerge:true});
   }else{
-    ok=await saveToGist({skipFeriasMerge:true});
+    alert('Não foi possível salvar: bridge do pack indisponível ou código pessoal ausente. Entre de novo com seu código em Perfil.');
   }
 
   if(ok){
