@@ -52,7 +52,7 @@ Salve. Membros entram com código — **sem token no navegador**.
 | `saveFerias` | membro + código | Publica férias |
 | `saveProfile` | membro + código | Publica perfil |
 | `patchPack` | editor/admin + código | Salva pack inteiro (modo Editar) |
-| `patchPriorities` | editor/admin + código | Salva prioridades da semana |
+| `patchPriorities` | hub (modo edição) | Salva prioridades — bridge usa token do servidor, sem código pessoal |
 | `patchAccessUsers` | admin + código | Salva roster de usuários |
 
 JSONP (Hub):  

@@ -371,16 +371,14 @@ function packPatchPriorities_(payload) {
   payload = payload || {};
   var incoming = payload.priorities;
   if (!incoming || typeof incoming !== 'object') throw new Error('Dados de prioridades inválidos');
-  var fallbackRoster = Array.isArray(payload.accessUsers) ? payload.accessUsers : [];
-  var ctx = packValidateMember_(payload.inviteCode, payload.memberName || '', {
-    requireEditor: true,
-    fallbackRoster: fallbackRoster
-  });
-  var pack = ctx.remote.pack;
+  var remote = packFetchGist_();
+  var pack = remote.pack;
   pack.priorities = incoming;
   if (!pack.accessUsers || !pack.accessUsers.length) {
     var roster = packGetAccessRoster_(pack);
-    if (!roster.length && fallbackRoster.length) roster = fallbackRoster;
+    if (!roster.length && Array.isArray(payload.accessUsers) && payload.accessUsers.length) {
+      roster = payload.accessUsers;
+    }
     if (roster.length) pack.accessUsers = roster;
   }
   packPatchGist_(pack);
