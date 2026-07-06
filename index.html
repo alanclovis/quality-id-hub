@@ -710,6 +710,19 @@ body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo
 .pri-queue-name{font-size:12px;color:var(--text);word-break:break-all;}
 .pri-queue-short{display:block;font-weight:500;}
 .pri-queue-full{display:block;font-size:10px;color:var(--text3);margin-top:2px;}
+.pri-goal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
+.pri-goal-field label{display:block;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+.pri-goal-field input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:var(--bg);}
+.pri-goal-field input:disabled{background:var(--bg3);color:var(--text2);cursor:not-allowed;}
+.pri-goal-field input:focus:not(:disabled){border-color:#7c3aed;outline:none;box-shadow:0 0 0 3px rgba(124,58,237,0.12);}
+.pri-goal-total{font-size:22px;font-weight:700;color:#5b21b6;line-height:1.2;}
+.pri-goal-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;}
+.pri-goal-kpi{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:var(--rs);padding:12px 14px;}
+.pri-goal-kpi-label{font-size:11px;font-weight:600;color:#6d28d9;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+.pri-goal-kpi-value{font-size:20px;font-weight:700;color:var(--text);line-height:1.2;}
+.pri-goal-kpi-sub{font-size:12px;color:var(--text2);margin-top:4px;}
+.pri-goal-note{font-size:12px;color:var(--text3);margin-top:12px;line-height:1.5;}
+.pri-goal-empty{font-size:13px;color:var(--text3);padding:8px 0;}
 
 
 /* ── Sidebar ── */
@@ -6801,12 +6814,115 @@ function priGetSlot(day,shift){
   if(!wk) return '';
   return wk.slots?.[key]||'';
 }
+function priDefaultGoalMeta(){
+  return { analystCount: null, businessDays: 5 };
+}
+function priNormalizeGoalMeta(meta){
+  meta=meta||priDefaultGoalMeta();
+  const days=parseInt(meta.businessDays,10);
+  const rawAnalysts=meta.analystCount;
+  const analysts=rawAnalysts!=null&&rawAnalysts!==''?parseInt(rawAnalysts,10):null;
+  return {
+    analystCount: analysts>0?analysts:null,
+    businessDays: days>0?Math.min(7,days):5,
+  };
+}
+function priGetGoalMeta(){
+  if(priEditMode&&priEditDraft&&priEditDraft.goalMeta) return priEditDraft.goalMeta;
+  const wk=priGetWeekData(priWeekStart);
+  if(wk&&wk.goalMeta) return priNormalizeGoalMeta(wk.goalMeta);
+  return priDefaultGoalMeta();
+}
+function priGetTotalSamples(){
+  const pri=ensurePrioritiesData();
+  return pri.queues.reduce(function(sum,q){ return sum+priGetQueueCount(q); },0);
+}
+function priFmtGoalNum(n){
+  if(n==null||isNaN(n)) return '—';
+  return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+}
+function priComputeGoalMeta(total,analysts,days){
+  if(!total||!analysts||!days) return null;
+  const exactWeek=total/analysts;
+  const exactDay=exactWeek/days;
+  return {
+    exactWeek: exactWeek,
+    ceilWeek: Math.ceil(exactWeek),
+    exactDay: exactDay,
+    ceilDay: Math.ceil(exactDay),
+    remainder: total%analysts,
+  };
+}
+function priCollectGoalFromUI(){
+  const analystsEl=document.getElementById('priGoalAnalysts');
+  const daysEl=document.getElementById('priGoalDays');
+  if(!analystsEl||!daysEl) return priDefaultGoalMeta();
+  const a=parseInt(analystsEl.value,10);
+  const d=parseInt(daysEl.value,10);
+  return priNormalizeGoalMeta({
+    analystCount: isNaN(a)?null:a,
+    businessDays: isNaN(d)?5:d,
+  });
+}
+function priOnGoalInputChange(){
+  if(!priEditMode||!priEditDraft) return;
+  priEditDraft.goalMeta=priCollectGoalFromUI();
+  priRenderGoalCalc();
+}
+function priRenderGoalCalc(){
+  const totalEl=document.getElementById('priGoalTotal');
+  const analystsEl=document.getElementById('priGoalAnalysts');
+  const daysEl=document.getElementById('priGoalDays');
+  const resultsEl=document.getElementById('priGoalResults');
+  if(!totalEl||!analystsEl||!daysEl||!resultsEl) return;
+
+  const total=priGetTotalSamples();
+  const meta=priGetGoalMeta();
+  totalEl.textContent=String(total);
+
+  analystsEl.value=meta.analystCount!=null?String(meta.analystCount):'';
+  daysEl.value=String(meta.businessDays!=null?meta.businessDays:5);
+  analystsEl.disabled=!priEditMode;
+  daysEl.disabled=!priEditMode;
+
+  if(!total){
+    resultsEl.innerHTML='<p class="pri-goal-empty">Configure as contagens por fila acima para calcular a meta.</p>';
+    return;
+  }
+  if(!meta.analystCount||!meta.businessDays){
+    resultsEl.innerHTML='<p class="pri-goal-empty">Preencha analistas e dias úteis para calcular.</p>';
+    return;
+  }
+
+  const calc=priComputeGoalMeta(total,meta.analystCount,meta.businessDays);
+  if(!calc){
+    resultsEl.innerHTML='<p class="pri-goal-empty">Preencha analistas e dias úteis para calcular.</p>';
+    return;
+  }
+
+  let html='<div class="pri-goal-kpis">';
+  html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Por semana (exato)</div>';
+  html+='<div class="pri-goal-kpi-value">'+priFmtGoalNum(calc.exactWeek)+'</div>';
+  html+='<div class="pri-goal-kpi-sub">monitorias / analista</div></div>';
+  html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Por semana (sugerido)</div>';
+  html+='<div class="pri-goal-kpi-value">'+calc.ceilWeek+'</div>';
+  html+='<div class="pri-goal-kpi-sub">arredondado para cima</div></div>';
+  html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Por dia</div>';
+  html+='<div class="pri-goal-kpi-value">'+priFmtGoalNum(calc.exactDay)+'</div>';
+  html+='<div class="pri-goal-kpi-sub">sugerido <strong>'+calc.ceilDay+'</strong> / dia</div></div>';
+  html+='</div>';
+  if(calc.remainder>0){
+    html+='<p class="pri-goal-note">Restam <strong>'+calc.remainder+'</strong> casos para distribuir manualmente entre o time.</p>';
+  }
+  resultsEl.innerHTML=html;
+}
 function startPriEditDraft(){
   const wk=priGetWeekData(priWeekStart);
   priEditDraft={
     weekStart:priWeekStart,
     slots:wk?{...wk.slots}:priEmptySlots(),
     counts:wk?{...wk.counts}:priZeroQueueCounts(),
+    goalMeta:priNormalizeGoalMeta(wk?.goalMeta||priDefaultGoalMeta()),
   };
 }
 function priAllSlotKeys(){
@@ -6963,6 +7079,7 @@ function collectPrioritiesFromUI(){
     const id=inp.dataset.priQueueId;
     if(id) priEditDraft.counts[id]=parseInt(inp.value,10)||0;
   });
+  priEditDraft.goalMeta=priCollectGoalFromUI();
 }
 function applyPriEditDraft(){
   const pri=ensurePrioritiesData();
@@ -6971,6 +7088,7 @@ function applyPriEditDraft(){
   pri.weeks[priEditDraft.weekStart]={
     slots:{...priEditDraft.slots},
     counts:{...priEditDraft.counts},
+    goalMeta:priNormalizeGoalMeta(priEditDraft.goalMeta),
     updatedAt:now,
   };
   normalizePrioritiesForSave(pri);
@@ -7154,8 +7272,12 @@ function renderPriorities(){
   shtml+=`<tr class="pri-summary-total"><td>TOTAL DE AMOSTRAS</td><td style="text-align:right"><strong>${total}</strong></td></tr>`;
   shtml+='</tbody>';
   sum.innerHTML=shtml;
+  sum.querySelectorAll('.pri-count-input').forEach(function(inp){
+    inp.addEventListener('input',function(){ priRenderGoalCalc(); });
+  });
   priApplyQueueHighlight();
   updatePriEditUI();
+  priRenderGoalCalc();
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
@@ -7415,6 +7537,24 @@ window.addEventListener('DOMContentLoaded',async()=>{
       <button type="button" class="btn-sm" onclick="clearPriQueueCounts()"><i class="ti ti-trash"></i> Zerar contagens</button>
     </div>
     <table class="pri-summary-table" id="priSummary"></table>
+  </div>
+  <div class="pri-card" id="priGoalCard">
+    <h4><i class="ti ti-calculator" style="color:#7c3aed"></i> Meta por analista</h4>
+    <div class="pri-goal-grid">
+      <div class="pri-goal-field">
+        <label for="priGoalTotal">Total de amostras</label>
+        <div class="pri-goal-total" id="priGoalTotal">0</div>
+      </div>
+      <div class="pri-goal-field">
+        <label for="priGoalAnalysts">Analistas disponíveis</label>
+        <input type="number" id="priGoalAnalysts" min="1" step="1" placeholder="Ex: 11" oninput="priOnGoalInputChange()">
+      </div>
+      <div class="pri-goal-field">
+        <label for="priGoalDays">Dias úteis da semana</label>
+        <input type="number" id="priGoalDays" min="1" max="7" step="1" value="5" oninput="priOnGoalInputChange()">
+      </div>
+    </div>
+    <div class="pri-goal-results" id="priGoalResults"></div>
   </div>
 </div>
 </div><!-- end layout -->
