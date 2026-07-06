@@ -424,7 +424,10 @@ function packPatchPack_(payload) {
   payload = payload || {};
   var incoming = payload.pack;
   if (!incoming || !incoming.sections) throw new Error('Dados do pack inválidos');
-  packValidateMember_(payload.inviteCode, payload.memberName || '', { requireEditor: true });
+  packValidateMember_(payload.inviteCode, payload.memberName || '', {
+    requireEditor: true,
+    fallbackRoster: Array.isArray(payload.accessUsers) ? payload.accessUsers : []
+  });
   var remote = packFetchGist_();
   var pack = incoming;
   packSanitizeAuthConfig_(pack);

@@ -3133,6 +3133,51 @@ async function packJsonpChunkedApi(action,payload,timeoutMs){
   if(remaining<=1000) throw new Error('Timeout ao comunicar com a bridge do pack');
   return packJsonpRaw_('pbChunkCommit',{uploadId,total:chunks.length,action},Math.max(15000,remaining));
 }
+function packBridgePayloadExtra(){
+  const extra={memberName:getUserName()||''};
+  const code=resolveBridgeInviteCode();
+  if(code) extra.inviteCode=code;
+  return extra;
+}
+function stablePackJson(val){
+  return JSON.stringify(val,function(_key,v){
+    if(v&&typeof v==='object'&&!Array.isArray(v)){
+      return Object.keys(v).sort().reduce(function(o,k){o[k]=v[k];return o;},{});
+    }
+    return v;
+  });
+}
+function prioritiesSavedMatches(expectedPri,remotePack){
+  if(!expectedPri||!remotePack?.priorities) return false;
+  const a=JSON.parse(JSON.stringify(expectedPri));
+  const b=JSON.parse(JSON.stringify(remotePack.priorities));
+  normalizePrioritiesForSave(a);
+  normalizePrioritiesForSave(b);
+  return stablePackJson(a)===stablePackJson(b);
+}
+function packContentSavedMatches(expectedSrc,remotePack,opts){
+  if(!remotePack) return false;
+  const expected=packDataForGistSave(expectedSrc,opts);
+  const keys=['sections','notice','pageOrder','priorities','avisos'];
+  for(let i=0;i<keys.length;i++){
+    const k=keys[i];
+    if(stablePackJson(expected[k])!==stablePackJson(remotePack[k])) return false;
+  }
+  return true;
+}
+/** JSONP pode falhar no callback mesmo com save OK no Gist — confirma com getPack. */
+async function packJsonpSaveWithVerify(action,payload,verifyFn,timeoutMs){
+  timeoutMs=timeoutMs||90000;
+  try{
+    return await packJsonpApi(action,payload,timeoutMs);
+  }catch(primaryErr){
+    try{
+      const fresh=await packJsonpApi('getPack',{},Math.min(45000,timeoutMs));
+      if(fresh?.pack&&verifyFn(payload,fresh.pack,fresh)) return Object.assign({verifiedAfterError:true},fresh);
+    }catch(verifyErr){/* ignore */}
+    throw primaryErr;
+  }
+}
 async function fetchPackViaBridge(){
   const res=await packJsonpApi('getPack',{});
   if(!res?.pack?.sections?.length) throw new Error('Pack inválido na bridge');
@@ -3910,12 +3955,21 @@ async function saveToGistViaBridge(opts){
   if(getGistId()&&!opts.skipFeriasMerge) await mergeRemoteFeriasBeforeSave();
   sanitizeAuthConfig();
   syncAccessUserEmailsFromProfiles();
+  const gistPayload=packDataForGistSave(data,opts);
+  const roster=(data.accessUsers||[]).map(function(u){
+    return {id:u.id,name:u.name,role:u.role,status:u.status,inviteCode:u.inviteCode};
+  });
   try{
-    await packJsonpApi('patchPack',{inviteCode:code,memberName:getUserName(),pack:packDataForGistSave(data,opts)});
+    const res=await packJsonpSaveWithVerify('patchPack',Object.assign({},packBridgePayloadExtra(),{
+      pack:gistPayload,
+      accessUsers:roster,
+    }),function(_payload,remotePack){ return packContentSavedMatches(data,remotePack,opts); },120000);
     const lastSaved=document.getElementById('lastSaved');
     if(lastSaved) lastSaved.textContent='Salvo agora';
     initKnownFeriasIds();
-    showStatus('success','Salvo com sucesso!');setTimeout(hideStatus,3000);
+    saveLocal();
+    const verifiedNote=res&&res.verifiedAfterError?' (confirmado no servidor)':'';
+    showStatus('success','Salvo com sucesso!'+verifiedNote);setTimeout(hideStatus,3000);
     return true;
   }catch(e){
     showStatus('error','Erro ao salvar: '+e.message);setTimeout(hideStatus,4000);
@@ -4452,7 +4506,11 @@ function pickLogo(linkId,currentLogoId,e){
 }
 
 // ── Actions ────────────────────────────────────────────────────────────────────
-function saveLink(sectionId,linkId){
+async function persistLinksToGist(opts){
+  if(!canWriteGist()){ openConfig(); return false; }
+  return saveToGist(Object.assign({skipFeriasMerge:true,skipMembersMerge:true},opts||{}));
+}
+async function saveLink(sectionId,linkId){
   const section=data.sections.find(s=>s.id===sectionId);
   const link=section.links.find(l=>l.id===linkId);
   link.name=document.getElementById('ename-'+linkId).value||link.name;
@@ -4470,9 +4528,17 @@ function saveLink(sectionId,linkId){
   if(lb&&lb.dataset.selectedLogo)link.logo=lb.dataset.selectedLogo;
   closeEditPanel(linkId);
   render();
+  await persistLinksToGist();
 }
 function cancelEditLink(linkId){closeEditPanel(linkId);}
-function deleteLink(sectionId,linkId){if(!confirm('Remover este link?'))return;closeEditPanel(linkId);const s=data.sections.find(x=>x.id===sectionId);s.links=s.links.filter(l=>l.id!==linkId);render();}
+async function deleteLink(sectionId,linkId){
+  if(!confirm('Remover este link?'))return;
+  closeEditPanel(linkId);
+  const s=data.sections.find(x=>x.id===sectionId);
+  s.links=s.links.filter(l=>l.id!==linkId);
+  render();
+  await persistLinksToGist();
+}
 function addLink(sectionId){
   const section=data.sections.find(s=>s.id===sectionId);
   const nl={id:'l'+Date.now(),name:'Novo link',desc:'Descrição',notes:'',url:'#',logo:'link'};
@@ -4482,7 +4548,12 @@ function addLink(sectionId){
     if(card){const btn=card.querySelector('.btn-sm');if(btn)btn.click();}
   },80);
 }
-function deleteSection(sectionId){if(!confirm('Remover esta seção inteira?'))return;data.sections=data.sections.filter(s=>s.id!==sectionId);render();}
+async function deleteSection(sectionId){
+  if(!confirm('Remover esta seção inteira?'))return;
+  data.sections=data.sections.filter(s=>s.id!==sectionId);
+  render();
+  await persistLinksToGist();
+}
 function renameSection(sectionId,btn){
   const section=data.sections.find(s=>s.id===sectionId);
   const label=btn.closest('.section-header').querySelector('.section-label');
@@ -4490,16 +4561,17 @@ function renameSection(sectionId,btn){
   input.value=section.name;
   input.style.cssText='background:var(--bg3);border:1px solid var(--purple);border-radius:6px;color:var(--text);padding:4px 10px;font-size:22px;font-weight:600;font-family:var(--font-display);letter-spacing:-.3px;outline:none;width:280px';
   label.replaceWith(input);input.focus();
-  input.onblur=()=>{section.name=input.value||section.name;render();};
+  input.onblur=async()=>{section.name=input.value||section.name;render();await persistLinksToGist();};
   input.onkeydown=e=>{if(e.key==='Enter')input.blur();};
 }
-function confirmAddSection(){
+async function confirmAddSection(){
   const name=document.getElementById('newSectionName').value.trim();
   if(!name)return;
   data.sections.push({id:'s'+Date.now(),name,links:[]});
   document.getElementById('newSectionName').value='';
   document.getElementById('addSectionForm').classList.remove('active');
   render();
+  await persistLinksToGist();
 }
 
 // ── Zoom ──────────────────────────────────────────────────────────────────────
@@ -7178,17 +7250,23 @@ async function savePrioritiesViaBridge(opts){
   const roster=(data.accessUsers||[]).map(function(u){
     return {id:u.id,name:u.name,role:u.role,status:u.status,inviteCode:u.inviteCode};
   });
+  const expectedPri=JSON.parse(JSON.stringify(data.priorities));
+  const payload={
+    memberName:getUserName()||'',
+    priorities:data.priorities,
+  };
+  if(!membersSheetActive()&&roster.length) payload.accessUsers=roster;
   try{
-    await packJsonpApi('patchPriorities',{
-      memberName:getUserName()||'',
-      priorities:data.priorities,
-      accessUsers:roster,
+    const res=await packJsonpSaveWithVerify('patchPriorities',payload,function(pl,remotePack){
+      return prioritiesSavedMatches(pl.priorities||expectedPri,remotePack);
     },90000);
     if(!opts.silent){
       const lastSaved=document.getElementById('lastSaved');
       if(lastSaved) lastSaved.textContent='Salvo agora';
-      showStatus('success','Prioridades salvas!');setTimeout(hideStatus,3000);
+      const verifiedNote=res&&res.verifiedAfterError?' (confirmado no servidor)':'';
+      showStatus('success','Prioridades salvas!'+verifiedNote);setTimeout(hideStatus,3000);
     }
+    saveLocal();
     return true;
   }catch(e){
     if(!opts.silent){
