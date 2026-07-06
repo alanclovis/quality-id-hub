@@ -7136,42 +7136,87 @@ function clearPriQueueCounts(){
   priEditDraft.counts=priZeroQueueCounts();
   renderPriorities();
 }
-async function savePrioritiesViaBridge(){
-  const code=resolveBridgeInviteCode();
+async function savePrioritiesViaBridge(opts){
+  opts=opts||{};
+  let code=resolveBridgeInviteCode();
   if(!code){
     alert('Código de acesso não encontrado. Entre com seu código pessoal ou peça ao admin.');
     return false;
   }
-  showStatus('loading','Salvando prioridades via bridge...');
+  if(!opts.silent) showStatus('loading','Salvando prioridades via bridge...');
+  const payload={
+    inviteCode:code,
+    memberName:getUserName(),
+    priorities:data.priorities,
+  };
   try{
-    await packJsonpApi('patchPriorities',{
-      inviteCode:code,
-      memberName:getUserName(),
-      priorities:data.priorities,
-    });
-    saveLocal();
-    const lastSaved=document.getElementById('lastSaved');
-    if(lastSaved) lastSaved.textContent='Salvo agora';
-    showStatus('success','Prioridades salvas!');setTimeout(hideStatus,3000);
+    await packJsonpApi('patchPriorities',payload);
+    if(!opts.silent){
+      const lastSaved=document.getElementById('lastSaved');
+      if(lastSaved) lastSaved.textContent='Salvo agora';
+      showStatus('success','Prioridades salvas!');setTimeout(hideStatus,3000);
+    }
     return true;
   }catch(e){
-    showStatus('error','Erro ao salvar: '+e.message);setTimeout(hideStatus,4000);
+    const msg=String(e.message||e);
+    if(!opts.retried&&/código inválido|usuário inativo/i.test(msg)){
+      try{
+        await loadFromGist({force:true});
+        const code2=resolveBridgeInviteCode();
+        if(code2){
+          return savePrioritiesViaBridge({silent:opts.silent,retried:true});
+        }
+      }catch(e2){/* tenta fallback abaixo */}
+    }
+    if(!opts.silent){
+      let hint=msg;
+      if(/código inválido|usuário inativo/i.test(msg)){
+        hint+=' Confira seu código em Perfil ou use o token GitHub em Configuração → Técnico.';
+      }
+      showStatus('error','Erro ao salvar: '+hint);setTimeout(hideStatus,6000);
+    }
     return false;
   }
 }
 async function savePriorities(){
   if(!canEditContent()){ openConfig(); return; }
+  if(!priEditDraft) return;
   collectPrioritiesFromUI();
+  const pri=ensurePrioritiesData();
+  const backup={
+    instructions:pri.instructions,
+    updatedAt:pri.updatedAt,
+    week:pri.weeks[priEditDraft.weekStart]?JSON.parse(JSON.stringify(pri.weeks[priEditDraft.weekStart])):null,
+  };
   applyPriEditDraft();
   data.priorities.updatedAt=new Date().toISOString();
-  priEditMode=false;
-  priEditDraft=null;
-  priResetSelection();
-  updatePriEditUI();
+
+  let ok=false;
+  if(getToken()){
+    ok=await saveToGist({skipFeriasMerge:true});
+  }else if(canWriteViaBridge()){
+    ok=await savePrioritiesViaBridge();
+    if(!ok&&getToken()) ok=await saveToGist({skipFeriasMerge:true});
+  }else{
+    ok=await saveToGist({skipFeriasMerge:true});
+  }
+
+  if(ok){
+    saveLocal();
+    priEditMode=false;
+    priEditDraft=null;
+    priResetSelection();
+    updatePriEditUI();
+    renderPriorities();
+    return;
+  }
+
+  pri.instructions=backup.instructions;
+  pri.updatedAt=backup.updatedAt;
+  if(backup.week) pri.weeks[priEditDraft.weekStart]=backup.week;
+  else delete pri.weeks[priEditDraft.weekStart];
+  collectPrioritiesFromUI();
   renderPriorities();
-  saveLocal();
-  if(canWriteViaBridge()) await savePrioritiesViaBridge();
-  else await saveToGist();
 }
 function renderPriorities(){
   const pri=ensurePrioritiesData();
