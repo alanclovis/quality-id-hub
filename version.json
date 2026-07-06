@@ -1,5 +1,5 @@
 {
-  "commit": "5b1543a",
-  "message": "Fix dimensionamento timeout by aligning GAS deploy with JSONP bridge.",
-  "date": "2026-06-30 12:45:00 -0300"
+  "commit": "4872bc6",
+  "message": "Fix Prioridades goal calculator placement and refresh version stamp.",
+  "date": "2026-07-06 07:35:00 -0300"
 }
