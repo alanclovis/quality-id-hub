@@ -12,13 +12,19 @@ Intermediário entre o **Quality ID Hub** e o **GitHub Gist**. Membros usam só 
 |-------------|--------|
 | `GIST_ID` | `a82a82743ae0bc3d8887a69fb685d612` |
 | `GITHUB_PACK_TOKEN` | PAT com escopo `gist` |
-| `FERIAS_SHEET_ID` | ID da planilha Hub (aba **Membros**) — necessário quando `accessUsers` não está no Gist |
+| `FERIAS_SHEET_ID` | ID da planilha Hub (aba **Membros**) — fallback se `getMembers` falhar |
+| `FERIAS_BRIDGE_URL` | URL `/exec` da Planilha Hub — fallback para ler membros via `getMembers` |
 | `PACK_FILENAME` | `quality-hub-data.json` (opcional) |
 
 No editor, executar:
 
 ```javascript
-packConfigureSecrets('a82a82743ae0bc3d8887a69fb685d612', 'ghp_SEU_TOKEN_NOVO', '1xv0WyTghWTCiQON16nATiAW7kCqiTpcsK-nKvXWkubA');
+packConfigureSecrets(
+  'a82a82743ae0bc3d8887a69fb685d612',
+  'ghp_SEU_TOKEN_NOVO',
+  '1xv0WyTghWTCiQON16nATiAW7kCqiTpcsK-nKvXWkubA',
+  'https://script.google.com/a/macros/nubank.com.br/s/AKfycbx-USlNwZScWOy7qT7Cr1Bcak7sK4t0JCuXLDO6xNDpKgsMxqX8hQWGmXNMnFjj2P-Q/exec'
+);
 ```
 
 ## 2. Publicar Web App

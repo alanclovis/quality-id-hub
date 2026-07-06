@@ -43,11 +43,12 @@ function doPost(e) {
 }
 
 /** Rode uma vez no editor: packConfigureSecrets('a82a...', 'ghp_...') */
-function packConfigureSecrets(gistId, githubToken, feriasSheetId) {
+function packConfigureSecrets(gistId, githubToken, feriasSheetId, feriasBridgeUrl) {
   var props = PropertiesService.getScriptProperties();
   if (gistId) props.setProperty('GIST_ID', String(gistId).trim());
   if (githubToken) props.setProperty('GITHUB_PACK_TOKEN', String(githubToken).trim());
   if (feriasSheetId) props.setProperty('FERIAS_SHEET_ID', String(feriasSheetId).trim());
+  if (feriasBridgeUrl) props.setProperty('FERIAS_BRIDGE_URL', String(feriasBridgeUrl).trim());
   props.setProperty('PACK_FILENAME', PACK_FILENAME_DEFAULT_);
 }
 
@@ -171,11 +172,34 @@ function packFindUserByCode_(pack, inviteCode) {
   return null;
 }
 
-/** Gist roster first; if vazio (membros na planilha), lê aba Membros. */
+/** Gist roster → aba Membros → Planilha Hub bridge (getMembers). */
 function packGetAccessRoster_(pack) {
   var users = (pack && pack.accessUsers) || [];
   if (users.length) return users;
-  return packReadMembersFromSheet_();
+  users = packReadMembersFromSheet_();
+  if (users.length) return users;
+  return packFetchMembersViaFeriasBridge_(pack);
+}
+
+function packNormalizeExecUrl_(raw) {
+  return String(raw || '').replace(/\/dev$/, '/exec').replace(/\?.*$/, '').replace(/\/+$/, '');
+}
+
+function packFetchMembersViaFeriasBridge_(pack) {
+  var props = PropertiesService.getScriptProperties();
+  var url = (pack && pack.feriasBridge && pack.feriasBridge.url) || props.getProperty('FERIAS_BRIDGE_URL') || '';
+  url = packNormalizeExecUrl_(url);
+  if (!url) return [];
+  try {
+    var fetchUrl = url + '?ferias=getMembers&payload=' + encodeURIComponent('{}');
+    var res = UrlFetchApp.fetch(fetchUrl, { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return [];
+    var json = JSON.parse(res.getContentText());
+    if (json.ok && json.data && Array.isArray(json.data.accessUsers)) return json.data.accessUsers;
+    return [];
+  } catch (err) {
+    return [];
+  }
 }
 
 function packReadMembersFromSheet_() {
@@ -212,7 +236,7 @@ function packValidateMember_(inviteCode, memberName, opts) {
   if (!u) {
     var roster = packGetAccessRoster_(remote.pack);
     if (!roster.length) {
-      throw new Error('Roster de acesso vazio. Configure FERIAS_SHEET_ID na bridge ou publique accessUsers no Gist.');
+      throw new Error('Roster de acesso vazio. Confira a aba Membros na planilha e feriasBridge.url no Gist (URL da Planilha Hub em Técnico).');
     }
     throw new Error('Código inválido ou usuário inativo');
   }
@@ -343,6 +367,10 @@ function packPatchPriorities_(payload) {
   var ctx = packValidateMember_(payload.inviteCode, payload.memberName || '', { requireEditor: true });
   var pack = ctx.remote.pack;
   pack.priorities = incoming;
+  if (!pack.accessUsers || !pack.accessUsers.length) {
+    var roster = packGetAccessRoster_(pack);
+    if (roster.length) pack.accessUsers = roster;
+  }
   packPatchGist_(pack);
   return { priorities: pack.priorities, savedAt: new Date().toISOString() };
 }
