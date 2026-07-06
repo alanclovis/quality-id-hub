@@ -1,5 +1,5 @@
 {
-  "commit": "7bec2b3",
-  "message": "Fix dimensionamento ajustes Pendente vs sheet details.",
-  "date": "2026-07-06 12:05:00 -0300"
+  "commit": "2bfa111",
+  "message": "Prevent member roster wipe on hub load.",
+  "date": "2026-07-06 14:51:12 -0300"
 }
