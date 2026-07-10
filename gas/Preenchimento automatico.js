@@ -261,7 +261,7 @@ const SLOTS_VALIDOS = [
   'Calibration', 'Calibration Packs', 'Onb Qlt', 'Shadowing Qlt', 'Stk Talk',
   'HUB', 'Mission Control', 'Project Meet', 'Talk IC4', 'Talk Quality', 'Weekly',
   'Drive', 'Confluence', 'Jira/Atlassian', 'Databricks', 'Quicksight', 'Workflow (Slack)', 'Playvox',
-  'AVLB', 'DTQ', 'Quality Monitoring', 'Support',
+  'AVLB', 'AVLB Csat', 'DTQ', 'Quality Monitoring', 'Support',
   'Break', '1:1', 'MEET-DT', 'Monthly', 'CoffeeBreak', 'Mandatorios',
   'DIM_QLT', 'DIM_Csat',
   'FLC', 'Sensitives', 'Appeal Flow', 'Pangaea', 'Reversals', 'CSAT-HE', 'OBF',
@@ -297,8 +297,6 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Dimensionamento')
     .addItem('Preencher semana…', 'showDimensionarDialog')
-    .addItem('Restaurar cores dos slots…', 'restoreScheduleSlotColorFormatting')
-    .addItem('Remover apenas dropdown…', 'clearScheduleSlotDataValidation')
     .addSeparator()
     .addItem('Sincronizar Controle de Slots…', 'syncControleDeSlotsFromStatic')
     .addItem('Ver turnos configurados', 'menuVerTurnos')

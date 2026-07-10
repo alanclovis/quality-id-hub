@@ -555,6 +555,13 @@
     },
     {
       "atividade": "Core Job (CSAT)",
+      "tipoSlot": "AVLB Csat",
+      "significado": "Pausa Csat (utilizar quando não houver atividade desempenhada)",
+      "classificacao": "Exclusivo de Csat",
+      "conversao": "CSAT"
+    },
+    {
+      "atividade": "Core Job (CSAT)",
       "tipoSlot": "OBF",
       "significado": "Slot relacionado à ação efetiva em casos de OBF (somente integrantes do projeto de Legal - OBF)",
       "classificacao": "Exclusivo de Csat",

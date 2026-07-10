@@ -593,7 +593,7 @@ function hubGetSlotDictionary_() {
 /** Mesma lista RAW_OPTIONS do Config_Slots.html (dropdown da escala) */
 function hubRawSlotOptions_() {
   return [
-    'Break', '1:1', 'AT', 'AT-H', 'AVLB', 'AUS', 'AI Agent', 'Calibration', 'Calibration Packs',
+    'Break', '1:1', 'AT', 'AT-H', 'AVLB', 'AVLB Csat', 'AUS', 'AI Agent', 'Calibration', 'Calibration Packs',
     'CoffeeBreak', 'Confluence', 'CSAT', 'ProjCSAT', 'Databricks', 'Deep Dive', 'DEV', 'Docs', 'Drive',
     'DTQ', 'EDF', 'ESCL', 'Extraction', 'FLG', 'FLG-H', 'FR', 'FRDO', 'GS - ID', 'GS - VP',
     'HUB', 'ID-VP', 'ID', 'Inv. Brain', 'ITP',
