@@ -227,11 +227,11 @@
 
   function dimMergeDictionary(apiItems, staticItems) {
     const map = new Map();
-    (staticItems || []).forEach(function (it) {
+    (apiItems || []).forEach(function (it) {
       const key = String(it.tipoSlot || '').toLowerCase();
       if (key) map.set(key, it);
     });
-    (apiItems || []).forEach(function (it) {
+    (staticItems || []).forEach(function (it) {
       const key = String(it.tipoSlot || '').toLowerCase();
       if (key) map.set(key, it);
     });

@@ -560,7 +560,7 @@ function hubReadSlotDictionaryFromSheet_() {
   }).filter(function (x) { return x.tipoSlot; });
 }
 
-/** Mescla planilha (customizações) sobre STATIC_SLOT_DATA do Config_Slots.html */
+/** Mescla planilha com STATIC_SLOT_DATA — código (static) prevalece; planilha só acrescenta tipos novos. */
 function hubMergeSlotDictionaries_(sheetItems, staticItems) {
   var map = {};
   (staticItems || []).forEach(function (it) {
@@ -569,7 +569,7 @@ function hubMergeSlotDictionaries_(sheetItems, staticItems) {
   });
   (sheetItems || []).forEach(function (it) {
     var key = String(it.tipoSlot || '').toLowerCase();
-    if (key) map[key] = it;
+    if (key && !map[key]) map[key] = it;
   });
   var merged = Object.keys(map).map(function (k) { return map[k]; });
   merged.sort(function (a, b) {
@@ -710,4 +710,51 @@ function hubRunDeepDive_(payload) {
     return contarItensPorDistritoPorSemana(payload && payload.week);
   }
   throw new Error('contarItensPorDistritoPorSemana não encontrada');
+}
+
+function hubInvalidateSlotCaches_() {
+  try {
+    CacheService.getDocumentCache().remove('hub:slotOptions:v1');
+  } catch (e) { /* ignore */ }
+}
+
+function hubSyncControleDeSlotsFromStatic_() {
+  var staticData = hubGetStaticSlotDictionary_();
+  var items = (staticData && staticData.items) || [];
+  var ss = _core_getSpreadsheet_();
+  var sh = ss.getSheetByName('Controle de Slots');
+  if (!sh) sh = ss.insertSheet('Controle de Slots');
+  var headers = ['Atividade', 'Tipo de Slot', 'Significado', 'Classificação', 'Slot de conversão'];
+  var rows = [headers];
+  items.forEach(function (it) {
+    rows.push([
+      it.atividade || '',
+      it.tipoSlot || '',
+      it.significado || '',
+      it.classificacao || '',
+      it.conversao || ''
+    ]);
+  });
+  sh.clear();
+  if (rows.length > 1) {
+    sh.getRange(1, 1, rows.length, headers.length).setValues(rows);
+  } else {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  hubInvalidateSlotCaches_();
+  return { ok: true, count: items.length };
+}
+
+function syncControleDeSlotsFromStatic() {
+  var ui = SpreadsheetApp.getUi();
+  var confirm = ui.alert(
+    'Sincronizar Controle de Slots',
+    'Substituir a aba "Controle de Slots" pelas definições do código (Config_Slots)?\n\nLinhas só na planilha serão removidas. Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirm !== ui.Button.YES) return;
+  var result = hubSyncControleDeSlotsFromStatic_();
+  ui.alert('Sincronizado: ' + result.count + ' slot(s) na aba Controle de Slots.');
 }

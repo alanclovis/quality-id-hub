@@ -300,6 +300,7 @@ function onOpen() {
     .addItem('Restaurar cores dos slots…', 'restoreScheduleSlotColorFormatting')
     .addItem('Remover apenas dropdown…', 'clearScheduleSlotDataValidation')
     .addSeparator()
+    .addItem('Sincronizar Controle de Slots…', 'syncControleDeSlotsFromStatic')
     .addItem('Ver turnos configurados', 'menuVerTurnos')
     .addToUi();
 
