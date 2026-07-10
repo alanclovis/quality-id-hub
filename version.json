@@ -1,5 +1,5 @@
 {
-  "commit": "adfa4d9",
-  "message": "Fix slot dictionary merge so code wins over stale sheet.",
-  "date": "2026-07-10 09:07:07 -0300"
+  "commit": "9b80918",
+  "message": "Add AVLB Csat pause slot for CSAT pack.",
+  "date": "2026-07-10 12:15:28 -0300"
 }
