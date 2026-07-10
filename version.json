@@ -1,5 +1,5 @@
 {
-  "commit": "d8a4c33",
-  "message": "Split Buddy into OPS Entry cycle and Buddy Csat slots.",
-  "date": "2026-07-10 08:58:13 -0300"
+  "commit": "adfa4d9",
+  "message": "Fix slot dictionary merge so code wins over stale sheet.",
+  "date": "2026-07-10 09:07:07 -0300"
 }
