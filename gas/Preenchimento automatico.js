@@ -66,12 +66,16 @@ function normalizarSemanasPayload_(cfg) {
   return out.sort(function (a, b) { return a - b; });
 }
 
-/** Slots exibidos no dialog (lista curta — evita quebrar o HTML) */
-const SLOTS_COTA_DIALOG = [
+/** Slots do modal Dimensionamento → Preencher semana (lista fixa) */
+const SLOTS_DIMENSIONAMENTO_DIALOG = [
   'GS - ID', 'GS - VP', 'CSAT',
   'FR', 'FRDO', 'FLG', 'FLG-H',
-  'Onb Qlt',
+  'Onb Qlt', 'AT', 'AVLB',
 ];
+
+function getDialogSlotOptions_() {
+  return SLOTS_DIMENSIONAMENTO_DIALOG.slice();
+}
 
 function escapeHtmlAttr_(s) {
   return String(s)
@@ -100,7 +104,7 @@ function buildSemanaOptionsHtml_(aba) {
 
 function buildCotaRowHtml_(c) {
   const distOpts = buildSelectOptionsHtml_(DISTRITOS_LISTA, c.distrito);
-  const slotOpts = buildSelectOptionsHtml_(SLOTS_COTA_DIALOG, c.slot);
+  const slotOpts = buildSelectOptionsHtml_(getDialogSlotOptions_(), c.slot);
   const chk = c.semanaInteira ? ' checked' : '';
   return (
     '<tr>' +
@@ -138,7 +142,7 @@ function buildDiaSemanaOptionsHtml_(selected) {
 
 function buildAlocacaoRowHtml_(c) {
   c = c || { slot: 'GS - ID', dia: '__semana__', quantidade: 0, inteiro: false };
-  const slotOpts = buildSelectOptionsHtml_(SLOTS_COTA_DIALOG, c.slot);
+  const slotOpts = buildSelectOptionsHtml_(getDialogSlotOptions_(), c.slot);
   const diaOpts = buildDiaSemanaOptionsHtml_(c.dia || '__semana__');
   const chk = c.inteiro ? ' checked' : '';
   const qtdDisabled = c.inteiro ? ' disabled' : '';
@@ -265,7 +269,7 @@ const SLOTS_VALIDOS = [
   'ProjFLC', 'ProjAF', 'ProjRVS', 'ProjONB', 'ProjOPS', 'ProjQLT',
   'Doc Csat', 'Reunião Csat', 'Weekly Csat', 'Sync RVS', 'Sync Legal',
   'Sync OPS', 'Sync FLC', 'Sync AF', 'Sync QLT', 'Sync ONB',
-  'OPS Projeção', 'OPS Ajustes', 'Onboarding', 'Prática', 'Buddy',
+  'OPS Projeção', 'OPS Ajustes', 'Onboarding', 'Prática', 'Buddy', 'Buddy Csat',
   'Reciclagem', 'Quality', 'RVS DD', 'Legal DD', 'OPS DD', 'FLC DD',
   'AF DD', 'QLT DD', 'QR Csat', 'UPDATES',
 ];
@@ -293,6 +297,8 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Dimensionamento')
     .addItem('Preencher semana…', 'showDimensionarDialog')
+    .addItem('Restaurar cores dos slots…', 'restoreScheduleSlotColorFormatting')
+    .addItem('Remover apenas dropdown…', 'clearScheduleSlotDataValidation')
     .addSeparator()
     .addItem('Ver turnos configurados', 'menuVerTurnos')
     .addToUi();
@@ -310,11 +316,12 @@ function showDimensionarDialog() {
 }
 
 function buildDialogDefaults_() {
+  var slots = getDialogSlotOptions_();
   return {
     abas: ['H1.2026', 'H2.2026'],
     aba: 'H1.2026',
     semanasPorAba: SEMANAS_POR_ABA,
-    slots: SLOTS_VALIDOS,
+    slots: slots,
     alocacoes: buildAlocacoesPadrao_(),
   };
 }

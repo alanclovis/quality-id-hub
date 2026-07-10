@@ -609,7 +609,7 @@ function hubRawSlotOptions_() {
     'ProjFLC', 'ProjAF', 'ProjRVS', 'ProjONB', 'ProjOPS', 'ProjQLT',
     'Doc Csat', 'Reunião Csat', 'Weekly Csat', 'Sync RVS', 'Sync Legal',
     'Sync OPS', 'Sync FLC', 'Sync AF', 'Sync QLT', 'Sync ONB',
-    'OPS Projeção', 'OPS Ajustes', 'Onboarding', 'Prática', 'Buddy', 'Quality', 'RVS DD', 'Legal DD', 'OPS DD', 'FLC DD',
+    'OPS Projeção', 'OPS Ajustes', 'Onboarding', 'Prática', 'Buddy', 'Buddy Csat', 'Quality', 'RVS DD', 'Legal DD', 'OPS DD', 'FLC DD',
     'AF DD', 'QLT DD', 'QR Csat', 'UPDATES', 'DIM_QLT', 'DIM_Csat'
   ];
 }

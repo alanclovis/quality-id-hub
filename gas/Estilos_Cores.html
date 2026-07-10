@@ -69,7 +69,7 @@
     if (beigeGroup.includes(l)) return 'bg-[#ffedd5] text-orange-900 border-[#fed7aa]';
 
     // 10. GRUPO ROSA CLARO
-    const pinkGroup = ['1:1', 'meet-dt', 'monthly', 'mandatorios', 'move pratica', 'move teoria', 'pratica', 'reciclagem', 'reuniao', 'qulture rocks', 'hub', 'mission control', 'project meet', 'talk ic4', 'talk quality', 'weekly', 'dev', 'coffeebreak', 'teste-dt', 'trainer'];
+    const pinkGroup = ['buddy', '1:1', 'meet-dt', 'monthly', 'mandatorios', 'move pratica', 'move teoria', 'pratica', 'reciclagem', 'reuniao', 'qulture rocks', 'hub', 'mission control', 'project meet', 'talk ic4', 'talk quality', 'weekly', 'dev', 'coffeebreak', 'teste-dt', 'trainer'];
     if (pinkGroup.includes(l)) return 'bg-[#fbcfe8] text-pink-900 border-[#f9a8d4]';
 
     // 11. GRUPO ROXO CLARO/LILÁS
@@ -78,25 +78,24 @@
 
     // 12. CORES ESPECÍFICAS POR SIGLA
     if (l === 'csat') return 'bg-[#34d399] text-green-900 border-[#10b981]';
-if (l === 'projcsat') return 'bg-[#6ee7b7] text-green-900 border-[#34d399]';
-if (l === 'id' || l === 'gs - id' || l === 'planilhaid') return 'bg-[#bbf7d0] text-green-900 border-[#86efac]';
-if (l === 'id-vp') return 'bg-[#5eead4] text-teal-900 border-[#2dd4bf]';
-if (l === 'vp' || l === 'gs - vp' || l === 'planilhavp') return 'bg-[#7dd3fc] text-sky-900 border-[#38bdf8]';
+    if (l === 'projcsat') return 'bg-[#6ee7b7] text-green-900 border-[#34d399]';
+    if (l === 'id' || l === 'gs - id' || l === 'planilhaid') return 'bg-[#bbf7d0] text-green-900 border-[#86efac]';
+    if (l === 'id-vp') return 'bg-[#5eead4] text-teal-900 border-[#2dd4bf]';
+    if (l === 'vp' || l === 'gs - vp' || l === 'planilhavp') return 'bg-[#7dd3fc] text-sky-900 border-[#38bdf8]';
+
+    const csatGroup = ['flc', 'sensitives', 'appeal flow', 'pangaea', 'reversals', 'obf', 'csat-he'];
+    if (csatGroup.includes(l)) return 'bg-[#93c5fd] text-blue-900 border-[#60a5fa]';
+    if (l === 'dim_qlt') return 'bg-[#e9d5ff] text-purple-900 border-[#d8b4fe]';
+    if (l === 'dim_csat') return 'bg-[#bfdbfe] text-blue-900 border-[#93c5fd]';
+
+    const projCsatGroup = ['fup legal', 'reativação obf', 'triagem obf', 'projeto csat',
+      'projflc', 'projaf', 'projrvs', 'projonb', 'projops', 'projqlt', 'doc csat',
+      'reunião csat', 'weekly csat', 'sync rvs', 'sync legal', 'sync ops', 'sync flc',
+      'sync af', 'sync qlt', 'sync onb', 'ops projeção', 'ops ajustes', 'onboarding',
+      'prática', 'buddy csat', 'reciclagem', 'quality', 'rvs dd', 'legal dd', 'ops dd',
+      'flc dd', 'af dd', 'qlt dd', 'qr csat', 'updates'];
+    if (projCsatGroup.includes(l)) return 'bg-[#bfdbfe] text-blue-900 border-[#93c5fd]';
 
     return 'bg-blue-50 text-blue-800 border-blue-200';
-    // CSAT (azul)
-const csatGroup = ['flc', 'appeal flow', 'pangaea', 'reversals', 'obf', 'csat-he'];
-if (csatGroup.includes(l)) return 'bg-[#93c5fd] text-blue-900 border-[#60a5fa]';
-if (l === 'dim_qlt') return 'bg-[#e9d5ff] text-purple-900 border-[#d8b4fe]';
-if (l === 'dim_csat') return 'bg-[#bfdbfe] text-blue-900 border-[#93c5fd]';
-
-// ProjCSAT (azul claro)
-const projCsatGroup = ['fup legal', 'reativação obf', 'triagem obf', 'projeto csat', 
-  'projflc', 'projaf', 'projrvs', 'projonb', 'projops', 'projqlt', 'doc csat', 
-  'reunião csat', 'weekly csat', 'sync rvs', 'sync legal', 'sync ops', 'sync flc', 
-  'sync af', 'sync qlt', 'sync onb', 'ops projeção', 'ops ajustes', 'onboarding', 
-  'prática', 'buddy', 'reciclagem', 'quality', 'rvs dd', 'legal dd', 'ops dd', 
-  'flc dd', 'af dd', 'qlt dd', 'qr csat', 'updates'];
-if (projCsatGroup.includes(l)) return 'bg-[#bfdbfe] text-blue-900 border-[#93c5fd]';
   };
 </script>

@@ -2519,7 +2519,7 @@
     if (beigeGroup.indexOf(l) >= 0) return { bg: '#ffedd5', text: '#7c2d12', border: '#fed7aa' };
 
     const pinkGroup = [
-      '1:1', 'meet-dt', 'monthly', 'mandatorios', 'move pratica', 'move teoria', 'pratica',
+      'buddy', '1:1', 'meet-dt', 'monthly', 'mandatorios', 'move pratica', 'move teoria', 'pratica',
       'reciclagem', 'reuniao', 'qulture rocks', 'hub', 'mission control', 'project meet',
       'talk ic4', 'talk quality', 'weekly', 'dev', 'coffeebreak', 'teste-dt', 'trainer'
     ];
@@ -2552,7 +2552,7 @@
       'fup legal', 'reativação obf', 'triagem obf', 'projeto csat', 'projflc', 'projaf', 'projrvs',
       'projonb', 'projops', 'projqlt', 'doc csat', 'reunião csat', 'weekly csat', 'sync rvs',
       'sync legal', 'sync ops', 'sync flc', 'sync af', 'sync qlt', 'sync onb', 'ops projeção',
-      'ops ajustes', 'onboarding', 'prática', 'buddy', 'quality', 'rvs dd', 'legal dd', 'ops dd',
+      'ops ajustes', 'onboarding', 'prática', 'buddy csat', 'quality', 'rvs dd', 'legal dd', 'ops dd',
       'flc dd', 'af dd', 'qlt dd', 'qr csat', 'updates'
     ];
     if (projCsatGroup.indexOf(l) >= 0) return { bg: '#bfdbfe', text: '#1e3a8a', border: '#93c5fd' };

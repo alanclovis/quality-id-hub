@@ -436,6 +436,13 @@
     },
     {
       "atividade": "OPS",
+      "tipoSlot": "Buddy",
+      "significado": "Slot utilizado pelo pack de Entry cycle",
+      "classificacao": "Uso geral",
+      "conversao": "Buddy"
+    },
+    {
+      "atividade": "OPS",
       "tipoSlot": "Reuniao",
       "significado": "Treinamento de CIPA, reunião de grupos de afinidade...",
       "classificacao": "Uso geral",
@@ -723,7 +730,7 @@
     },
     {
       "atividade": "Projetos (CSAT)",
-      "tipoSlot": "Buddy",
+      "tipoSlot": "Buddy Csat",
       "significado": "Acompanhamento da execução das atividades dos novos integrantes de Csat",
       "classificacao": "Exclusivo de Csat",
       "conversao": "ProjCSAT"
