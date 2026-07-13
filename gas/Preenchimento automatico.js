@@ -269,7 +269,7 @@ const SLOTS_VALIDOS = [
   'ProjFLC', 'ProjAF', 'ProjRVS', 'ProjONB', 'ProjOPS', 'ProjQLT',
   'Doc Csat', 'Reunião Csat', 'Weekly Csat', 'Sync RVS', 'Sync Legal',
   'Sync OPS', 'Sync FLC', 'Sync AF', 'Sync QLT', 'Sync ONB',
-  'OPS Projeção', 'OPS Ajustes', 'Onboarding', 'Prática', 'Buddy', 'Buddy Csat',
+  'OPS Projeção', 'OPS Ajustes', 'Onboarding', 'Prática', 'Buddy', 'Buddy Csat', 'Esc Expd',
   'Reciclagem', 'Quality', 'RVS DD', 'Legal DD', 'OPS DD', 'FLC DD',
   'AF DD', 'QLT DD', 'QR Csat', 'UPDATES',
 ];

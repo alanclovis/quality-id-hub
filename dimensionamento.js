@@ -2519,7 +2519,7 @@
     if (beigeGroup.indexOf(l) >= 0) return { bg: '#ffedd5', text: '#7c2d12', border: '#fed7aa' };
 
     const pinkGroup = [
-      'buddy', '1:1', 'meet-dt', 'monthly', 'mandatorios', 'move pratica', 'move teoria', 'pratica',
+      'buddy', 'esc expd', '1:1', 'meet-dt', 'monthly', 'mandatorios', 'move pratica', 'move teoria', 'pratica',
       'reciclagem', 'reuniao', 'qulture rocks', 'hub', 'mission control', 'project meet',
       'talk ic4', 'talk quality', 'weekly', 'dev', 'coffeebreak', 'teste-dt', 'trainer'
     ];

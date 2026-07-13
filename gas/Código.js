@@ -139,7 +139,7 @@ function _buildSlotColorConditionalRules_(range) {
   add('^(deep dive|docs|inv\\. brain|planilha|playbook|rfc|slides)$', '#ffedd5', '#7c2d12');
   add('^(buddy csat|quality|projflc|projaf|projrvs|projonb|projops|projqlt|doc csat|reunião csat|weekly csat|projeto csat|fup legal|reativação obf|triagem obf|onboarding|prática|reciclagem|rvs dd|legal dd|ops dd|flc dd|af dd|qlt dd|qr csat|updates|sync rvs|sync legal|sync ops|sync flc|sync af|sync qlt|sync onb|ops projeção|ops ajustes)$', '#bfdbfe', '#1e3a8a');
   add('^(drive|confluence|jira/atlassian|databricks|quicksight|workflow \\(slack\\)|playvox|calibration|calibration packs|onb qlt|stk talk|extraction|shadowing qlt|ai agent)$', '#e9d5ff', '#581c87');
-  add('^(buddy|1:1|meet-dt|monthly|mandatorios|move pratica|move teoria|pratica|reciclagem|reuniao|qulture rocks|hub|mission control|project meet|talk ic4|talk quality|weekly|dev|coffeebreak|teste-dt|trainer)$', '#fbcfe8', '#831843');
+  add('^(buddy|esc expd|1:1|meet-dt|monthly|mandatorios|move pratica|move teoria|pratica|reciclagem|reuniao|qulture rocks|hub|mission control|project meet|talk ic4|talk quality|weekly|dev|coffeebreak|teste-dt|trainer)$', '#fbcfe8', '#831843');
 
   return rules;
 }

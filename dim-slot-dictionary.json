@@ -443,6 +443,13 @@
     },
     {
       "atividade": "OPS",
+      "tipoSlot": "Esc Expd",
+      "significado": "Slot designado por Ops para atuação em escopo expandido",
+      "classificacao": "Uso geral",
+      "conversao": "Esc Expd"
+    },
+    {
+      "atividade": "OPS",
       "tipoSlot": "Reuniao",
       "significado": "Treinamento de CIPA, reunião de grupos de afinidade...",
       "classificacao": "Uso geral",
