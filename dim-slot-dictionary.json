@@ -575,6 +575,13 @@
       "conversao": "CSAT"
     },
     {
+      "atividade": "Core Job (CSAT)",
+      "tipoSlot": "OBF MA/AB",
+      "significado": "Slot relacionado à ação efetiva em casos de OBF de MA/Abusers",
+      "classificacao": "Exclusivo de Csat",
+      "conversao": "CSAT"
+    },
+    {
       "atividade": "Projetos (CSAT)",
       "tipoSlot": "FUP Legal",
       "significado": "Slot destinado para demandas gerais relacionadas ao projeto de legal - OBF",

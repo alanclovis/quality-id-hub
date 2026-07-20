@@ -2542,7 +2542,7 @@
       return { bg: '#7dd3fc', text: '#0c4a6e', border: '#38bdf8' };
     }
 
-    const csatGroup = ['flc', 'sensitives', 'appeal flow', 'pangaea', 'reversals', 'obf', 'csat-he', 'avlb csat'];
+    const csatGroup = ['flc', 'sensitives', 'appeal flow', 'pangaea', 'reversals', 'obf', 'obf ma/ab', 'csat-he', 'avlb csat'];
     if (csatGroup.indexOf(l) >= 0) return { bg: '#93c5fd', text: '#1e3a8a', border: '#60a5fa' };
 
     if (l === 'dim_qlt') return { bg: '#e9d5ff', text: '#581c87', border: '#d8b4fe' };

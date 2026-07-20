@@ -135,7 +135,7 @@ function _buildSlotColorConditionalRules_(range) {
   add('^(gs - vp|planilhavp|vp)$', '#7dd3fc', '#0c4a6e');
   add('^csat$', '#34d399', '#14532d');
   add('^projcsat$', '#6ee7b7', '#14532d');
-  add('^(flc|sensitives|appeal flow|pangaea|reversals|obf|csat-he|avlb csat)$', '#93c5fd', '#1e3a8a');
+  add('^(flc|sensitives|appeal flow|pangaea|reversals|obf|obf ma\\/ab|csat-he|avlb csat)$', '#93c5fd', '#1e3a8a');
   add('^(deep dive|docs|inv\\. brain|planilha|playbook|rfc|slides)$', '#ffedd5', '#7c2d12');
   add('^(buddy csat|quality|projflc|projaf|projrvs|projonb|projops|projqlt|doc csat|reunião csat|weekly csat|projeto csat|fup legal|reativação obf|triagem obf|onboarding|prática|reciclagem|rvs dd|legal dd|ops dd|flc dd|af dd|qlt dd|qr csat|updates|sync rvs|sync legal|sync ops|sync flc|sync af|sync qlt|sync onb|ops projeção|ops ajustes)$', '#bfdbfe', '#1e3a8a');
   add('^(drive|confluence|jira/atlassian|databricks|quicksight|workflow \\(slack\\)|playvox|calibration|calibration packs|onb qlt|stk talk|extraction|shadowing qlt|ai agent)$', '#e9d5ff', '#581c87');

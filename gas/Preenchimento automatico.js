@@ -172,7 +172,11 @@ function buildAlocacoesBodyHtml_() {
 }
 
 function buildAnalistasCheckboxesHtml_() {
-  return Object.keys(ANALISTAS).sort().map(function (id) {
+  const ids = ANALISTAS_ORDEM.filter(function (id) { return ANALISTAS[id]; });
+  Object.keys(ANALISTAS).forEach(function (id) {
+    if (ids.indexOf(id) < 0) ids.push(id);
+  });
+  return ids.map(function (id) {
     const label = escapeHtmlAttr_(id.split('.')[0]);
     const val = escapeHtmlAttr_(id);
     return (
@@ -264,7 +268,7 @@ const SLOTS_VALIDOS = [
   'AVLB', 'AVLB Csat', 'DTQ', 'Quality Monitoring', 'Support',
   'Break', '1:1', 'MEET-DT', 'Monthly', 'CoffeeBreak', 'Mandatorios',
   'DIM_QLT', 'DIM_Csat',
-  'FLC', 'Sensitives', 'Appeal Flow', 'Pangaea', 'Reversals', 'CSAT-HE', 'OBF',
+  'FLC', 'Sensitives', 'Appeal Flow', 'Pangaea', 'Reversals', 'CSAT-HE', 'OBF', 'OBF MA/AB',
   'FUP Legal', 'Reativação OBF', 'Triagem OBF', 'Projeto Csat',
   'ProjFLC', 'ProjAF', 'ProjRVS', 'ProjONB', 'ProjOPS', 'ProjQLT',
   'Doc Csat', 'Reunião Csat', 'Weekly Csat', 'Sync RVS', 'Sync Legal',
@@ -272,6 +276,17 @@ const SLOTS_VALIDOS = [
   'OPS Projeção', 'OPS Ajustes', 'Onboarding', 'Prática', 'Buddy', 'Buddy Csat', 'Esc Expd',
   'Reciclagem', 'Quality', 'RVS DD', 'Legal DD', 'OPS DD', 'FLC DD',
   'AF DD', 'QLT DD', 'QR Csat', 'UPDATES',
+];
+
+const ANALISTAS_ORDEM = [
+  'alan.clovis',
+  'evelyn.marconi',
+  'felipe.rosado',
+  'livia.lyra',
+  'luciana.ramos',
+  'matheus.santos2',
+  'mayara.kin',
+  'tiago.genangello',
 ];
 
 const ANALISTAS = {
@@ -298,6 +313,7 @@ function onOpen() {
     .createMenu('Dimensionamento')
     .addItem('Preencher semana…', 'showDimensionarDialog')
     .addSeparator()
+    .addItem('Reordenar analistas (H2)…', 'reordenarAnalistasH2')
     .addItem('Sincronizar Controle de Slots…', 'syncControleDeSlotsFromStatic')
     .addItem('Ver turnos configurados', 'menuVerTurnos')
     .addToUi();
@@ -754,12 +770,144 @@ function getSemanasForAba(aba) {
 }
 
 function menuVerTurnos() {
-  const linhas = Object.keys(ANALISTAS).map(function (a) {
+  const linhas = ANALISTAS_ORDEM.filter(function (a) { return ANALISTAS[a]; }).map(function (a) {
     const fam = (ANALISTA_FAMILIAS[a] || []).join(', ');
     const t = ANALISTAS[a];
     return a + ': ' + t.entrada + '-' + t.saida + ' | break ' + t.break_inicio + ' | faz: ' + fam;
   });
   SpreadsheetApp.getUi().alert('Turnos, break e famílias de slot\n\n' + linhas.join('\n'));
+}
+
+function analistaOrdemRank_(analista) {
+  const id = String(analista || '').trim().toLowerCase();
+  if (!id) return 9999;
+  for (let i = 0; i < ANALISTAS_ORDEM.length; i++) {
+    if (ANALISTAS_ORDEM[i].toLowerCase() === id) return i;
+  }
+  return 9000;
+}
+
+function resolveScheduleTabName_(half) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (typeof _core_findScheduleTab_ === 'function') {
+    const sh = _core_findScheduleTab_(ss, half);
+    if (sh) return sh.getName();
+  }
+  return half === 2 ? 'H2.2026' : 'H1.2026';
+}
+
+function formatDataKey_(value) {
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return String(value || '').trim();
+}
+
+function groupKeyFromRow_(row, cols) {
+  const semana = cols.semana >= 0 ? String(row[cols.semana] || '').trim() : '';
+  const data = cols.data >= 0 ? formatDataKey_(row[cols.data]) : '';
+  if (!semana && !data) return '';
+  return semana + '|' + data;
+}
+
+function parseGroupKeyForSort_(key) {
+  const parts = String(key || '').split('|');
+  const semana = parseInt(parts[0], 10) || 0;
+  const data = parts[1] || '';
+  return { semana: semana, data: data };
+}
+
+/** Reordena blocos diários na aba sem alterar slots (linhas completas). */
+function reordenarAnalistasNaAba_(abaNome) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getSheetByNameFuzzy_(ss, abaNome);
+  if (!sheet) throw new Error('Aba não encontrada: ' + abaNome);
+
+  const range = sheet.getDataRange();
+  const data = range.getValues();
+  if (data.length < 2) {
+    return { ok: true, rows: 0, message: 'Nenhuma linha de dados em ' + abaNome + '.' };
+  }
+
+  const header = data[0].map(normalizeHeader_);
+  const cols = mapColumns_(header);
+  if (cols.analista < 0) throw new Error('Coluna ANALISTA não encontrada em ' + abaNome);
+
+  const groups = {};
+  const groupOrder = [];
+  const orphans = [];
+
+  for (let r = 1; r < data.length; r++) {
+    const row = data[r];
+    const key = groupKeyFromRow_(row, cols);
+    if (!key) {
+      orphans.push(row);
+      continue;
+    }
+    if (!groups[key]) {
+      groups[key] = [];
+      groupOrder.push(key);
+    }
+    groups[key].push(row);
+  }
+
+  groupOrder.sort(function (a, b) {
+    const ga = parseGroupKeyForSort_(a);
+    const gb = parseGroupKeyForSort_(b);
+    if (ga.semana !== gb.semana) return ga.semana - gb.semana;
+    return ga.data.localeCompare(gb.data);
+  });
+
+  const warnings = [];
+  const out = [data[0]];
+
+  groupOrder.forEach(function (key) {
+    const rows = groups[key].slice();
+    rows.sort(function (a, b) {
+      const ra = analistaOrdemRank_(a[cols.analista]);
+      const rb = analistaOrdemRank_(b[cols.analista]);
+      if (ra !== rb) return ra - rb;
+      return String(a[cols.analista] || '').localeCompare(String(b[cols.analista] || ''), 'pt-BR');
+    });
+    if (rows.length !== ANALISTAS_ORDEM.length) {
+      const parts = parseGroupKeyForSort_(key);
+      warnings.push('Semana ' + parts.semana + ' · ' + parts.data + ': ' + rows.length + ' linha(s) (esperado ' + ANALISTAS_ORDEM.length + ')');
+    }
+    rows.forEach(function (row) { out.push(row); });
+  });
+
+  orphans.forEach(function (row) { out.push(row); });
+
+  if (out.length > 1) {
+    sheet.getRange(1, 1, out.length, out[0].length).setValues(out);
+    if (sheet.getLastRow() > out.length) {
+      sheet.getRange(out.length + 1, 1, sheet.getLastRow() - out.length, out[0].length).clearContent();
+    }
+  }
+
+  let message = 'Reordenados ' + (out.length - 1) + ' linha(s) em ' + abaNome + '.';
+  if (warnings.length) {
+    message += '\n\nAvisos (' + warnings.length + ' blocos com contagem diferente de ' + ANALISTAS_ORDEM.length + '):\n' + warnings.slice(0, 8).join('\n');
+    if (warnings.length > 8) message += '\n… +' + (warnings.length - 8) + ' aviso(s)';
+  }
+  return { ok: true, rows: out.length - 1, warnings: warnings, message: message };
+}
+
+function reordenarAnalistasH2() {
+  const ui = SpreadsheetApp.getUi();
+  const tab = resolveScheduleTabName_(2);
+  const confirm = ui.alert(
+    'Reordenar analistas (' + tab + ')',
+    'Reorganiza os blocos diários na ordem oficial dos 8 analistas, preservando todos os slots.\n\nContinuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirm !== ui.Button.YES) return;
+  try {
+    const result = reordenarAnalistasNaAba_(tab);
+    ui.alert(result.message);
+  } catch (e) {
+    ui.alert('Erro: ' + (e.message || e));
+  }
 }
 
 function getDimensionamentoDefaults() {
