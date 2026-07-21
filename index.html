@@ -5753,6 +5753,22 @@ async function deleteFeriasCurrent(){
   }
 }
 
+function isFeriasUpcoming(f, today){
+  const end=new Date(f.fim+'T00:00:00');
+  return end>=today;
+}
+
+function feriasUpcomingMonthKey(f, today){
+  const start=new Date(f.inicio+'T00:00:00');
+  const end=new Date(f.fim+'T00:00:00');
+  if(start<=today&&end>=today){
+    const y=today.getFullYear();
+    const m=String(today.getMonth()+1).padStart(2,'0');
+    return y+'-'+m;
+  }
+  return f.inicio.slice(0,7);
+}
+
 function renderUpcoming(){
   const list  = document.getElementById('upcomingList');
   const count = document.getElementById('upcomingCount');
@@ -5763,10 +5779,18 @@ function renderUpcoming(){
     return;
   }
   const today = new Date(); today.setHours(0,0,0,0);
-  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate()-30);
   let sorted = getFeriasData()
-    .filter(f=> new Date(f.fim+'T00:00:00') >= cutoff)
-    .sort((a,b)=> new Date(a.inicio+'T00:00:00') - new Date(b.inicio+'T00:00:00'));
+    .filter(f=> isFeriasUpcoming(f, today))
+    .sort((a,b)=>{
+      const aStart=new Date(a.inicio+'T00:00:00');
+      const aEnd=new Date(a.fim+'T00:00:00');
+      const bStart=new Date(b.inicio+'T00:00:00');
+      const bEnd=new Date(b.fim+'T00:00:00');
+      const aOngoing=aStart<=today&&aEnd>=today;
+      const bOngoing=bStart<=today&&bEnd>=today;
+      if(aOngoing!==bOngoing) return aOngoing?-1:1;
+      return aStart-bStart;
+    });
   if(feriasUpcomingFilter==='mine'){
     sorted=sorted.filter(f=>isFeriasRecordOwner(f));
   }
@@ -5786,7 +5810,7 @@ function renderUpcoming(){
   let lastMonthKey='';
   const groupByMonth=sorted.length>3;
   sorted.forEach(f=>{
-    const monthKey=f.inicio.slice(0,7);
+    const monthKey=groupByMonth?feriasUpcomingMonthKey(f,today):f.inicio.slice(0,7);
     if(groupByMonth&&monthKey!==lastMonthKey){
       const gh=document.createElement('div');
       gh.className='upcoming-month-group';
@@ -5806,8 +5830,7 @@ function renderUpcoming(){
     let countdownClass='upcoming-countdown';
     const isOngoing=start<=today&&end>=today;
     if(start>today){ const diff=Math.round((start-today)/86400000); timeLabel=diff===1?'Começa amanhã':'Em '+diff+' dias'; countdownClass+=' active'; }
-    else if(isOngoing){ timeLabel='Em andamento'; countdownClass+=' ongoing'; }
-    else { timeLabel='Encerrado'; countdownClass+=' done'; }
+    else { timeLabel='Em andamento'; countdownClass+=' ongoing'; }
     const canEdit=canEditFeriasRecord(f);
     const tipoKey=getFeriasTipo(f);
     const item=document.createElement('div');
