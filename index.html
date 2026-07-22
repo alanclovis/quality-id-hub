@@ -704,6 +704,11 @@ body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo
 .pri-goal-holiday-toggle{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:600;text-transform:none;letter-spacing:0;}
 .pri-goal-holiday-toggle input{width:14px;height:14px;accent-color:#dc2626;cursor:pointer;}
 .pri-goal-holiday-badge{display:block;font-size:9px;font-weight:600;color:#991b1b;margin-top:2px;}
+.pri-goal-day-cell.pri-goal-holiday{cursor:not-allowed;}
+.pri-goal-day-cell.pri-goal-cell-selectable{cursor:pointer;}
+.pri-goal-day-cell.pri-goal-cell-selected{background:#ede9fe!important;box-shadow:inset 0 0 0 2px #7c3aed;}
+.pri-goal-hint{font-size:12px;color:var(--text3);margin:0 0 10px;line-height:1.45;}
+#priGoalBulkBar.pri-bulk-bar{border-radius:var(--rs);margin-bottom:10px;border-bottom:1px solid #ddd6fe;}
 
 
 /* ── Sidebar ── */
@@ -6709,6 +6714,103 @@ let priEditDraft=null;
 let priSelectedSlots=new Set();
 let priLastSelectedSlot=null;
 let priHighlightQueue=null;
+let priGoalSelectedCells=new Set();
+let priLastGoalCell=null;
+
+function priGoalCellKey(analystKey,dayKey){
+  return analystKey+':'+dayKey;
+}
+function priParseGoalCellKey(key){
+  const i=key.lastIndexOf(':');
+  return {analyst:key.slice(0,i),day:key.slice(i+1)};
+}
+function priAllGoalCellKeys(holidays){
+  holidays=holidays||priDefaultHolidays();
+  const keys=[];
+  priGetAnalystRoster().forEach(function(a){
+    PRI_DAYS.forEach(function(d){
+      if(!priIsDayHoliday(holidays,d.key)) keys.push(priGoalCellKey(a.key,d.key));
+    });
+  });
+  return keys;
+}
+function priResetGoalSelection(){
+  priGoalSelectedCells.clear();
+  priLastGoalCell=null;
+  priUpdateGoalSelectionUI();
+}
+function priToggleGoalCellSelection(key,shiftRange){
+  if(!priEditMode) return;
+  if(shiftRange&&priLastGoalCell){
+    const holidays=priEditDraft?.goalMeta?.holidays||priGetGoalMeta().holidays;
+    const all=priAllGoalCellKeys(holidays);
+    const i1=all.indexOf(priLastGoalCell);
+    const i2=all.indexOf(key);
+    if(i1>=0&&i2>=0){
+      const start=Math.min(i1,i2);
+      const end=Math.max(i1,i2);
+      for(let i=start;i<=end;i++) priGoalSelectedCells.add(all[i]);
+    }
+  } else if(priGoalSelectedCells.has(key)){
+    priGoalSelectedCells.delete(key);
+  } else {
+    priGoalSelectedCells.add(key);
+  }
+  priLastGoalCell=key;
+  priUpdateGoalSelectionUI();
+}
+function priUpdateGoalSelectionUI(){
+  document.querySelectorAll('.pri-goal-day-cell[data-pri-goal-cell]').forEach(function(td){
+    td.classList.toggle('pri-goal-cell-selected',priGoalSelectedCells.has(td.dataset.priGoalCell));
+  });
+  const bar=document.getElementById('priGoalBulkBar');
+  const count=priGoalSelectedCells.size;
+  if(bar) bar.style.display=(priEditMode&&count>0)?'flex':'none';
+  const countEl=document.getElementById('priGoalBulkCount');
+  if(countEl) countEl.textContent=count;
+}
+function priApplyGoalBulkAvailability(checked){
+  if(!priEditMode||!priEditDraft||!priGoalSelectedCells.size) return;
+  priGoalSelectedCells.forEach(function(key){
+    const parsed=priParseGoalCellKey(key);
+    const cb=document.getElementById(priAvCheckboxId(parsed.analyst,parsed.day));
+    if(cb&&!cb.disabled) cb.checked=checked;
+  });
+  priEditDraft.goalMeta=priCollectGoalFromUI();
+  priRenderGoalCalc();
+}
+function priSelectAllGoalCells(){
+  if(!priEditMode) return;
+  const holidays=priEditDraft?.goalMeta?.holidays||priGetGoalMeta().holidays;
+  priAllGoalCellKeys(holidays).forEach(function(k){ priGoalSelectedCells.add(k); });
+  priUpdateGoalSelectionUI();
+}
+function initPriGoalTableEvents(){
+  const host=document.getElementById('priGoalResults');
+  if(!host||host._priGoalBound) return;
+  host._priGoalBound=true;
+  host.addEventListener('mousedown',function(e){
+    if(!priEditMode) return;
+    const td=e.target.closest('.pri-goal-day-cell.pri-goal-cell-selectable');
+    if(!td) return;
+    if(e.target.closest('input[type=checkbox]')&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey) return;
+    const key=td.dataset.priGoalCell;
+    if(!key) return;
+    e.preventDefault();
+    if(e.shiftKey){
+      priToggleGoalCellSelection(key,true);
+      return;
+    }
+    if(e.ctrlKey||e.metaKey){
+      priToggleGoalCellSelection(key,false);
+      return;
+    }
+    priGoalSelectedCells.clear();
+    priGoalSelectedCells.add(key);
+    priLastGoalCell=key;
+    priUpdateGoalSelectionUI();
+  });
+}
 
 function priIsCurrentWeek(){
   return priWeekStart===getMondayISO();
@@ -7075,12 +7177,18 @@ function priCollectGoalFromUI(){
 }
 function priOnAvailabilityChange(){
   if(!priEditMode||!priEditDraft) return;
+  priResetGoalSelection();
   priEditDraft.goalMeta=priCollectGoalFromUI();
   priRenderGoalCalc();
 }
 function priOnHolidayChange(dayKey){
   if(!priEditMode||!priEditDraft) return;
   priEditDraft.goalMeta=priCollectGoalFromUI();
+  const holidays=priEditDraft.goalMeta.holidays||priDefaultHolidays();
+  priGoalSelectedCells.forEach(function(key){
+    const parsed=priParseGoalCellKey(key);
+    if(priIsDayHoliday(holidays,parsed.day)) priGoalSelectedCells.delete(key);
+  });
   priRenderGoalCalc();
 }
 function priToggleAnalystRow(analystKey,checked){
@@ -7174,7 +7282,10 @@ function priRenderGoalCalc(){
     PRI_DAYS.forEach(function(d){
       const isHol=priIsDayHoliday(holidays,d.key);
       const on=!isHol&&!!meta.availability[a.key][d.key];
-      html+='<td class="pri-goal-day-cell'+(isHol?' pri-goal-holiday':'')+'">';
+      const cellKey=priGoalCellKey(a.key,d.key);
+      const selCls=priEditMode&&!isHol?' pri-goal-cell-selectable':'';
+      const selectedCls=priGoalSelectedCells.has(cellKey)?' pri-goal-cell-selected':'';
+      html+='<td class="pri-goal-day-cell'+(isHol?' pri-goal-holiday':selCls)+selectedCls+'"'+(priEditMode&&!isHol?' data-pri-goal-cell="'+escapeAttr(cellKey)+'"':'')+'>';
       if(priEditMode){
         html+='<input type="checkbox" id="'+priAvCheckboxId(a.key,d.key)+'" '+(on?'checked':'')+(isHol?' disabled':'')+' onchange="priOnAvailabilityChange()">';
       } else {
@@ -7189,6 +7300,7 @@ function priRenderGoalCalc(){
   });
   html+='</tbody></table></div>';
   resultsEl.innerHTML=html;
+  priUpdateGoalSelectionUI();
 }
 function startPriEditDraft(){
   const wk=priGetWeekData(priWeekStart);
@@ -7316,6 +7428,7 @@ function togglePrioritiesEdit(){
   priHighlightQueue=null;
   ensurePrioritiesData();
   priResetSelection();
+  priResetGoalSelection();
   startPriEditDraft();
   document.getElementById('priInstructionsEdit').value=priEditDraft.instructions||'';
   updatePriEditUI();
@@ -7325,6 +7438,7 @@ function cancelPrioritiesEdit(){
   priEditMode=false;
   priEditDraft=null;
   priResetSelection();
+  priResetGoalSelection();
   updatePriEditUI();
   renderPriorities();
 }
@@ -7338,6 +7452,10 @@ function updatePriEditUI(){
   if(gridHint) gridHint.style.display=priEditMode?'block':'none';
   const bulkBar=document.getElementById('priBulkBar');
   if(bulkBar&&!priEditMode) bulkBar.style.display='none';
+  const goalHint=document.getElementById('priGoalHint');
+  if(goalHint) goalHint.style.display=priEditMode?'block':'none';
+  const goalBulkBar=document.getElementById('priGoalBulkBar');
+  if(goalBulkBar&&!priEditMode) goalBulkBar.style.display='none';
   document.getElementById('priInstructionsView').style.display=priEditMode?'none':'block';
   document.getElementById('priInstructionsEdit').style.display=priEditMode?'block':'none';
 }
@@ -7666,6 +7784,7 @@ function hubHardResetNavigate(){
 window.addEventListener('DOMContentLoaded',async()=>{
   initPriGridEvents();
   initPriSummaryEvents();
+  initPriGoalTableEvents();
   try{
     if(isVisitor()) clearPlaceholderPackCache();
     loadLocal();
@@ -7861,6 +7980,14 @@ window.addEventListener('DOMContentLoaded',async()=>{
         <label for="priGoalBusinessDays">Dias úteis</label>
         <div class="pri-goal-total pri-goal-stat" id="priGoalBusinessDays">—</div>
       </div>
+    </div>
+    <p class="pri-goal-hint" id="priGoalHint" style="display:none">Shift+clique seleciona intervalo · Ctrl/Cmd+clique seleciona várias células · use a barra abaixo para marcar ou desmarcar em lote</p>
+    <div class="pri-bulk-bar" id="priGoalBulkBar" style="display:none">
+      <span class="pri-bulk-count"><strong id="priGoalBulkCount">0</strong> célula(s) selecionada(s)</span>
+      <button type="button" class="btn-sm purple" onclick="priApplyGoalBulkAvailability(true)"><i class="ti ti-check"></i> Marcar disponível</button>
+      <button type="button" class="btn-sm" onclick="priApplyGoalBulkAvailability(false)"><i class="ti ti-square"></i> Desmarcar</button>
+      <button type="button" class="btn-sm" onclick="priSelectAllGoalCells()"><i class="ti ti-checkbox"></i> Selecionar todos</button>
+      <button type="button" class="btn-sm" onclick="priResetGoalSelection()"><i class="ti ti-x"></i> Limpar seleção</button>
     </div>
     <div class="pri-goal-results" id="priGoalResults"></div>
   </div>
