@@ -682,6 +682,23 @@ body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo
 .pri-goal-kpi-sub{font-size:12px;color:var(--text2);margin-top:4px;}
 .pri-goal-note{font-size:12px;color:var(--text3);margin-top:12px;line-height:1.5;}
 .pri-goal-empty{font-size:13px;color:var(--text3);padding:8px 0;}
+.pri-goal-stat{font-size:20px;color:var(--text);}
+.pri-goal-table-wrap{overflow-x:auto;margin-top:14px;border:1px solid var(--border);border-radius:var(--rs);}
+.pri-goal-table{width:100%;border-collapse:collapse;font-size:12px;}
+.pri-goal-table th,.pri-goal-table td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle;}
+.pri-goal-table th{background:var(--bg3);font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;}
+.pri-goal-table th:first-child,.pri-goal-table td:first-child{text-align:left;min-width:100px;}
+.pri-goal-table tbody tr:last-child td{border-bottom:none;}
+.pri-goal-table tbody tr:hover{background:var(--bg3);}
+.pri-goal-row-off{opacity:.55;}
+.pri-goal-name{font-weight:600;color:var(--text);white-space:nowrap;}
+.pri-goal-row-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;}
+.pri-goal-row-toggle input{accent-color:#7c3aed;cursor:pointer;}
+.pri-goal-day-cell input[type=checkbox]{width:16px;height:16px;accent-color:#7c3aed;cursor:pointer;}
+.pri-goal-day-on{color:#059669;font-size:14px;}
+.pri-goal-day-off{color:var(--text3);}
+.pri-goal-num{font-weight:600;color:var(--text);white-space:nowrap;}
+.pri-goal-meta .pri-goal-sug{font-size:10px;font-weight:500;color:var(--text3);}
 
 
 /* ── Sidebar ── */
@@ -1597,6 +1614,13 @@ const PRI_DAYS=[
 const PRI_SHIFTS=[
   {key:'manha',label:'Manhã',icon:'ti-sun'},
   {key:'tarde',label:'Tarde',icon:'ti-moon'},
+];
+const PRI_DISTRICT_ANALYSTS=[
+  {key:'alan.clovis',label:'Alan'},
+  {key:'livia.lyra',label:'Livia'},
+  {key:'luciana.ramos',label:'Luciana'},
+  {key:'matheus.santos2',label:'Matheus'},
+  {key:'tico',label:'Tico'},
 ];
 const DEFAULT_PRIORITIES={
   weekStart:'2026-06-15',
@@ -6884,24 +6908,80 @@ function priGetSlot(day,shift){
   if(!wk) return '';
   return wk.slots?.[key]||'';
 }
+function priGetAnalystRoster(){
+  const pri=ensurePrioritiesData();
+  if(Array.isArray(pri.analystRoster)&&pri.analystRoster.length) return pri.analystRoster;
+  return PRI_DISTRICT_ANALYSTS;
+}
+function priAvCheckboxId(analystKey,dayKey){
+  return 'pri-av-'+String(analystKey).replace(/\./g,'-')+'-'+dayKey;
+}
+function priDefaultAvailability(roster){
+  const av={};
+  (roster||priGetAnalystRoster()).forEach(function(a){
+    av[a.key]={};
+    PRI_DAYS.forEach(function(d){ av[a.key][d.key]=true; });
+  });
+  return av;
+}
 function priDefaultGoalMeta(){
-  return { analystCount: null, businessDays: 5 };
+  return {mode:'byAnalyst',availability:null,analystCount:null,businessDays:5};
+}
+function priMigrateLegacyGoalMeta(meta,roster){
+  meta=meta||{};
+  if(meta.mode==='byAnalyst'&&meta.availability) return meta;
+  const av=priDefaultAvailability(roster);
+  const count=parseInt(meta.analystCount,10);
+  const bizDays=parseInt(meta.businessDays,10)||5;
+  if(count>0&&count<roster.length){
+    roster.forEach(function(a,i){
+      if(i>=count) PRI_DAYS.forEach(function(d){ av[a.key][d.key]=false; });
+    });
+  }
+  if(bizDays<5){
+    PRI_DAYS.forEach(function(d,i){
+      if(i>=bizDays) roster.forEach(function(a){ av[a.key][d.key]=false; });
+    });
+  }
+  return {mode:'byAnalyst',availability:av,analystCount:meta.analystCount,businessDays:meta.businessDays};
 }
 function priNormalizeGoalMeta(meta){
+  const roster=priGetAnalystRoster();
   meta=meta||priDefaultGoalMeta();
-  const days=parseInt(meta.businessDays,10);
-  const rawAnalysts=meta.analystCount;
-  const analysts=rawAnalysts!=null&&rawAnalysts!==''?parseInt(rawAnalysts,10):null;
+  if(meta.mode!=='byAnalyst'||!meta.availability) meta=priMigrateLegacyGoalMeta(meta,roster);
+  const av={};
+  roster.forEach(function(a){
+    const src=meta.availability?.[a.key]||{};
+    av[a.key]={};
+    PRI_DAYS.forEach(function(d){ av[a.key][d.key]=!!src[d.key]; });
+  });
+  const active=roster.filter(function(a){ return priCountAnalystDays(av,a.key)>0; });
+  const personDays=priCountPersonDays(av,roster);
   return {
-    analystCount: analysts>0?analysts:null,
-    businessDays: days>0?Math.min(7,days):5,
+    mode:'byAnalyst',
+    availability:av,
+    analystCount:active.length||null,
+    businessDays:active.length&&personDays?Math.round(personDays/active.length)||5:5,
   };
 }
+function priCountPersonDays(availability,roster){
+  roster=roster||priGetAnalystRoster();
+  let n=0;
+  roster.forEach(function(a){
+    PRI_DAYS.forEach(function(d){
+      if(availability[a.key]?.[d.key]) n++;
+    });
+  });
+  return n;
+}
+function priCountAnalystDays(availability,analystKey){
+  return PRI_DAYS.filter(function(d){ return availability[analystKey]?.[d.key]; }).length;
+}
 function priGetGoalMeta(){
-  if(priEditMode&&priEditDraft&&priEditDraft.goalMeta) return priEditDraft.goalMeta;
+  if(priEditMode&&priEditDraft&&priEditDraft.goalMeta) return priNormalizeGoalMeta(priEditDraft.goalMeta);
   const wk=priGetWeekData(priWeekStart);
   if(wk&&wk.goalMeta) return priNormalizeGoalMeta(wk.goalMeta);
-  return priDefaultGoalMeta();
+  return priNormalizeGoalMeta(priDefaultGoalMeta());
 }
 function priGetTotalSamples(){
   const pri=ensurePrioritiesData();
@@ -6911,79 +6991,142 @@ function priFmtGoalNum(n){
   if(n==null||isNaN(n)) return '—';
   return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
 }
-function priComputeGoalMeta(total,analysts,days){
-  if(!total||!analysts||!days) return null;
-  const exactWeek=total/analysts;
-  const exactDay=exactWeek/days;
+function priComputeGoalByAvailability(total,availability,roster){
+  roster=roster||priGetAnalystRoster();
+  const active=roster.filter(function(a){ return priCountAnalystDays(availability,a.key)>0; });
+  const personDays=priCountPersonDays(availability,roster);
+  if(!total||!personDays||!active.length) return null;
+  const rate=total/personDays;
+  const perAnalyst=active.map(function(a){
+    const days=priCountAnalystDays(availability,a.key);
+    const exactWeek=rate*days;
+    return {
+      key:a.key,
+      label:a.label,
+      days:days,
+      exactWeek:exactWeek,
+      ceilWeek:Math.ceil(exactWeek),
+      exactDay:rate,
+      ceilDay:Math.ceil(rate),
+    };
+  });
+  const floorSum=perAnalyst.reduce(function(s,p){ return s+Math.floor(p.exactWeek); },0);
+  const weeks=perAnalyst.map(function(p){ return p.exactWeek; });
   return {
-    exactWeek: exactWeek,
-    ceilWeek: Math.ceil(exactWeek),
-    exactDay: exactDay,
-    ceilDay: Math.ceil(exactDay),
-    remainder: total%analysts,
+    rate:rate,
+    personDays:personDays,
+    analystCount:active.length,
+    perAnalyst:perAnalyst,
+    minWeek:Math.min.apply(null,weeks),
+    maxWeek:Math.max.apply(null,weeks),
+    avgWeek:perAnalyst.reduce(function(s,p){ return s+p.exactWeek; },0)/active.length,
+    remainder:total-floorSum,
+    ceilDay:Math.ceil(rate),
+    exactDay:rate,
   };
 }
 function priCollectGoalFromUI(){
-  const analystsEl=document.getElementById('priGoalAnalysts');
-  const daysEl=document.getElementById('priGoalDays');
-  if(!analystsEl||!daysEl) return priDefaultGoalMeta();
-  const a=parseInt(analystsEl.value,10);
-  const d=parseInt(daysEl.value,10);
-  return priNormalizeGoalMeta({
-    analystCount: isNaN(a)?null:a,
-    businessDays: isNaN(d)?5:d,
+  const roster=priGetAnalystRoster();
+  const av={};
+  roster.forEach(function(a){
+    av[a.key]={};
+    PRI_DAYS.forEach(function(d){
+      const cb=document.getElementById(priAvCheckboxId(a.key,d.key));
+      av[a.key][d.key]=cb?cb.checked:false;
+    });
   });
+  return priNormalizeGoalMeta({mode:'byAnalyst',availability:av});
 }
-function priOnGoalInputChange(){
+function priOnAvailabilityChange(){
   if(!priEditMode||!priEditDraft) return;
+  priEditDraft.goalMeta=priCollectGoalFromUI();
+  priRenderGoalCalc();
+}
+function priToggleAnalystRow(analystKey,checked){
+  if(!priEditMode||!priEditDraft) return;
+  PRI_DAYS.forEach(function(d){
+    const cb=document.getElementById(priAvCheckboxId(analystKey,d.key));
+    if(cb) cb.checked=checked;
+  });
   priEditDraft.goalMeta=priCollectGoalFromUI();
   priRenderGoalCalc();
 }
 function priRenderGoalCalc(){
   const totalEl=document.getElementById('priGoalTotal');
-  const analystsEl=document.getElementById('priGoalAnalysts');
-  const daysEl=document.getElementById('priGoalDays');
+  const analystCountEl=document.getElementById('priGoalAnalystCount');
+  const personDaysEl=document.getElementById('priGoalPersonDays');
   const resultsEl=document.getElementById('priGoalResults');
-  if(!totalEl||!analystsEl||!daysEl||!resultsEl) return;
+  if(!totalEl||!resultsEl) return;
 
   const total=priGetTotalSamples();
   const meta=priGetGoalMeta();
+  const roster=priGetAnalystRoster();
   totalEl.textContent=String(total);
 
-  analystsEl.value=meta.analystCount!=null?String(meta.analystCount):'';
-  daysEl.value=String(meta.businessDays!=null?meta.businessDays:5);
-  analystsEl.disabled=!priEditMode;
-  daysEl.disabled=!priEditMode;
+  const personDays=priCountPersonDays(meta.availability,roster);
+  const activeCount=roster.filter(function(a){ return priCountAnalystDays(meta.availability,a.key)>0; }).length;
+  if(analystCountEl) analystCountEl.textContent=activeCount?String(activeCount):'—';
+  if(personDaysEl) personDaysEl.textContent=personDays?String(personDays):'—';
 
   if(!total){
     resultsEl.innerHTML='<p class="pri-goal-empty">Configure as contagens por fila acima para calcular a meta.</p>';
     return;
   }
-  if(!meta.analystCount||!meta.businessDays){
-    resultsEl.innerHTML='<p class="pri-goal-empty">Preencha analistas e dias úteis para calcular.</p>';
-    return;
+
+  const calc=personDays&&activeCount?priComputeGoalByAvailability(total,meta.availability,roster):null;
+  let html='';
+
+  if(!personDays||!activeCount){
+    html+='<p class="pri-goal-empty">Marque pelo menos um dia útil para um analista.</p>';
+  } else if(calc){
+    html+='<div class="pri-goal-kpis">';
+    html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Taxa por dia útil</div>';
+    html+='<div class="pri-goal-kpi-value">'+priFmtGoalNum(calc.exactDay)+'</div>';
+    html+='<div class="pri-goal-kpi-sub">sugerido <strong>'+calc.ceilDay+'</strong> / dia</div></div>';
+    html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Meta média semanal</div>';
+    html+='<div class="pri-goal-kpi-value">'+priFmtGoalNum(calc.avgWeek)+'</div>';
+    html+='<div class="pri-goal-kpi-sub">entre analistas ativos</div></div>';
+    html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Maior / menor meta</div>';
+    html+='<div class="pri-goal-kpi-value">'+priFmtGoalNum(calc.maxWeek)+' / '+priFmtGoalNum(calc.minWeek)+'</div>';
+    html+='<div class="pri-goal-kpi-sub">monitorias na semana</div></div>';
+    html+='</div>';
+    if(calc.remainder>0){
+      html+='<p class="pri-goal-note">Restam <strong>'+calc.remainder+'</strong> casos para distribuir manualmente entre o time.</p>';
+    }
   }
 
-  const calc=priComputeGoalMeta(total,meta.analystCount,meta.businessDays);
-  if(!calc){
-    resultsEl.innerHTML='<p class="pri-goal-empty">Preencha analistas e dias úteis para calcular.</p>';
-    return;
-  }
+  html+='<div class="pri-goal-table-wrap"><table class="pri-goal-table"><thead><tr>';
+  html+='<th>Analista</th>';
+  PRI_DAYS.forEach(function(d){ html+='<th class="pri-goal-day">'+d.label.slice(0,3)+'</th>'; });
+  html+='<th>Total</th><th>Meta semana</th></tr></thead><tbody>';
 
-  let html='<div class="pri-goal-kpis">';
-  html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Por semana (exato)</div>';
-  html+='<div class="pri-goal-kpi-value">'+priFmtGoalNum(calc.exactWeek)+'</div>';
-  html+='<div class="pri-goal-kpi-sub">monitorias / analista</div></div>';
-  html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Por semana (sugerido)</div>';
-  html+='<div class="pri-goal-kpi-value">'+calc.ceilWeek+'</div>';
-  html+='<div class="pri-goal-kpi-sub">arredondado para cima</div></div>';
-  html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Por dia</div>';
-  html+='<div class="pri-goal-kpi-value">'+priFmtGoalNum(calc.exactDay)+'</div>';
-  html+='<div class="pri-goal-kpi-sub">sugerido <strong>'+calc.ceilDay+'</strong> / dia</div></div>';
-  html+='</div>';
-  if(calc.remainder>0){
-    html+='<p class="pri-goal-note">Restam <strong>'+calc.remainder+'</strong> casos para distribuir manualmente entre o time.</p>';
-  }
+  roster.forEach(function(a){
+    const days=priCountAnalystDays(meta.availability,a.key);
+    const row=calc?calc.perAnalyst.find(function(p){ return p.key===a.key; }):null;
+    html+='<tr class="'+(days===0?'pri-goal-row-off':'')+'">';
+    html+='<td class="pri-goal-name">';
+    if(priEditMode){
+      const allChecked=PRI_DAYS.every(function(d){ return meta.availability[a.key][d.key]; });
+      html+='<label class="pri-goal-row-toggle"><input type="checkbox" '+(allChecked?'checked':'')+' onchange="priToggleAnalystRow(\''+escapeAttr(a.key)+'\',this.checked)"><span>'+escapeHtml(a.label)+'</span></label>';
+    } else {
+      html+=escapeHtml(a.label);
+    }
+    html+='</td>';
+    PRI_DAYS.forEach(function(d){
+      const on=!!meta.availability[a.key][d.key];
+      html+='<td class="pri-goal-day-cell">';
+      if(priEditMode){
+        html+='<input type="checkbox" id="'+priAvCheckboxId(a.key,d.key)+'" '+(on?'checked':'')+' onchange="priOnAvailabilityChange()">';
+      } else {
+        html+=on?'<span class="pri-goal-day-on" title="Disponível"><i class="ti ti-check"></i></span>':'<span class="pri-goal-day-off">—</span>';
+      }
+      html+='</td>';
+    });
+    html+='<td class="pri-goal-num">'+days+'</td>';
+    html+='<td class="pri-goal-num pri-goal-meta">'+(row?(priFmtGoalNum(row.exactWeek)+' <span class="pri-goal-sug">('+row.ceilWeek+')</span>'):'—')+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
   resultsEl.innerHTML=html;
 }
 function startPriEditDraft(){
@@ -7650,12 +7793,12 @@ window.addEventListener('DOMContentLoaded',async()=>{
         <div class="pri-goal-total" id="priGoalTotal">0</div>
       </div>
       <div class="pri-goal-field">
-        <label for="priGoalAnalysts">Analistas disponíveis</label>
-        <input type="number" id="priGoalAnalysts" min="1" step="1" placeholder="Ex: 11" oninput="priOnGoalInputChange()">
+        <label for="priGoalAnalystCount">Analistas na semana</label>
+        <div class="pri-goal-total pri-goal-stat" id="priGoalAnalystCount">—</div>
       </div>
       <div class="pri-goal-field">
-        <label for="priGoalDays">Dias úteis da semana</label>
-        <input type="number" id="priGoalDays" min="1" max="7" step="1" value="5" oninput="priOnGoalInputChange()">
+        <label for="priGoalPersonDays">Dias-pessoa</label>
+        <div class="pri-goal-total pri-goal-stat" id="priGoalPersonDays">—</div>
       </div>
     </div>
     <div class="pri-goal-results" id="priGoalResults"></div>
