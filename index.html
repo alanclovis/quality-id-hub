@@ -699,6 +699,11 @@ body.light .fs-ausencia{background:var(--ferias-roxo-bg);color:var(--ferias-roxo
 .pri-goal-day-off{color:var(--text3);}
 .pri-goal-num{font-weight:600;color:var(--text);white-space:nowrap;}
 .pri-goal-meta .pri-goal-sug{font-size:10px;font-weight:500;color:var(--text3);}
+.pri-goal-table th.pri-goal-day-holiday{background:#fef2f2;color:#991b1b;}
+.pri-goal-day-cell.pri-goal-holiday{background:var(--bg3);opacity:.45;pointer-events:none;}
+.pri-goal-holiday-toggle{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:600;text-transform:none;letter-spacing:0;}
+.pri-goal-holiday-toggle input{width:14px;height:14px;accent-color:#dc2626;cursor:pointer;}
+.pri-goal-holiday-badge{display:block;font-size:9px;font-weight:600;color:#991b1b;margin-top:2px;}
 
 
 /* ── Sidebar ── */
@@ -6924,12 +6929,23 @@ function priDefaultAvailability(roster){
   });
   return av;
 }
+function priDefaultHolidays(){
+  const h={};
+  PRI_DAYS.forEach(function(d){ h[d.key]=false; });
+  return h;
+}
+function priIsDayHoliday(holidays,dayKey){
+  return !!holidays?.[dayKey];
+}
 function priDefaultGoalMeta(){
-  return {mode:'byAnalyst',availability:null,analystCount:null,businessDays:5};
+  return {mode:'byAnalyst',availability:null,holidays:null,analystCount:null,businessDays:5};
 }
 function priMigrateLegacyGoalMeta(meta,roster){
   meta=meta||{};
-  if(meta.mode==='byAnalyst'&&meta.availability) return meta;
+  if(meta.mode==='byAnalyst'&&meta.availability){
+    if(!meta.holidays) meta.holidays=priDefaultHolidays();
+    return meta;
+  }
   const av=priDefaultAvailability(roster);
   const count=parseInt(meta.analystCount,10);
   const bizDays=parseInt(meta.businessDays,10)||5;
@@ -6943,7 +6959,7 @@ function priMigrateLegacyGoalMeta(meta,roster){
       if(i>=bizDays) roster.forEach(function(a){ av[a.key][d.key]=false; });
     });
   }
-  return {mode:'byAnalyst',availability:av,analystCount:meta.analystCount,businessDays:meta.businessDays};
+  return {mode:'byAnalyst',availability:av,holidays:priDefaultHolidays(),analystCount:meta.analystCount,businessDays:meta.businessDays};
 }
 function priNormalizeGoalMeta(meta){
   const roster=priGetAnalystRoster();
@@ -6955,27 +6971,41 @@ function priNormalizeGoalMeta(meta){
     av[a.key]={};
     PRI_DAYS.forEach(function(d){ av[a.key][d.key]=!!src[d.key]; });
   });
-  const active=roster.filter(function(a){ return priCountAnalystDays(av,a.key)>0; });
-  const personDays=priCountPersonDays(av,roster);
+  const holidays={};
+  const rawH=meta.holidays||{};
+  PRI_DAYS.forEach(function(d){
+    holidays[d.key]=!!rawH[d.key];
+    if(holidays[d.key]) roster.forEach(function(a){ av[a.key][d.key]=false; });
+  });
+  const active=roster.filter(function(a){ return priCountAnalystDays(av,a.key,holidays)>0; });
+  const capacityDays=priCountCapacityDays(av,roster,holidays);
   return {
     mode:'byAnalyst',
     availability:av,
+    holidays:holidays,
     analystCount:active.length||null,
-    businessDays:active.length&&personDays?Math.round(personDays/active.length)||5:5,
+    businessDays:priCountBusinessDays(holidays),
   };
 }
-function priCountPersonDays(availability,roster){
+function priCountBusinessDays(holidays){
+  return PRI_DAYS.filter(function(d){ return !priIsDayHoliday(holidays,d.key); }).length;
+}
+function priCountCapacityDays(availability,roster,holidays){
   roster=roster||priGetAnalystRoster();
+  holidays=holidays||priDefaultHolidays();
   let n=0;
   roster.forEach(function(a){
     PRI_DAYS.forEach(function(d){
-      if(availability[a.key]?.[d.key]) n++;
+      if(!priIsDayHoliday(holidays,d.key)&&availability[a.key]?.[d.key]) n++;
     });
   });
   return n;
 }
-function priCountAnalystDays(availability,analystKey){
-  return PRI_DAYS.filter(function(d){ return availability[analystKey]?.[d.key]; }).length;
+function priCountAnalystDays(availability,analystKey,holidays){
+  holidays=holidays||priDefaultHolidays();
+  return PRI_DAYS.filter(function(d){
+    return !priIsDayHoliday(holidays,d.key)&&availability[analystKey]?.[d.key];
+  }).length;
 }
 function priGetGoalMeta(){
   if(priEditMode&&priEditDraft&&priEditDraft.goalMeta) return priNormalizeGoalMeta(priEditDraft.goalMeta);
@@ -6991,14 +7021,15 @@ function priFmtGoalNum(n){
   if(n==null||isNaN(n)) return '—';
   return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
 }
-function priComputeGoalByAvailability(total,availability,roster){
+function priComputeGoalByAvailability(total,availability,roster,holidays){
   roster=roster||priGetAnalystRoster();
-  const active=roster.filter(function(a){ return priCountAnalystDays(availability,a.key)>0; });
-  const personDays=priCountPersonDays(availability,roster);
-  if(!total||!personDays||!active.length) return null;
-  const rate=total/personDays;
+  holidays=holidays||priDefaultHolidays();
+  const active=roster.filter(function(a){ return priCountAnalystDays(availability,a.key,holidays)>0; });
+  const capacityDays=priCountCapacityDays(availability,roster,holidays);
+  if(!total||!capacityDays||!active.length) return null;
+  const rate=total/capacityDays;
   const perAnalyst=active.map(function(a){
-    const days=priCountAnalystDays(availability,a.key);
+    const days=priCountAnalystDays(availability,a.key,holidays);
     const exactWeek=rate*days;
     return {
       key:a.key,
@@ -7014,7 +7045,7 @@ function priComputeGoalByAvailability(total,availability,roster){
   const weeks=perAnalyst.map(function(p){ return p.exactWeek; });
   return {
     rate:rate,
-    personDays:personDays,
+    capacityDays:capacityDays,
     analystCount:active.length,
     perAnalyst:perAnalyst,
     minWeek:Math.min.apply(null,weeks),
@@ -7027,24 +7058,36 @@ function priComputeGoalByAvailability(total,availability,roster){
 }
 function priCollectGoalFromUI(){
   const roster=priGetAnalystRoster();
+  const holidays={};
+  PRI_DAYS.forEach(function(d){
+    const hb=document.getElementById('pri-holiday-'+d.key);
+    holidays[d.key]=hb?hb.checked:false;
+  });
   const av={};
   roster.forEach(function(a){
     av[a.key]={};
     PRI_DAYS.forEach(function(d){
       const cb=document.getElementById(priAvCheckboxId(a.key,d.key));
-      av[a.key][d.key]=cb?cb.checked:false;
+      av[a.key][d.key]=!holidays[d.key]&&cb?cb.checked:false;
     });
   });
-  return priNormalizeGoalMeta({mode:'byAnalyst',availability:av});
+  return priNormalizeGoalMeta({mode:'byAnalyst',availability:av,holidays:holidays});
 }
 function priOnAvailabilityChange(){
   if(!priEditMode||!priEditDraft) return;
   priEditDraft.goalMeta=priCollectGoalFromUI();
   priRenderGoalCalc();
 }
+function priOnHolidayChange(dayKey){
+  if(!priEditMode||!priEditDraft) return;
+  priEditDraft.goalMeta=priCollectGoalFromUI();
+  priRenderGoalCalc();
+}
 function priToggleAnalystRow(analystKey,checked){
   if(!priEditMode||!priEditDraft) return;
+  const holidays=priEditDraft.goalMeta?.holidays||priDefaultHolidays();
   PRI_DAYS.forEach(function(d){
+    if(priIsDayHoliday(holidays,d.key)) return;
     const cb=document.getElementById(priAvCheckboxId(analystKey,d.key));
     if(cb) cb.checked=checked;
   });
@@ -7054,33 +7097,35 @@ function priToggleAnalystRow(analystKey,checked){
 function priRenderGoalCalc(){
   const totalEl=document.getElementById('priGoalTotal');
   const analystCountEl=document.getElementById('priGoalAnalystCount');
-  const personDaysEl=document.getElementById('priGoalPersonDays');
+  const businessDaysEl=document.getElementById('priGoalBusinessDays');
   const resultsEl=document.getElementById('priGoalResults');
   if(!totalEl||!resultsEl) return;
 
   const total=priGetTotalSamples();
   const meta=priGetGoalMeta();
   const roster=priGetAnalystRoster();
+  const holidays=meta.holidays||priDefaultHolidays();
   totalEl.textContent=String(total);
 
-  const personDays=priCountPersonDays(meta.availability,roster);
-  const activeCount=roster.filter(function(a){ return priCountAnalystDays(meta.availability,a.key)>0; }).length;
+  const capacityDays=priCountCapacityDays(meta.availability,roster,holidays);
+  const activeCount=roster.filter(function(a){ return priCountAnalystDays(meta.availability,a.key,holidays)>0; }).length;
+  const businessDays=priCountBusinessDays(holidays);
   if(analystCountEl) analystCountEl.textContent=activeCount?String(activeCount):'—';
-  if(personDaysEl) personDaysEl.textContent=personDays?String(personDays):'—';
+  if(businessDaysEl) businessDaysEl.textContent=businessDays?String(businessDays):'—';
 
   if(!total){
     resultsEl.innerHTML='<p class="pri-goal-empty">Configure as contagens por fila acima para calcular a meta.</p>';
     return;
   }
 
-  const calc=personDays&&activeCount?priComputeGoalByAvailability(total,meta.availability,roster):null;
+  const calc=capacityDays&&activeCount?priComputeGoalByAvailability(total,meta.availability,roster,holidays):null;
   let html='';
 
-  if(!personDays||!activeCount){
+  if(!capacityDays||!activeCount){
     html+='<p class="pri-goal-empty">Marque pelo menos um dia útil para um analista.</p>';
   } else if(calc){
     html+='<div class="pri-goal-kpis">';
-    html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Taxa por dia útil</div>';
+    html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Meta diária</div>';
     html+='<div class="pri-goal-kpi-value">'+priFmtGoalNum(calc.exactDay)+'</div>';
     html+='<div class="pri-goal-kpi-sub">sugerido <strong>'+calc.ceilDay+'</strong> / dia</div></div>';
     html+='<div class="pri-goal-kpi"><div class="pri-goal-kpi-label">Meta média semanal</div>';
@@ -7097,33 +7142,49 @@ function priRenderGoalCalc(){
 
   html+='<div class="pri-goal-table-wrap"><table class="pri-goal-table"><thead><tr>';
   html+='<th>Analista</th>';
-  PRI_DAYS.forEach(function(d){ html+='<th class="pri-goal-day">'+d.label.slice(0,3)+'</th>'; });
-  html+='<th>Total</th><th>Meta semana</th></tr></thead><tbody>';
+  PRI_DAYS.forEach(function(d){
+    const isHol=priIsDayHoliday(holidays,d.key);
+    html+='<th class="pri-goal-day'+(isHol?' pri-goal-day-holiday':'')+'">';
+    html+=d.label.slice(0,3);
+    if(priEditMode){
+      html+='<label class="pri-goal-holiday-toggle" title="Marcar como feriado">';
+      html+='<input type="checkbox" id="pri-holiday-'+d.key+'" '+(isHol?'checked':'')+' onchange="priOnHolidayChange(\''+d.key+'\')">';
+      html+='<span>Feriado</span></label>';
+    } else if(isHol){
+      html+='<span class="pri-goal-holiday-badge">Feriado</span>';
+    }
+    html+='</th>';
+  });
+  html+='<th>Total</th><th>Meta semana</th><th>Meta diária</th></tr></thead><tbody>';
 
   roster.forEach(function(a){
-    const days=priCountAnalystDays(meta.availability,a.key);
+    const days=priCountAnalystDays(meta.availability,a.key,holidays);
     const row=calc?calc.perAnalyst.find(function(p){ return p.key===a.key; }):null;
     html+='<tr class="'+(days===0?'pri-goal-row-off':'')+'">';
     html+='<td class="pri-goal-name">';
     if(priEditMode){
-      const allChecked=PRI_DAYS.every(function(d){ return meta.availability[a.key][d.key]; });
+      const allChecked=PRI_DAYS.every(function(d){
+        return priIsDayHoliday(holidays,d.key)||meta.availability[a.key][d.key];
+      });
       html+='<label class="pri-goal-row-toggle"><input type="checkbox" '+(allChecked?'checked':'')+' onchange="priToggleAnalystRow(\''+escapeAttr(a.key)+'\',this.checked)"><span>'+escapeHtml(a.label)+'</span></label>';
     } else {
       html+=escapeHtml(a.label);
     }
     html+='</td>';
     PRI_DAYS.forEach(function(d){
-      const on=!!meta.availability[a.key][d.key];
-      html+='<td class="pri-goal-day-cell">';
+      const isHol=priIsDayHoliday(holidays,d.key);
+      const on=!isHol&&!!meta.availability[a.key][d.key];
+      html+='<td class="pri-goal-day-cell'+(isHol?' pri-goal-holiday':'')+'">';
       if(priEditMode){
-        html+='<input type="checkbox" id="'+priAvCheckboxId(a.key,d.key)+'" '+(on?'checked':'')+' onchange="priOnAvailabilityChange()">';
+        html+='<input type="checkbox" id="'+priAvCheckboxId(a.key,d.key)+'" '+(on?'checked':'')+(isHol?' disabled':'')+' onchange="priOnAvailabilityChange()">';
       } else {
-        html+=on?'<span class="pri-goal-day-on" title="Disponível"><i class="ti ti-check"></i></span>':'<span class="pri-goal-day-off">—</span>';
+        html+=isHol?'<span class="pri-goal-day-off" title="Feriado">—</span>':(on?'<span class="pri-goal-day-on" title="Disponível"><i class="ti ti-check"></i></span>':'<span class="pri-goal-day-off">—</span>');
       }
       html+='</td>';
     });
     html+='<td class="pri-goal-num">'+days+'</td>';
     html+='<td class="pri-goal-num pri-goal-meta">'+(row?(priFmtGoalNum(row.exactWeek)+' <span class="pri-goal-sug">('+row.ceilWeek+')</span>'):'—')+'</td>';
+    html+='<td class="pri-goal-num pri-goal-meta">'+(row?(priFmtGoalNum(row.exactDay)+' <span class="pri-goal-sug">('+row.ceilDay+')</span>'):'—')+'</td>';
     html+='</tr>';
   });
   html+='</tbody></table></div>';
@@ -7797,8 +7858,8 @@ window.addEventListener('DOMContentLoaded',async()=>{
         <div class="pri-goal-total pri-goal-stat" id="priGoalAnalystCount">—</div>
       </div>
       <div class="pri-goal-field">
-        <label for="priGoalPersonDays">Dias-pessoa</label>
-        <div class="pri-goal-total pri-goal-stat" id="priGoalPersonDays">—</div>
+        <label for="priGoalBusinessDays">Dias úteis</label>
+        <div class="pri-goal-total pri-goal-stat" id="priGoalBusinessDays">—</div>
       </div>
     </div>
     <div class="pri-goal-results" id="priGoalResults"></div>
