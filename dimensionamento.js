@@ -129,6 +129,8 @@
     pendingSaves: {},
     saveQueue: [],
     saveFailMeta: {},
+    saveDebounceTimer: null,
+    saveBatchFailCount: 0,
     saving: false,
     undo: null,
     undoTimer: null,
@@ -1123,22 +1125,29 @@
 
     if (action === 'saveBatchData' || action === 'saveDetail') {
       const hasEmail = !!(savePayload.userEmail || dimResolveUserEmail());
-      const paths = [];
-      if (hasEmail) {
-        paths.push(dimJsonpApi(action, savePayload, timeoutMs));
-        paths.push(dimFetchApi(action, savePayload, Math.min(25000, timeoutMs)));
-      }
-      paths.push(
-        dimWaitForBridgeTarget(hasEmail ? 6000 : 12000).then(function (target) {
+      if (!hasEmail) {
+        return dimWaitForBridgeTarget(12000).then(function (target) {
           if (!target) {
-            throw new Error(hasEmail
-              ? 'Ponte indisponível — verifique a URL em Configuração → Técnico'
-              : 'Conecte à planilha antes de salvar (clique em Conectar à planilha).');
+            throw new Error('Conecte à planilha antes de salvar (clique em Conectar à planilha).');
           }
           return dimCallViaPostMessage(action, savePayload, timeoutMs);
+        }).catch(function (err) {
+          return Promise.reject(new Error(dimFormatGasError(err, action)));
+        });
+      }
+      // JSONP first; bridge only as fallback (avoids parallel GAS + LockService contention)
+      return dimJsonpApi(action, savePayload, timeoutMs)
+        .catch(function () {
+          return dimWaitForBridgeTarget(6000).then(function (target) {
+            if (!target) {
+              throw new Error('Ponte indisponível — verifique a URL em Configuração → Técnico');
+            }
+            return dimCallViaPostMessage(action, savePayload, timeoutMs);
+          });
         })
-      );
-      return hasEmail ? dimFirstResolved(paths) : paths[paths.length - 1];
+        .catch(function (err) {
+          return Promise.reject(new Error(dimFormatGasError(err, action)));
+        });
     }
 
     if (action === 'getUserSchedule' && !callPayload.userEmail && typeof getUserName === 'function') {
@@ -1967,7 +1976,8 @@
       return;
     }
 
-    if (dimState.saving || dimState.saveQueue.length) {
+    if (dimState.saving || dimState.saveQueue.length || dimState.saveDebounceTimer ||
+        Object.keys(dimState.pendingSaves || {}).length) {
       setBadge('pending', '<span class="dim-saving-dot"></span> Salvando…', true);
       showBar('pending', '<span class="dim-saving-dot"></span><span>Salvando alterações…</span>');
       return;
@@ -3293,6 +3303,10 @@
     dimRenderSummary();
   }
 
+  const DIM_SAVE_DEBOUNCE_MS = 400;
+  const DIM_SAVE_MAX_RETRIES = 2;
+  const DIM_SAVE_RETRY_DELAY_MS = 5000;
+
   function dimQueueSave(date, time, value, dayKey) {
     if (!date) {
       dimShowToast('Data inválida — recarregue a semana', true);
@@ -3303,39 +3317,86 @@
     dimState.pendingMeta = dimState.pendingMeta || {};
     dimState.pendingMeta[date] = dayKey || (dimState.pendingMeta[date] || '');
     if (dimState.saveQueue.indexOf(date) < 0) dimState.saveQueue.push(date);
-    dimProcessSaveQueue();
+    dimUpdateStatus();
+    if (dimState.saveDebounceTimer) clearTimeout(dimState.saveDebounceTimer);
+    dimState.saveDebounceTimer = setTimeout(function () {
+      dimState.saveDebounceTimer = null;
+      dimProcessSaveQueue();
+    }, DIM_SAVE_DEBOUNCE_MS);
   }
 
-  const DIM_SAVE_MAX_RETRIES = 2;
-  const DIM_SAVE_RETRY_DELAY_MS = 5000;
-
   async function dimProcessSaveQueue() {
-    if (dimState.saving || !dimState.saveQueue.length) return;
+    if (dimState.saving) return;
+    if (dimState.saveDebounceTimer) {
+      clearTimeout(dimState.saveDebounceTimer);
+      dimState.saveDebounceTimer = null;
+    }
+    if (!dimState.saveQueue.length && !Object.keys(dimState.pendingSaves || {}).length) return;
+
     dimState.saving = true;
     dimUpdateStatus();
-    const date = dimState.saveQueue.shift();
-    const slots = dimState.pendingSaves[date];
-    const dayKey = (dimState.pendingMeta && dimState.pendingMeta[date]) || '';
-    delete dimState.pendingSaves[date];
-    dimState.saveFailMeta = dimState.saveFailMeta || {};
+
+    const dates = dimState.saveQueue.slice();
+    dimState.saveQueue = [];
+    const pendingSnapshot = {};
+    const metaSnapshot = {};
+    const slotItems = [];
+
+    dates.forEach(function (date) {
+      const slots = dimState.pendingSaves[date];
+      if (!slots) return;
+      pendingSnapshot[date] = Object.assign({}, slots);
+      metaSnapshot[date] = (dimState.pendingMeta && dimState.pendingMeta[date]) || '';
+      delete dimState.pendingSaves[date];
+      Object.keys(slots).forEach(function (time) {
+        slotItems.push({
+          dayDate: date,
+          time: time,
+          task: slots[time] != null ? slots[time] : ''
+        });
+      });
+    });
+
+    // Catch any dates that landed only in pendingSaves
+    Object.keys(dimState.pendingSaves).forEach(function (date) {
+      const slots = dimState.pendingSaves[date];
+      if (!slots) return;
+      pendingSnapshot[date] = Object.assign(pendingSnapshot[date] || {}, slots);
+      metaSnapshot[date] = (dimState.pendingMeta && dimState.pendingMeta[date]) || metaSnapshot[date] || '';
+      delete dimState.pendingSaves[date];
+      Object.keys(slots).forEach(function (time) {
+        slotItems.push({
+          dayDate: date,
+          time: time,
+          task: slots[time] != null ? slots[time] : ''
+        });
+      });
+    });
+
+    if (!slotItems.length) {
+      dimState.saving = false;
+      dimUpdateStatus();
+      return;
+    }
 
     try {
       const res = await dimCall('saveBatchData', {
         week: dimState.week,
-        date: date,
-        day: dayKey,
-        slots: slots,
+        slots: slotItems,
         userEmail: dimSaveUserEmail()
       });
-      delete dimState.saveFailMeta[date];
-      if (dimState.pendingMeta) delete dimState.pendingMeta[date];
+      dimState.saveBatchFailCount = 0;
+      Object.keys(pendingSnapshot).forEach(function (date) {
+        if (dimState.pendingMeta) delete dimState.pendingMeta[date];
+        if (dimState.saveFailMeta) delete dimState.saveFailMeta[date];
+        dimMarkRecentlySaved(date, pendingSnapshot[date]);
+      });
+      dimInvalidateWeekCache(dimState.week);
       if (res && res.validationRejected) {
         dimShowToast('Planilha rejeitou slot(s): verifique validação de dados', true);
       } else if (res && res.savedSlots === 0) {
         dimShowToast('Nada foi gravado na planilha — recarregue a semana e tente de novo', true);
       } else {
-        dimMarkRecentlySaved(date, slots);
-        dimInvalidateWeekCache(dimState.week);
         let toast = 'Salvo na planilha' + (res && res.savedSlots ? ' (' + res.savedSlots + ' células)' : '');
         if (res && res.missedDates && res.missedDates.length) {
           toast += ' — datas não encontradas: ' + res.missedDates.join(', ');
@@ -3343,40 +3404,44 @@
         dimShowToast(toast, !!(res && res.missedDates && res.missedDates.length));
       }
     } catch (e) {
-      const fail = dimState.saveFailMeta[date] || { count: 0 };
-      fail.count++;
-      fail.lastError = String(e.message || e);
-      dimState.saveFailMeta[date] = fail;
+      dimState.saveBatchFailCount = (dimState.saveBatchFailCount || 0) + 1;
+      const failCount = dimState.saveBatchFailCount;
+      const errMsg = String(e.message || e);
 
-      Object.keys(slots).forEach(function (time) {
-        if (!dimState.pendingSaves[date]) dimState.pendingSaves[date] = {};
-        dimState.pendingSaves[date][time] = slots[time];
-      });
-      if (!dimState.pendingMeta) dimState.pendingMeta = {};
-      if (dayKey) dimState.pendingMeta[date] = dayKey;
-
-      if (fail.count <= DIM_SAVE_MAX_RETRIES) {
-        if (dimState.saveQueue.indexOf(date) < 0) dimState.saveQueue.push(date);
-        dimShowToast('Erro ao salvar (tentativa ' + fail.count + '/' + DIM_SAVE_MAX_RETRIES + '): ' + fail.lastError, true);
+      if (failCount <= DIM_SAVE_MAX_RETRIES) {
+        Object.keys(pendingSnapshot).forEach(function (date) {
+          if (!dimState.pendingSaves[date]) dimState.pendingSaves[date] = {};
+          Object.assign(dimState.pendingSaves[date], pendingSnapshot[date]);
+          if (!dimState.pendingMeta) dimState.pendingMeta = {};
+          if (metaSnapshot[date]) dimState.pendingMeta[date] = metaSnapshot[date];
+          if (dimState.saveQueue.indexOf(date) < 0) dimState.saveQueue.push(date);
+        });
+        dimShowToast('Erro ao salvar (tentativa ' + failCount + '/' + DIM_SAVE_MAX_RETRIES + '): ' + errMsg, true);
       } else {
-        delete dimState.saveFailMeta[date];
-        dimShowToast('Não foi possível salvar. Verifique o e-mail no perfil e na planilha. ' + fail.lastError, true);
+        dimState.saveBatchFailCount = 0;
+        dimShowToast('Não foi possível salvar. Verifique o e-mail no perfil e na planilha. ' + errMsg, true);
       }
     }
 
     dimState.saving = false;
     dimUpdateStatus();
-    if (!dimState.saveQueue.length) return;
 
-    const nextDate = dimState.saveQueue[0];
-    const nextFail = (dimState.saveFailMeta[nextDate] && dimState.saveFailMeta[nextDate].count) || 0;
-    const delay = nextFail > 0 ? DIM_SAVE_RETRY_DELAY_MS * nextFail : 0;
-    setTimeout(function () { dimProcessSaveQueue(); }, delay);
+    if (!dimState.saveQueue.length && !Object.keys(dimState.pendingSaves || {}).length) return;
+
+    const delay = dimState.saveBatchFailCount > 0
+      ? DIM_SAVE_RETRY_DELAY_MS * dimState.saveBatchFailCount
+      : 0;
+    if (dimState.saveDebounceTimer) clearTimeout(dimState.saveDebounceTimer);
+    dimState.saveDebounceTimer = setTimeout(function () {
+      dimState.saveDebounceTimer = null;
+      dimProcessSaveQueue();
+    }, delay || DIM_SAVE_DEBOUNCE_MS);
   }
 
   function dimShouldPauseReload() {
     return dimState.editingCell || dimState.modalOpen || dimState.saving ||
       dimState.loadingWeek || dimState.selectDrag || dimState.saveQueue.length > 0 ||
+      !!dimState.saveDebounceTimer ||
       Object.keys(dimState.pendingSaves).length > 0;
   }
 
