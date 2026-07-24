@@ -21,16 +21,16 @@
 
 ## Adicionar novo slot
 
-1. Planilha `H1.2026` / `H2.2026`: incluir slot na **validação de dados** das colunas I:AR
-2. Aba **Controle de Slots**: adicionar linha (atividade, tipo, significado, classificação, conversão)
-3. Se aplicável, aba **Conversão Slots**: mapeamento para Base DIM
-4. Atualizar `DIM_SLOT_OPTIONS` em `gas/Config_Slots.gs` e `clasp push`
+1. **Controle de Slots**: adicionar linha (atividade, tipo, significado, classificação, conversão)
+2. **Config_Slots.html** + `node scripts/sync-slot-dictionary.js` + `clasp push`
+3. **dim-slot-options.json** / **dim-slot-dictionary.json** + push no GitHub (Hub web)
+4. Se aplicável, aba **Conversão Slots**: mapeamento para Base DIM
 
 ## Checklist de testes (Passo 8)
 
 - [ ] Analista A vê só a própria escala (coluna H = e-mail Google)
 - [ ] Editar slot no Hub → reflete na planilha
-- [ ] Editar planilha → Hub atualiza em até 60s ou ao clicar Atualizar
+- [ ] Editar planilha → Hub atualiza em até 60s ou ao clicar Sincronizar
 - [ ] Slot detalhado (Planilha, Docs…) grava em **Base_Detalhes**
 - [ ] Desfazer (4s) reverte na planilha
 - [ ] Slot inválido mostra erro no Hub (não falha silenciosa)

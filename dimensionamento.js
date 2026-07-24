@@ -2271,7 +2271,7 @@
           : '<p style="margin-top:10px;font-size:12px">Confirme seu e-mail em <strong>Seu perfil</strong> e use o botão abaixo.</p>') +
         '<p style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
         '<button type="button" class="btn primary" onclick="dimConnectBridge()"><i class="ti ti-plug"></i> Conectar à planilha</button>' +
-        '<button type="button" class="btn" onclick="dimManualRefresh()"><i class="ti ti-refresh"></i> Atualizar</button>' +
+        '<button type="button" class="btn" onclick="dimManualRefresh()" title="Buscar escala atual da planilha (ignora cache local)"><i class="ti ti-cloud-download"></i> Sincronizar</button>' +
         '</p></div>';
     }
     const el = document.getElementById('dimStatus');
@@ -2393,7 +2393,7 @@
       }
       if (!usedStaleCache && !dimState.schedule) {
         dimSetWeekLoading(true);
-      } else if (usedStaleCache) {
+      } else if (usedStaleCache || options.skipCacheCheck) {
         dimSetWeekRefreshing(true);
       }
     } else {
@@ -2401,7 +2401,7 @@
     }
 
     try {
-      const schedule = await dimCall('getUserSchedule', {
+      let schedule = await dimCall('getUserSchedule', {
         week: week,
         userEmail: dimResolveUserEmail() || undefined
       });
@@ -2434,11 +2434,12 @@
         } else {
           dimRenderError(String(e.message || e));
         }
+        throw e;
       }
     } finally {
       if (!silent) {
         dimSetWeekLoading(false);
-        if (usedStaleCache) dimSetWeekRefreshing(false);
+        if (usedStaleCache || options.skipCacheCheck) dimSetWeekRefreshing(false);
       } else {
         dimSetWeekRefreshing(false);
       }
@@ -3860,11 +3861,10 @@
 
   function dimManualRefresh() {
     const week = dimState.week || dimGetIsoWeek();
-    if (dimTryInstantWeek(week)) {
-      dimRefreshWeekInBackground(week);
-      return;
-    }
-    dimLoadWeek(week).catch(function () {
+    dimInvalidateWeekCache(week);
+    dimLoadWeek(week, { skipCacheCheck: true }).then(function () {
+      dimShowToast('Sincronizado com a planilha');
+    }).catch(function () {
       dimConnectBridge();
     });
   }
