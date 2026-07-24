@@ -3687,6 +3687,49 @@
     return savesByDate;
   }
 
+  function dimDrainPendingIntoSlotItems(slotItems) {
+    slotItems = slotItems || [];
+    if (dimState.saveDebounceTimer) {
+      clearTimeout(dimState.saveDebounceTimer);
+      dimState.saveDebounceTimer = null;
+    }
+    const seen = {};
+    slotItems.forEach(function (it) {
+      seen[String(it.dayDate) + '|' + dimNormalizeTime(it.time)] = true;
+    });
+    const dates = dimState.saveQueue.slice();
+    Object.keys(dimState.pendingSaves || {}).forEach(function (d) {
+      if (dates.indexOf(d) < 0) dates.push(d);
+    });
+    dimState.saveQueue = [];
+    dates.forEach(function (date) {
+      const slots = dimState.pendingSaves[date];
+      if (!slots) return;
+      delete dimState.pendingSaves[date];
+      if (dimState.pendingMeta) delete dimState.pendingMeta[date];
+      Object.keys(slots).forEach(function (time) {
+        const key = String(date) + '|' + dimNormalizeTime(time);
+        if (seen[key]) return;
+        seen[key] = true;
+        slotItems.push({
+          dayDate: date,
+          time: dimNormalizeTime(time),
+          task: slots[time] != null ? slots[time] : ''
+        });
+      });
+    });
+    return slotItems;
+  }
+
+  function dimPushSlotItem(slotItems, dateIso, time, task) {
+    if (!dateIso || !time) return;
+    slotItems.push({
+      dayDate: dateIso,
+      time: dimNormalizeTime(time),
+      task: task != null ? task : ''
+    });
+  }
+
   async function dimSaveDetail() {
     const ctx = dimState.detailDraft;
     if (!ctx || dimState.detailSaving) return;
@@ -3745,6 +3788,9 @@
     const saveBtn = document.querySelector('#dimDetailBackdrop .btn.primary');
     if (saveBtn) saveBtn.disabled = true;
 
+    const slotItems = [];
+    const details = [];
+
     if (ctx.pendingApply) {
       const savesByDate = dimApplyPendingDetailSlots(ctx.pendingApply);
       dimRenderGrid();
@@ -3752,68 +3798,101 @@
       Object.keys(savesByDate).forEach(function (dIso) {
         const meta = savesByDate[dIso];
         Object.keys(meta.slots).forEach(function (ts) {
-          dimQueueSave(dIso, ts, meta.slots[ts], meta.dayKey);
+          dimPushSlotItem(slotItems, dIso, ts, meta.slots[ts]);
         });
       });
     }
 
-    const detailPayloads = [];
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
       const tDay = dimFindDay(t.day);
       const tDate = t.date || (tDay ? dimResolveDayDate(tDay) : '');
       if (!tDate) continue;
+      const tTime = dimNormalizeTime(t.time);
 
       if (i === 0 && tDay && targets.length === 1 && !ctx.pendingApply) {
         const slotUpdates = dimApplyDetailDuration(tDay, t.time, ctx.slot, quantity, ctx.initialQuantity || 1);
         dimRenderGrid();
         dimRenderSummary();
-        if (Object.keys(slotUpdates).length) {
-          Object.keys(slotUpdates).forEach(function (ts) {
-            dimQueueSave(tDate, dimNormalizeTime(ts), slotUpdates[ts], tDay.day);
-          });
+        Object.keys(slotUpdates).forEach(function (ts) {
+          dimPushSlotItem(slotItems, tDate, ts, slotUpdates[ts]);
+        });
+        // Ensure the block start is included even if duration was already correct
+        if (!slotItems.some(function (it) {
+          return it.dayDate === tDate && dimNormalizeTime(it.time) === tTime;
+        })) {
+          dimPushSlotItem(slotItems, tDate, tTime, ctx.slot);
         }
+      } else if (!ctx.pendingApply) {
+        // Multi-select: cells already set via pendingApply, or ensure label is persisted
+        if (tDay) {
+          const cur = tDay.slots[tTime] || '';
+          if (cur !== ctx.slot) {
+            dimApplySlotValue(tDay, tTime, cur, ctx.slot);
+          }
+        }
+        dimPushSlotItem(slotItems, tDate, tTime, ctx.slot);
       }
 
-      detailPayloads.push({
-        tipo: ctx.slot,
+      details.push({
         slot: ctx.slot,
+        quantity: targets.length > 1 ? 1 : quantity,
         date: tDate,
-        hora: t.time,
-        time: t.time,
-        quantidade: targets.length > 1 ? 1 : quantity,
-        acao: acao,
-        projeto: projeto,
-        especificacao: especificacao
+        startTime: tTime,
+        action: acao,
+        project: projeto,
+        other: especificacao
       });
     }
 
-    dimCloseDetailModal();
-    dimClearSelection();
-    dimState.detailSaving = false;
+    dimDrainPendingIntoSlotItems(slotItems);
 
-    if (!detailPayloads.length) {
+    if (!details.length) {
+      dimState.detailSaving = false;
+      if (saveBtn) saveBtn.disabled = false;
       dimShowToast('Data do dia não encontrada — recarregue a semana', true);
       return;
     }
 
-    (async function () {
-      try {
-        const userEmail = dimSaveUserEmail();
-        for (let i = 0; i < detailPayloads.length; i++) {
-          if (userEmail) detailPayloads[i].userEmail = userEmail;
-          await dimCall('saveDetail', detailPayloads[i]);
-        }
-        dimInvalidateWeekCache(dimState.week);
-        dimShowToast(detailPayloads.length > 1
-          ? 'Detalhes salvos em ' + detailPayloads.length + ' slots'
-          : 'Detalhe salvo em Base_Detalhes');
-        dimRefreshPendingBadge();
-        if (dimState.activeTab === 'ajustes') dimRenderAjustes();
-      } catch (e) {
-        dimShowToast('Erro ao salvar detalhe: ' + e.message, true);
+    dimCloseDetailModal();
+    dimClearSelection();
+
+    try {
+      dimState.saving = true;
+      dimUpdateStatus();
+      await dimCall('saveBatchData', {
+        week: dimState.week,
+        slots: slotItems,
+        details: details,
+        userEmail: dimSaveUserEmail()
+      });
+      Object.keys(details.reduce(function (acc, d) {
+        acc[d.date] = true;
+        return acc;
+      }, {})).forEach(function (dIso) {
+        const byTime = {};
+        slotItems.forEach(function (it) {
+          if (it.dayDate === dIso) byTime[it.time] = it.task;
+        });
+        if (Object.keys(byTime).length) dimMarkRecentlySaved(dIso, byTime);
+      });
+      dimInvalidateWeekCache(dimState.week);
+      dimShowToast(details.length > 1
+        ? 'Slots e detalhes salvos (' + details.length + ')'
+        : 'Slot e detalhe salvos na planilha');
+      dimRefreshPendingBadge();
+      if (dimState.activeTab === 'ajustes') dimRenderAjustes();
+      dimLoadWeek(dimState.week, { silent: true, skipCacheCheck: true }).catch(function () { /* ignore */ });
+    } catch (e) {
+      dimShowToast('Erro ao salvar detalhe: ' + e.message, true);
+    } finally {
+      dimState.saving = false;
+      dimState.detailSaving = false;
+      dimUpdateStatus();
+      if (dimState.saveQueue.length || Object.keys(dimState.pendingSaves || {}).length) {
+        dimProcessSaveQueue();
       }
-    })();
+    }
   }
 
   async function dimRenderAjustes() {

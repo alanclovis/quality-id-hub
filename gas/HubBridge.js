@@ -261,14 +261,24 @@ function hubSaveBatchData_(payload) {
     });
   }
 
-  if (!slotItems.length) throw new Error('Nenhum slot para salvar.');
-
   var details = payload.details || [];
   if (payload.detail && payload.detailSlot) {
     details = [hubDetailToLegacy_(payload.detail, payload.detailSlot)];
   }
+  if ((!details || !details.length) && payload.tipo && payload.date) {
+    details = [hubDetailToLegacy_(payload, payload.tipo || payload.slot)];
+  }
 
-  var result = saveBatchData({ slots: slotItems, details: details, userEmail: userEmail });
+  if (!slotItems.length && !(details && details.length)) {
+    throw new Error('Nenhum slot ou detalhe para salvar.');
+  }
+
+  var result = saveBatchData({
+    slots: slotItems,
+    details: details,
+    week: payload.week,
+    userEmail: userEmail
+  });
   if (result && result.error) throw new Error(result.error);
   return Object.assign({ ok: true }, result || {});
 }
