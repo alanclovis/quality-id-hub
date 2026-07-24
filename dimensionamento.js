@@ -566,7 +566,7 @@
     [w - 1, w + 1].forEach(function (adj) {
       if (adj < 1 || adj > 53) return;
       if (dimReadWeekCache(adj)) return;
-      dimLoadWeek(adj, { silent: true }).catch(function () { /* ignore */ });
+      dimLoadWeek(adj, { silent: true, prefetch: true }).catch(function () { /* ignore */ });
     });
   }
 
@@ -2375,18 +2375,27 @@
   async function dimLoadWeek(week, options) {
     options = options || {};
     const silent = !!options.silent;
-    if (silent && dimState.silentLoadInFlight) {
+    const prefetch = !!options.prefetch;
+    week = parseInt(week, 10);
+    if (isNaN(week)) week = dimGetIsoWeek();
+
+    if (prefetch) {
+      dimState.prefetchInFlight = dimState.prefetchInFlight || {};
+      if (dimState.prefetchInFlight[week]) return dimState.prefetchInFlight[week];
+    } else if (silent && dimState.silentLoadInFlight) {
       return dimState.silentLoadInFlight;
     }
 
     const runLoad = async function () {
-    const loadId = ++dimState.loadWeekSeq;
-    dimState.week = week;
-    dimUpdateWeekLabel();
+    const loadId = prefetch ? dimState.loadWeekSeq : ++dimState.loadWeekSeq;
+    if (!prefetch) {
+      dimState.week = week;
+      dimUpdateWeekLabel();
+    }
     dimBootstrapSessionFromHub();
     let usedStaleCache = false;
 
-    if (!silent) {
+    if (!prefetch && !silent) {
       if (!options.skipCacheCheck) {
         const fresh = dimReadWeekCache(week);
         if (fresh) {
@@ -2406,7 +2415,7 @@
       } else if (usedStaleCache || options.skipCacheCheck) {
         dimSetWeekRefreshing(true);
       }
-    } else {
+    } else if (!prefetch && silent) {
       dimSetWeekRefreshing(true);
     }
 
@@ -2415,7 +2424,16 @@
         week: week,
         userEmail: dimResolveUserEmail() || undefined
       });
+      if (prefetch) {
+        if (schedule) dimSaveWeekCache(week, schedule);
+        return;
+      }
       if (loadId !== dimState.loadWeekSeq) return;
+      // Guard: never paint another week over the active selection
+      if (Number(week) !== Number(dimState.week)) {
+        if (schedule) dimSaveWeekCache(week, schedule);
+        return;
+      }
       const localSchedule = dimState.schedule;
       if (silent && localSchedule) {
         schedule = dimMergeServerSchedule(schedule, localSchedule);
@@ -2434,6 +2452,7 @@
 
       if (silent || usedStaleCache) dimUpdateStatus();
     } catch (e) {
+      if (prefetch) return;
       if (loadId !== dimState.loadWeekSeq) return;
       if (!silent) {
         const cached = dimReadWeekCache(week, { allowStale: true });
@@ -2447,6 +2466,7 @@
         throw e;
       }
     } finally {
+      if (prefetch) return;
       if (!silent) {
         dimSetWeekLoading(false);
         if (usedStaleCache || options.skipCacheCheck) dimSetWeekRefreshing(false);
@@ -2455,6 +2475,17 @@
       }
     }
     };
+
+    if (prefetch) {
+      const flight = runLoad();
+      dimState.prefetchInFlight[week] = flight;
+      flight.finally(function () {
+        if (dimState.prefetchInFlight && dimState.prefetchInFlight[week] === flight) {
+          delete dimState.prefetchInFlight[week];
+        }
+      });
+      return flight;
+    }
 
     if (silent) {
       const flight = runLoad();
