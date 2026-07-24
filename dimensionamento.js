@@ -2165,6 +2165,13 @@
   function dimEnsureLoaded() {
     if (!dimIsDimPageActive()) return;
     if (dimState.initInProgress || dimState.loadingWeek) return;
+    if (!dimState.userSelectedWeek) {
+      const current = dimGetIsoWeek();
+      if (Number(dimState.week) !== Number(current)) {
+        dimLoadWeek(current);
+        return;
+      }
+    }
     const week = dimState.week || dimGetIsoWeek();
     if (dimState.schedule && dimState.week === week) {
       dimRenderAll();
