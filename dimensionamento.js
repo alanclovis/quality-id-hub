@@ -167,6 +167,7 @@
     refreshingWeek: false,
     silentLoadCount: 0,
     silentLoadInFlight: null,
+    prefetchInFlight: {},
     silentLoadStarted: 0,
     initInProgress: false,
     recentlySaved: {},
