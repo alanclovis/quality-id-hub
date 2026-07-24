@@ -165,6 +165,7 @@
     warming: false,
     warmupDone: false,
     refreshingWeek: false,
+    userSelectedWeek: false,
     silentLoadCount: 0,
     silentLoadInFlight: null,
     prefetchInFlight: {},
@@ -1271,6 +1272,7 @@
 
   function dimSelectWeek(w) {
     dimToggleWeekMenu(false);
+    dimState.userSelectedWeek = true;
     dimLoadWeek(w);
   }
 
@@ -2105,7 +2107,13 @@
       dimBindKeyboard();
       dimBindWeekMenuClose();
       dimUpdateSelectHint();
-      if (dimState.week == null) dimState.week = dimGetIsoWeek();
+      // Full page load / first open: always land on ISO current week unless user
+      // already navigated weeks this session (warmup must not stick on adjacent).
+      if (!dimState.userSelectedWeek) {
+        dimState.week = dimGetIsoWeek();
+      } else if (dimState.week == null) {
+        dimState.week = dimGetIsoWeek();
+      }
       dimUpdateWeekLabel();
       const url = dimGetBridgeUrl();
       if (!url) {
@@ -2199,7 +2207,9 @@
     if (dimState.warmupDone && dimState.schedule) return;
 
     dimState.warming = true;
-    const week = dimState.week || dimGetIsoWeek();
+    const week = (!dimState.userSelectedWeek || dimState.week == null)
+      ? dimGetIsoWeek()
+      : dimState.week;
     dimState.week = week;
 
     dimLoadWeek(week, { silent: true })
@@ -2226,7 +2236,9 @@
     dimLoadSlotOptionsFallback();
     dimEnsureDictionary().catch(function () { /* ignore */ });
 
-    const week = dimState.week || dimGetIsoWeek();
+    const week = (!dimState.userSelectedWeek || dimState.week == null)
+      ? dimGetIsoWeek()
+      : dimState.week;
     dimState.week = week;
 
     dimRestoreSession();
@@ -2512,10 +2524,12 @@
   }
 
   function dimChangeWeek(delta) {
+    dimState.userSelectedWeek = true;
     dimLoadWeek((dimState.week || dimGetIsoWeek()) + delta);
   }
 
   function dimGoCurrentWeek() {
+    dimState.userSelectedWeek = false;
     dimLoadWeek(dimGetIsoWeek());
   }
 
